@@ -3,3 +3,4 @@ deepspeed
 pytrec_eval
 beir==2.2.0
 mteb
+wandb
