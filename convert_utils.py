@@ -1,22 +1,14 @@
-"""
-Utils:  (1) konwersja checkpointu FlagEmbedding → SentenceTransformer
-        (2) uruchomienie ewaluacji MTEB i zwrot spłaszczonych metryk.
-
-"""
-from pathlib import Path
 import gc
 import torch
-import wandb
 from sentence_transformers import models, SentenceTransformer
 import mteb
 
 
 def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     """
-    Zamienia checkpoint Hugging Face (Transformer + Tokenizer) w katalogu
-    `input_dir` na SentenceTransformer z poolingiem CLS i zapisuje do `output_dir`.
+    Converts Transformer model into SentenceTransformer model with cls pooling
     """
-    transformer = models.Transformer(input_dir)  # wraper AutoModel+AutoTokenizer
+    transformer = models.Transformer(input_dir)
 
     pooling = models.Pooling(
         word_embedding_dimension=transformer.get_word_embedding_dimension(),
@@ -28,7 +20,6 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     model = SentenceTransformer(modules=[transformer, pooling])
     model.save(output_dir)
 
-    # sprzątanie pamięci
     del model, transformer, pooling
     torch.cuda.empty_cache()
     gc.collect()
@@ -36,34 +27,26 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
 
 from collections.abc import Mapping
 
-def run_mteb(st_dir: str, tasks):
-    """
-    Uruchamia MTEB i zwraca płaskie {task/metric: value},
-    niezależnie od tego, czy MTEB zwraca listę TaskResult
-    (od v1.1) czy słownik (stare wersje).
-    """
+def run_mteb(st_dir: str, tasks, batch_size: int=64):
     model = mteb.get_model(st_dir)
     evaluation = mteb.MTEB(tasks=tasks)
     results = evaluation.run(model, output_folder=None,
-                             encode_kwargs={"batch_size": 64})
+                             encode_kwargs={"batch_size": batch_size})
 
     flat = {}
 
-    # 1️⃣ Nowy format → lista TaskResult
     if isinstance(results, list):
         for res in results:
-            # TaskResult.dataset_name = "ag_news"  /  .task_name w niektórych forkach
             task = getattr(res, "dataset_name",
                     getattr(res, "task_name", "unknown_task"))
 
-            # TaskResult.scores -> dict metric→value
             scores = getattr(res, "scores",
                      getattr(res, "score", None))
 
             if isinstance(scores, Mapping):
                 for metric, value in scores.items():
                     flat[f"{task}/{metric}"] = value
-            else:  # pojedyncza liczba
+            else:
                 flat[f"{task}/score"] = scores
     else:
         raise TypeError("Nieoczekiwany typ wyniku zwrócony przez MTEB")
