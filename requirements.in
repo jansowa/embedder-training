@@ -1,0 +1,9 @@
+FlagEmbedding
+deepspeed
+pytrec_eval
+mteb
+wandb
+sentence_transformers
+torch
+torchvision
+torchaudio
