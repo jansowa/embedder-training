@@ -25,7 +25,9 @@ Before synchronizing packages, you must generate the lock file. Check https://py
 uv pip compile requirements.in \
     -o requirements.lock \
     --extra-index-url https://download.pytorch.org/whl/cu128 \
-    --index-url https://pypi.org/simple
+    --index-url https://pypi.org/simple \
+    --override overrides.txt \
+    --index-strategy unsafe-best-match
 ```
 
 # Execution instructions:
