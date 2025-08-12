@@ -8,7 +8,7 @@ import mteb
 import wandb
 import yaml
 
-from convert_utils import convert_to_sentence_transformer, run_mteb
+from convert_utils import convert_to_sentence_transformer, run_mteb, run_pirb
 
 parser = argparse.ArgumentParser(description="Grid launcher for FlagEmbedding fine-tuning.")
 parser.add_argument(
@@ -45,6 +45,8 @@ GRID = {
     "hparams": grid_yaml.get("hparams", DEFAULT_GRID["hparams"]),
 }
 
+# TODO: extract from this place
+query_instruction_for_retrieval = "Represent this sentence for searching relevant passages: "
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
     "train_data": "./dataset-no_in_batch_neg",
@@ -53,7 +55,7 @@ STATIC_ARGS = {
     "query_max_len": 512,
     "passage_max_len": 512,
     "pad_to_multiple_of": 8,
-    "query_instruction_for_retrieval": "Represent this sentence for searching relevant passages: ",
+    "query_instruction_for_retrieval": query_instruction_for_retrieval,
     "query_instruction_format": "{}{}",
     "knowledge_distillation": True,
     "fp16": True,
@@ -114,7 +116,11 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
     for idx, ckpt in enumerate(ckpt_dirs, start=1):
         st_dir = ckpt.with_name(f"{ckpt.name}-st")
         convert_to_sentence_transformer(str(ckpt), str(st_dir))
-        metrics = run_mteb(str(st_dir), TASKS)
-        wandb.log({f"epoch{idx}/{k}": v for k, v in metrics.items()}, step=idx)
+        metrics_mteb = run_mteb(str(st_dir), TASKS)
+        wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_mteb.items()}, step=idx)
+        # TODO: fix query_instruction_for_retrieval
+        # metrics_pirb = run_pirb("../../" + str(st_dir), query_instruction_for_retrieval='')
+        metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval='')
+        wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_pirb.items()}, step=idx)
 
     run.finish()

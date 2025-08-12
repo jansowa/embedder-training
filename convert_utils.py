@@ -2,6 +2,11 @@ import gc
 import torch
 from sentence_transformers import models, SentenceTransformer
 import mteb
+import subprocess
+import tempfile
+import json
+import sys
+from pathlib import Path
 
 
 def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
