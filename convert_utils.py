@@ -68,7 +68,7 @@ def run_mteb(st_dir: str, tasks, batch_size: int=64):
 
 
 
-def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: int=512) -> dict[str, float]:
+def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: int=512, scope: str = "tiny") -> dict[str, float]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
 
@@ -92,7 +92,7 @@ def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: 
         script_path.name,
         "--models_config", str(models_cfg),
         "--results_json", str(results_json),
-        "--scope", "tiny",
+        "--scope", scope,
         "--benchmark_config", "config/benchmarks/pirb-without-private.json"
     ]
 

@@ -21,6 +21,17 @@ parser.add_argument(
     default="NanoBEIR",
     help="Name of the MTEB benchmark to use (default: NanoBEIR).",
 )
+parser.add_argument(
+    "--run_pirb",
+    action="store_true",
+    help="Włącz uruchomienie PIRB (flaga logiczna).",
+)
+parser.add_argument(
+    "--pirb_scope",
+    choices=["tiny", "small", "medium", "all"],
+    default="tiny",
+    help='Typ PIRB do uruchomienia: "tiny", "small", "medium" lub "all" (domyślnie: tiny).',
+)
 args = parser.parse_args()
 
 DEFAULT_GRID = {
@@ -118,9 +129,10 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
         convert_to_sentence_transformer(str(ckpt), str(st_dir))
         metrics_mteb = run_mteb(str(st_dir), TASKS)
         wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_mteb.items()}, step=idx)
-        # TODO: fix query_instruction_for_retrieval
-        # metrics_pirb = run_pirb("../../" + str(st_dir), query_instruction_for_retrieval='')
-        metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval='')
-        wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_pirb.items()}, step=idx)
+        if args.run_pirb:
+            # TODO: fix query_instruction_for_retrieval
+            # metrics_pirb = run_pirb("../../" + str(st_dir), query_instruction_for_retrieval='')
+            metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval='', args.pirb_scope)
+            wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_pirb.items()}, step=idx)
 
     run.finish()
