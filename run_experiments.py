@@ -130,9 +130,7 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
         metrics_mteb = run_mteb(str(st_dir), TASKS)
         wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_mteb.items()}, step=idx)
         if args.run_pirb:
-            # TODO: fix query_instruction_for_retrieval
-            # metrics_pirb = run_pirb("../../" + str(st_dir), query_instruction_for_retrieval='')
-            metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval='', args.pirb_scope)
+            metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval=query_instruction_for_retrieval, scope=args.pirb_scope)
             wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_pirb.items()}, step=idx)
 
     run.finish()
