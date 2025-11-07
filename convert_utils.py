@@ -81,6 +81,7 @@ def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: 
         "bf16": True,
         "max_seq_length": max_seq_length,
         "q_prefix": query_instruction_for_retrieval,
+        "rm": True
     }]
     models_cfg.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 

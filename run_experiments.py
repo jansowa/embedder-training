@@ -3,6 +3,7 @@ import itertools
 import subprocess
 import sys
 from pathlib import Path
+import shutil
 
 import mteb
 import wandb
@@ -135,6 +136,19 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
     subprocess.run(cmd, check=True)
 
     ckpt_dirs = sorted(output_dir.glob("checkpoint-*"), key=lambda p: p.stat().st_mtime)
+
+    if not ckpt_dirs:
+        st_dir = output_dir / "base-st"
+        convert_to_sentence_transformer(arch, str(st_dir))
+        if args.run_mteb:
+            metrics_mteb = run_mteb(str(st_dir), TASKS)
+            wandb.log({f"epoch0/{k}": v for k, v in metrics_mteb.items()}, step=0)
+        if args.run_pirb:
+            metrics_pirb = run_pirb(str(st_dir.resolve()),
+                                    query_instruction_for_retrieval=query_instruction_for_retrieval,
+                                    scope=args.pirb_scope)
+            wandb.log({f"epoch0/{k}": v for k, v in metrics_pirb.items()}, step=0)
+
     for idx, ckpt in enumerate(ckpt_dirs, start=1):
         st_dir = ckpt.with_name(f"{ckpt.name}-st")
         convert_to_sentence_transformer(str(ckpt), str(st_dir))
