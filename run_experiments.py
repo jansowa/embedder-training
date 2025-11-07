@@ -22,6 +22,16 @@ parser.add_argument(
     help="Name of the MTEB benchmark to use (default: NanoBEIR).",
 )
 parser.add_argument(
+    "--run_mteb",
+    action="store_true",
+    help="Uruchom benchmark MTEB"
+)
+parser.add_argument(
+    "--remove-checkpoints",
+    action="store_true",
+    help="Po zakończeniu runu usuń wszystkie katalogi checkpoint-* w celu zwolnienia miejsca na dysku.",
+)
+parser.add_argument(
     "--run_pirb",
     action="store_true",
     help="Włącz uruchomienie PIRB (flaga logiczna).",
@@ -94,10 +104,11 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
 
     lr = full_args.get("learning_rate")
     epochs = full_args.get("num_train_epochs")
+    dataset_path = full_args.get("train_data")
     safe_arch = arch.replace("/", "_")
-    run_name = f"{safe_arch}-{lr}lr-{epochs}ep"
+    run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}"
 
-    run = wandb.init(project="flagembed-ir", name=run_name, config={**full_args, "arch": arch})
+    run = wandb.init(project="flagembed-new-ir", name=run_name, config={**full_args, "arch": arch})
 
     output_dir = RUNS_DIR / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,10 +138,16 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
     for idx, ckpt in enumerate(ckpt_dirs, start=1):
         st_dir = ckpt.with_name(f"{ckpt.name}-st")
         convert_to_sentence_transformer(str(ckpt), str(st_dir))
-        metrics_mteb = run_mteb(str(st_dir), TASKS)
-        wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_mteb.items()}, step=idx)
+        if args.run_mteb:
+            metrics_mteb = run_mteb(str(st_dir), TASKS)
+            wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_mteb.items()}, step=idx)
         if args.run_pirb:
             metrics_pirb = run_pirb(str(st_dir.resolve()), query_instruction_for_retrieval=query_instruction_for_retrieval, scope=args.pirb_scope)
             wandb.log({f"epoch{idx}/{k}": v for k, v in metrics_pirb.items()}, step=idx)
+
+    if args.remove_checkpoints:
+        print(f"[INFO] Usuwanie checkpointów z {output_dir}...", flush=True)
+        for ckpt_dir in output_dir.glob("checkpoint-*"):
+            shutil.rmtree(ckpt_dir)
 
     run.finish()

@@ -17,7 +17,8 @@ source .venv/bin/activate
 ```shell
 uv pip sync requirements.lock \
     --extra-index-url https://download.pytorch.org/whl/cu126 \
-    --index-url https://pypi.org/simple
+    --index-url https://pypi.org/simple \
+    --index-strategy unsafe-best-match
 ```
 ## Another CUDA version:
 Before synchronizing packages, you must generate the lock file. Check https://pytorch.org/get-started/locally/ for the specific URL and use it during the generation. Example for CUDA 12.8:
