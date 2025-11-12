@@ -13,7 +13,12 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     """
     Converts Transformer model into SentenceTransformer model with cls pooling
     """
-    transformer = models.Transformer(input_dir)
+    transformer = models.Transformer(
+        input_dir,
+        config_args={"trust_remote_code": True},
+        model_args={"trust_remote_code": True},
+        tokenizer_args={"trust_remote_code": True},
+    )
 
     pooling = models.Pooling(
         word_embedding_dimension=transformer.get_word_embedding_dimension(),
@@ -81,7 +86,8 @@ def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: 
         "bf16": True,
         "max_seq_length": max_seq_length,
         "q_prefix": query_instruction_for_retrieval,
-        "rm": True
+        "rm": True,
+        "trust_remote_code": True
     }]
     models_cfg.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 

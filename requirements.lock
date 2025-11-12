@@ -86,8 +86,12 @@ exceptiongroup==1.3.0
     # via anyio
 faiss-cpu==1.11.0.post1
     # via -r requirements.in
-fastkmeans==0.5.0
+fast-plaid==1.2.4.271
     # via pylate
+fastkmeans==0.5.0
+    # via
+    #   fast-plaid
+    #   pylate
 filelock==3.13.1
     # via
     #   datasets
@@ -155,6 +159,7 @@ jiter==0.10.0
 joblib==1.5.1
     # via
     #   -r requirements.in
+    #   fast-plaid
     #   scikit-learn
 langcodes==3.5.0
     # via spacy
@@ -174,6 +179,8 @@ markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.5
     # via jinja2
+maturin==1.9.6
+    # via fast-plaid
 mdurl==0.1.2
     # via markdown-it-py
 mpmath==1.3.0
@@ -212,6 +219,7 @@ numpy==2.0.2
     #   deepspeed
     #   evaluate
     #   faiss-cpu
+    #   fast-plaid
     #   fastkmeans
     #   ir-datasets
     #   lightgbm
@@ -230,6 +238,7 @@ numpy==2.0.2
     #   transformers
     #   trec-car-tools
     #   voyager
+    #   xformers
     #   xgboost
 nvidia-cublas-cu12==12.6.4.1
     # via
@@ -357,7 +366,7 @@ pygments==2.19.2
     # via rich
 pyjnius==1.6.1
     # via pyserini
-pylate==1.2.0
+pylate==1.3.4
     # via -r requirements.in
 pyserini==0.39.0
     # via -r requirements.in
@@ -432,8 +441,9 @@ sentencepiece==0.2.0
     #   pyserini
 sentry-sdk==2.34.1
     # via wandb
-setuptools==70.2.0
+setuptools==80.9.0
     # via
+    #   fast-plaid
     #   marisa-trie
     #   spacy
     #   thinc
@@ -478,11 +488,14 @@ tiktoken==0.11.0
     # via pyserini
 tokenizers==0.21.4
     # via transformers
+tomli==2.3.0
+    # via maturin
 torch==2.7.1+cu126
     # via
     #   -r requirements.in
     #   accelerate
     #   deepspeed
+    #   fast-plaid
     #   fastkmeans
     #   flagembedding
     #   mteb
@@ -491,6 +504,7 @@ torch==2.7.1+cu126
     #   sentence-transformers
     #   torchaudio
     #   torchvision
+    #   xformers
 torchaudio==2.7.1+cu126
     # via -r requirements.in
 torchvision==0.22.1+cu126
@@ -573,6 +587,8 @@ weasel==0.4.1
     # via spacy
 wrapt==1.17.3
     # via smart-open
+xformers==0.0.31.post1
+    # via -r requirements.in
 xgboost==2.1.4
     # via -r requirements.in
 xxhash==3.5.0

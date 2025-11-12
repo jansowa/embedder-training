@@ -8,6 +8,7 @@ import shutil
 import mteb
 import wandb
 import yaml
+import os
 
 from convert_utils import convert_to_sentence_transformer, run_mteb, run_pirb
 
@@ -39,7 +40,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--pirb_scope",
-    choices=["tiny", "small", "medium", "all"],
+    choices=["tiny", "small", "all"],
     default="tiny",
     help='Typ PIRB do uruchomienia: "tiny", "small", "medium" lub "all" (domyślnie: tiny).',
 )
@@ -55,6 +56,8 @@ DEFAULT_GRID = {
     ],
 }
 
+WANDB_PROJECT = os.getenv("WANDB_PROJECT", "mining-tests")
+
 try:
     with open(args.grid_configuration_file) as fh:
         grid_yaml = yaml.safe_load(fh) or {}
@@ -68,7 +71,7 @@ GRID = {
 }
 
 # TODO: extract from this place
-query_instruction_for_retrieval = "Represent this sentence for searching relevant passages: "
+query_instruction_for_retrieval = "zapytanie: "
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
     "train_data": "./dataset-no_in_batch_neg",
@@ -80,7 +83,7 @@ STATIC_ARGS = {
     "query_instruction_for_retrieval": query_instruction_for_retrieval,
     "query_instruction_format": "{}{}",
     "knowledge_distillation": True,
-    "fp16": True,
+    "fp16": False,
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 16,
     "dataloader_drop_last": True,
@@ -109,7 +112,7 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
     safe_arch = arch.replace("/", "_")
     run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}"
 
-    run = wandb.init(project="flagembed-new-ir", name=run_name, config={**full_args, "arch": arch})
+    run = wandb.init(project=WANDB_PROJECT, name=run_name, config={**full_args, "arch": arch})
 
     output_dir = RUNS_DIR / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -122,6 +125,7 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
         "--output_dir", str(output_dir),
         "--report_to", "wandb",
         "--run_name", run_name,
+        "--trust_remote_code", "True"
     ]
 
     for k, v in full_args.items():
@@ -133,6 +137,12 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
             cmd.extend([flag, str(v)])
 
     print(">>> LAUNCH:", " ".join(cmd), flush=True)
+    env = os.environ.copy()
+    env.update({
+        "WANDB_PROJECT": WANDB_PROJECT,
+        "WANDB_NAME": run_name,
+        "WANDB_RUN_GROUP": safe_arch,
+    })
     subprocess.run(cmd, check=True)
 
     ckpt_dirs = sorted(output_dir.glob("checkpoint-*"), key=lambda p: p.stat().st_mtime)
