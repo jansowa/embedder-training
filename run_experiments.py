@@ -109,7 +109,7 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
     lr = full_args.get("learning_rate")
     epochs = full_args.get("num_train_epochs")
     dataset_path = full_args.get("train_data")
-    safe_arch = arch.replace("/", "_")
+    safe_arch = arch.replace("/", "_").replace(".", "_")
     run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}"
 
     run = wandb.init(project=WANDB_PROJECT, name=run_name, config={**full_args, "arch": arch})
