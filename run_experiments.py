@@ -155,7 +155,7 @@ for arch, cfg in itertools.product(GRID["architectures"], GRID["hparams"]):
             wandb.log({f"epoch0/{k}": v for k, v in metrics_mteb.items()}, step=0)
         if args.run_pirb:
             metrics_pirb = run_pirb(str(st_dir.resolve()),
-                                    query_instruction_for_retrieval=query_instruction_for_retrieval,
+                                    query_instruction_for_retrieval=full_args.get("query_instruction_for_retrieval"),
                                     scope=args.pirb_scope)
             wandb.log({f"epoch0/{k}": v for k, v in metrics_pirb.items()}, step=0)
 

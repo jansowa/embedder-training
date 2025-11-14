@@ -9,6 +9,43 @@ import sys
 from pathlib import Path
 
 
+def _fix_dynamic_config(model_dir: str) -> None:
+    cfg_path = Path(model_dir) / "config.json"
+    if not cfg_path.exists():
+        return
+
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    auto_map = cfg.get("auto_map")
+    if not isinstance(auto_map, dict):
+        return
+
+    base_repo = None
+    auto_model_val = auto_map.get("AutoModel")
+    if isinstance(auto_model_val, str) and "--" in auto_model_val:
+        base_repo = auto_model_val.split("--", 1)[0]
+
+    if base_repo is None:
+        name_or_path = cfg.get("_name_or_path")
+        if isinstance(name_or_path, str) and "/" in name_or_path:
+            base_repo = name_or_path
+
+    if base_repo is None:
+        return
+
+    cfg["_name_or_path"] = base_repo
+
+    for key, val in list(auto_map.items()):
+        if not isinstance(val, str):
+            continue
+        suffix = val.split("--", 1)[-1]
+        auto_map[key] = f"{base_repo}--{suffix}"
+
+    cfg["auto_map"] = auto_map
+
+    cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+
 def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     """
     Converts Transformer model into SentenceTransformer model with cls pooling
@@ -30,9 +67,13 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     model = SentenceTransformer(modules=[transformer, pooling])
     model.save(output_dir)
 
+    # <<< KLUCZOWE: popraw config.json już po zapisie >>>
+    _fix_dynamic_config(output_dir)
+
     del model, transformer, pooling
     torch.cuda.empty_cache()
     gc.collect()
+
 
 
 def flatten(results: list) -> dict[str, float]:
