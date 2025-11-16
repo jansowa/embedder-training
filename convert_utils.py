@@ -46,7 +46,7 @@ def _fix_dynamic_config(model_dir: str) -> None:
 
 
 
-def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
+def convert_to_sentence_transformer(input_dir: str, output_dir: str, pooling_method:str = "cls") -> None:
     """
     Converts Transformer model into SentenceTransformer model with cls pooling
     """
@@ -59,9 +59,9 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
 
     pooling = models.Pooling(
         word_embedding_dimension=transformer.get_word_embedding_dimension(),
-        pooling_mode_cls_token=True,
-        pooling_mode_mean_tokens=False,
-        pooling_mode_max_tokens=False,
+        pooling_mode_cls_token=pooling_method=="cls",
+        pooling_mode_mean_tokens=pooling_method=="mean",
+        pooling_mode_max_tokens=pooling_method=="max",
     )
 
     model = SentenceTransformer(modules=[transformer, pooling])
@@ -74,6 +74,65 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str) -> None:
     torch.cuda.empty_cache()
     gc.collect()
 
+
+def is_sentence_transformer_dir(model_dir: str) -> bool:
+    """
+    Heurystyczne sprawdzenie, czy katalog jest modelem SentenceTransformer.
+    """
+    p = Path(model_dir)
+    return (p / "modules.json").exists() or (p / "config_sentence_transformers.json").exists()
+
+
+def ensure_sentence_transformer(
+    model_name_or_path: str,
+    cache_dir: str = "./cache/sentence-transformers",
+) -> str:
+    """
+    Zwraca ścieżkę / nazwę modelu, którą można bezpośrednio podać do MTEB
+    jako SentenceTransformer.
+
+    - Jeśli lokalny katalog i już ST -> zwraca ten katalog.
+    - Jeśli lokalny katalog i nie ST -> tworzy <nazwa>-st obok, konwertuje tam i zwraca.
+    - Jeśli nazwa z HF:
+        * jeśli SentenceTransformer(model_name_or_path) działa -> zwraca nazwę,
+        * inaczej -> konwertuje do cache_dir/<safe_name>-st i zwraca tę ścieżkę.
+    """
+    p = Path(model_name_or_path)
+    if p.exists():
+        # Lokalne zasoby
+        if is_sentence_transformer_dir(str(p)):
+            return str(p.resolve())
+
+        # Sprawdź, czy obok nie ma już wersji -st
+        out_dir = p.with_name(p.name + "-st")
+        if out_dir.exists() and is_sentence_transformer_dir(str(out_dir)):
+            return str(out_dir.resolve())
+
+        # Konwersja z katalogu na dysku
+        convert_to_sentence_transformer(str(p), str(out_dir))
+        return str(out_dir.resolve())
+
+    # Nazwa z HuggingFace
+    try:
+        model = SentenceTransformer(model_name_or_path)
+    except Exception:
+        # To nie jest "gotowy" SentenceTransformer na HF, trzeba skonwertować.
+        cache_root = Path(cache_dir)
+        cache_root.mkdir(parents=True, exist_ok=True)
+        safe_name = model_name_or_path.replace("/", "_").replace(".", "_")
+        out_dir = cache_root / f"{safe_name}-st"
+
+        if out_dir.exists() and is_sentence_transformer_dir(str(out_dir)):
+            return str(out_dir.resolve())
+
+        convert_to_sentence_transformer(model_name_or_path, str(out_dir))
+        return str(out_dir.resolve())
+    else:
+        # Udało się załadować jako SentenceTransformer -> jest OK, nic nie robimy.
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+        return model_name_or_path
 
 
 def flatten(results: list) -> dict[str, float]:
