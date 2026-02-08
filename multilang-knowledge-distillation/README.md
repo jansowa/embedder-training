@@ -1,0 +1,3 @@
+1. At first, pairs from bilingual datasets should be evaluated using [Filter sentence-transformer translations project](https://github.com/jansowa/filter-sentence-transformer-translations/) using one of MetricX models.
+2. Embeddings for knowledge distillation should be prepared with labels obtained from first point and script `prepare_embeddings_to_kd.py`
+3. After calculating all embeddings, train student model with `train_kd_with_dense_layers.py`
