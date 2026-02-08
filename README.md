@@ -35,8 +35,19 @@ uv pip compile requirements.in \
 1. Prepare configuration in configs/
 2. Choose benchmark from list:
 https://github.com/embeddings-benchmark/mteb/blob/main/docs/benchmarks.md
-3. Execute:
+3. Execute `run_experiments` scripts with parameters. Example with PIRB benchmark, scope 'small' and removing checkpoints:
 ```shell
-python run_experiments --benchmark_name BENCHMARK_NAME --grid-configuration-file GRID_CONFIGURATION_FILE
+python run_experiments.py --run_pirb --remove_checkpoints --pirb_scope "small"
 ```
-By default, the script will select the configuration from `configs/grid.yaml` and run the NanoBEIR benchmark.
+Example with MTEB (default benchmark - NanoBEIR):
+```shell
+python run_experiments.py --run_mteb
+```
+4. To run benchmark only (without training) run:
+```shell
+python run_experiments.py \
+  --mode benchmark \
+  --run_pirb \
+  --pirb_scope "small" \
+  --benchmark-target "/ścieżka/do/modelu::query_instruction: "
+```

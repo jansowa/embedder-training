@@ -46,10 +46,11 @@ def _fix_dynamic_config(model_dir: str) -> None:
 
 
 
-def convert_to_sentence_transformer(input_dir: str, output_dir: str, pooling_method:str = "cls") -> None:
+def convert_to_sentence_transformer(input_dir: str, output_dir: str, pooling_method:str = "mean") -> None:
     """
     Converts Transformer model into SentenceTransformer model with cls pooling
     """
+    print("Konwertuję model do sentence transformer")
     transformer = models.Transformer(
         input_dir,
         config_args={"trust_remote_code": True},
@@ -99,13 +100,16 @@ def ensure_sentence_transformer(
     """
     p = Path(model_name_or_path)
     if p.exists():
+        print("Model na dysku istnieje")
         # Lokalne zasoby
         if is_sentence_transformer_dir(str(p)):
+            print("Katalog zawiera model SentenceTransformer")
             return str(p.resolve())
 
         # Sprawdź, czy obok nie ma już wersji -st
         out_dir = p.with_name(p.name + "-st")
         if out_dir.exists() and is_sentence_transformer_dir(str(out_dir)):
+            print("Zwracam ścieżkę z modelem SentenceTransformer")
             return str(out_dir.resolve())
 
         # Konwersja z katalogu na dysku

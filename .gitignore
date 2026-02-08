@@ -1,5 +1,5 @@
 cache
-dataset-no_in_batch_neg
 runs
 wandb
 .idea
+dataset-*/

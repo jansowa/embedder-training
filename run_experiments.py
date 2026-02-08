@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import shutil
 from dataclasses import dataclass
+from time import time
 
 import mteb
 import wandb
@@ -42,7 +43,7 @@ parser.add_argument(
     help="Uruchom benchmark MTEB"
 )
 parser.add_argument(
-    "--remove-checkpoints",
+    "--remove_checkpoints",
     action="store_true",
     help="Po zakończeniu runu usuń wszystkie katalogi checkpoint-* w celu zwolnienia miejsca na dysku.",
 )
@@ -58,6 +59,7 @@ parser.add_argument(
     help='Typ PIRB do uruchomienia: "tiny", "small" lub "all" (domyślnie: tiny).',
 )
 
+# TODO: add pooling type to benchmark-target ("mean" by default)
 parser.add_argument(
     "--benchmark-target",
     dest="benchmark_targets",
@@ -184,7 +186,7 @@ def run_training_mode():
         epochs = full_args.get("num_train_epochs")
         dataset_path = full_args.get("train_data")
         safe_arch = arch.replace("/", "_").replace(".", "_")
-        run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}"
+        run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}-{int(time())}"
 
         run = wandb.init(project=WANDB_PROJECT, name=run_name, config={**full_args, "arch": arch})
 
@@ -304,6 +306,7 @@ def run_benchmark_for_flagembedding_run(run_dir, query_instruction):
           * ensure_sentence_transformer(...) robi ewentualną konwersję,
           * odpalamy MTEB/PIRB i logujemy z prefixem epochX/.
     """
+    print(f"Query instruction for benchmark: {query_instruction=}")
     run_dir = Path(run_dir)
     ckpt_dirs = sorted(
         run_dir.glob("checkpoint-*"),
