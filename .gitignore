@@ -3,3 +3,5 @@ runs
 wandb
 .idea
 dataset-*/
+*.ipynb
+*.zip
