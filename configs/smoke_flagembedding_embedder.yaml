@@ -1,0 +1,25 @@
+backend: flagembedding
+training_type: embedder
+runs_dir: runs/smoke
+
+architectures:
+  - sentence-transformers-testing/stsb-bert-tiny-safetensors
+
+hparams:
+  - learning_rate: 1e-5
+    num_train_epochs: 1
+    max_steps: 1
+    train_data: dataset-small-no_in_batch_neg
+    train_group_size: 2
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 1
+    dataloader_drop_last: false
+    warmup_ratio: 0.0
+    logging_steps: 1
+    save_strategy: "no"
+    deepspeed:
+    knowledge_distillation: false
+    gradient_checkpointing: false
+    negatives_cross_device: false
+    query_instruction_for_retrieval: "query: "
+    sentence_pooling_method: mean

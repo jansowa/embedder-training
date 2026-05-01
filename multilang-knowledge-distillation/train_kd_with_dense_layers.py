@@ -49,25 +49,25 @@ def decode_label_prefix(row: Dict[str, Any], target_dim: int) -> List[float]:
     lab = row["label"]
     dtype = row.get("label_dtype", None)
 
-    # 1) weź prefiks bez materializacji całej listy, gdy się da
+    # Read the prefix without materializing the whole list when possible.
     if hasattr(lab, "__len__") and len(lab) < target_dim:
         raise ValueError(f"Label dim mismatch: got {len(lab)}, expected >= {target_dim}")
 
     if hasattr(lab, "shape"):          # np.ndarray
         lab_prefix = lab[:target_dim]
-    elif hasattr(lab, "slice"):        # czasem Arrow ma slice()
+    elif hasattr(lab, "slice"):        # Arrow sometimes provides slice().
         lab_prefix = lab.slice(0, target_dim)
-    else:                               # python list / iterowalne
-        # UWAGA: to kopiuje tylko target_dim elementów, nie 2560
+    else:                               # Python list or iterable.
+        # This copies only target_dim elements, not the full 2560-dimensional vector.
         if isinstance(lab, list):
             lab_prefix = lab[:target_dim]
         else:
             lab_prefix = list(islice(lab, target_dim))
 
-    # 2) dekoduj tylko prefiks
+    # Decode only the prefix.
     if dtype == "bf16_u16":
         u16 = np.asarray(lab_prefix, dtype=np.uint16)
-        # int16/uint16 -> bf16 (dokładnie tak jak masz), a potem do float32 (jak dotychczas)
+        # uint16 -> bf16, then to float32.
         t = torch.from_numpy(u16).view(torch.bfloat16).float()
         return t.numpy().astype(np.float32, copy=False).tolist()
 
@@ -79,21 +79,21 @@ def decode_label_prefix(row: Dict[str, Any], target_dim: int) -> List[float]:
     return x.tolist()
 
 try:
-    # nowsze datasets mają Array1D
+    # Newer datasets versions provide Array1D.
     from datasets import Array1D
     def make_label_feature(dim: int):
         return Array1D(shape=(dim,), dtype="float32")
 except ImportError:
-    # fallback dla starszych wersji
+    # Fallback for older versions.
     from datasets import Sequence
     def make_label_feature(dim: int):
         return Sequence(Value("float32"), length=dim)
 
 def log_eval_baseline(trainer, phase: str, log_path: str):
     """
-    Liczy eval przed startem treningu danej fazy i loguje:
-      - do konsoli
-      - do JSONL (ten sam format co LossToFileCallback)
+    Run evaluation before the start of a phase and log it:
+      - to the console
+      - to JSONL using the same format as LossToFileCallback
     """
     metrics = trainer.evaluate()
     eval_loss = metrics.get("eval_loss", None)
@@ -101,7 +101,7 @@ def log_eval_baseline(trainer, phase: str, log_path: str):
     msg = f"[{phase}] baseline eval_loss = {eval_loss}"
     print(msg)
 
-    # Zapis do JSONL w tym samym stylu
+    # Write to JSONL using the same style.
     record = {
         "ts": time.time(),
         "phase": phase,
@@ -119,19 +119,19 @@ def log_eval_baseline(trainer, phase: str, log_path: str):
 
 class PreciseSentenceTransformerTrainer(SentenceTransformerTrainer):
     """
-    Transformers Trainer domyślnie robi round(..., 4) w log().
-    Ten wariant loguje bez obcinania (lub z inną precyzją, jeśli ustawisz).
+    Transformers Trainer rounds log values with round(..., 4) by default.
+    This variant logs without truncation, or with a custom precision when set.
     """
 
     def __init__(self, *args, log_round_ndigits=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.log_round_ndigits = log_round_ndigits  # None = nie zaokrąglaj
+        self.log_round_ndigits = log_round_ndigits  # None means no rounding.
 
     def log(self, logs: Dict[str, Any]) -> None:
         if logs is None:
             return
 
-        # konwersja tensor/np -> python
+        # Convert tensor/NumPy values to Python scalars.
         clean = {}
         for k, v in logs.items():
             if isinstance(v, torch.Tensor):
@@ -140,17 +140,17 @@ class PreciseSentenceTransformerTrainer(SentenceTransformerTrainer):
                 v = v.item()
             clean[k] = v
 
-        # epoch jak w oryginalnym Trainer
+        # Match epoch handling from the original Trainer.
         if self.state.epoch is not None:
             clean["epoch"] = float(self.state.epoch)
 
-        # opcjonalne zaokrąglenie do N miejsc (domyślnie None => pełna precyzja)
+        # Optional rounding to N digits. None keeps full precision.
         if self.log_round_ndigits is not None:
             for k, v in list(clean.items()):
                 if isinstance(v, float):
                     clean[k] = round(v, self.log_round_ndigits)
 
-        # zapis do historii + callbacki (bez “round(...,4)”)
+        # Write to history and callbacks without round(..., 4).
         output = dict(clean)
         output["step"] = int(self.state.global_step)
         self.state.log_history.append(output)
@@ -250,10 +250,10 @@ def build_student(student_name: str, max_seq_length: int, out_emb_dim: int | Non
     transformer = models.Transformer(student_name, max_seq_length=max_seq_length)
     pooling = models.Pooling(transformer.get_word_embedding_dimension(), pooling_mode="mean")
 
-    student_dim = pooling.get_sentence_embedding_dimension()  # np. 256
+    student_dim = pooling.get_sentence_embedding_dimension()  # e.g. 256
     final_dim = out_emb_dim if out_emb_dim is not None else student_dim
 
-    # Adapter MLP (zawsze obecny)
+    # Adapter MLP, always present.
     dense1 = models.Dense(
         in_features=student_dim,
         out_features=adapter_hidden_dim,
@@ -295,13 +295,13 @@ def build_optimizer_with_param_groups(model: SentenceTransformer, lr_backbone: f
 
 
 def freeze_all_but_last_k_layers_and_adapter(model: SentenceTransformer, k: int) -> None:
-    # zamrażamy wszystko
+    # Freeze everything first.
     for p in model.parameters():
         p.requires_grad = False
 
     auto_model = model[0].auto_model
 
-    # wybór listy bloków
+    # Select the transformer block list.
     if hasattr(auto_model, "transformer") and hasattr(auto_model.transformer, "layer"):
         layers = auto_model.transformer.layer
     elif hasattr(auto_model, "encoder") and hasattr(auto_model.encoder, "layer"):
@@ -309,13 +309,13 @@ def freeze_all_but_last_k_layers_and_adapter(model: SentenceTransformer, k: int)
     else:
         raise RuntimeError("Unknown transformer layer structure; add a case for this backbone.")
 
-    # odmrażamy ostatnie k bloków transformera (k może być 0)
+    # Unfreeze the last k transformer blocks. k may be 0.
     if k > 0:
         for layer in layers[-k:]:
             for p in layer.parameters():
                 p.requires_grad = True
 
-    # odmrażamy adapter (zakładamy: 0=Transformer, 1=Pooling, 2+=adapter)
+    # Unfreeze the adapter. Expected layout: 0=Transformer, 1=Pooling, 2+=adapter.
     for idx in range(2, len(model)):
         for p in model[idx].parameters():
             p.requires_grad = True
@@ -443,7 +443,7 @@ def main():
     ap.add_argument("--phase2-weight-decay", type=float, default=0.01)
 
     ap.add_argument("--warmup-ratio", type=float, default=0.02)
-    ap.add_argument("--lr-scheduler-type", type=str, default="cosine")  # "linear" też ok
+    ap.add_argument("--lr-scheduler-type", type=str, default="cosine")  # "linear" is also valid.
     ap.add_argument("--max-grad-norm", type=float, default=1.0)
 
     ap.add_argument(
@@ -477,13 +477,13 @@ def main():
         "--out-emb-dim",
         type=int,
         default=None,
-        help="Docelowy wymiar embeddingu. Jeśli nie podasz, zostaje wymiar ucznia (np. 256).",
+        help="Target embedding dimension. If omitted, the student dimension is kept, e.g. 256.",
     )
     ap.add_argument(
         "--adapter-hidden-dim",
         type=int,
         default=512,
-        help="Wymiar ukryty w adapterze MLP (domyślnie 512).",
+        help="Hidden dimension in the MLP adapter (default: 512).",
     )
 
     args = ap.parse_args()

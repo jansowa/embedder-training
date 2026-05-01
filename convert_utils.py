@@ -1,12 +1,29 @@
 import gc
-import torch
-from sentence_transformers import models, SentenceTransformer
-import mteb
 import subprocess
 import tempfile
 import json
 import sys
 from pathlib import Path
+
+
+def _load_sentence_transformers():
+    try:
+        from sentence_transformers import models, SentenceTransformer
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "SentenceTransformer conversion requires sentence-transformers. "
+            "Install it with: pip install -r requirements/requirements-sentence-transformers.txt"
+        ) from exc
+    return models, SentenceTransformer
+
+
+def _empty_cuda_cache() -> None:
+    try:
+        import torch
+    except ModuleNotFoundError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _fix_dynamic_config(model_dir: str) -> None:
@@ -50,7 +67,8 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str, pooling_met
     """
     Converts Transformer model into SentenceTransformer model with cls pooling
     """
-    print("Konwertuję model do sentence transformer")
+    models, SentenceTransformer = _load_sentence_transformers()
+    print("Converting model to SentenceTransformer format")
     transformer = models.Transformer(
         input_dir,
         config_args={"trust_remote_code": True},
@@ -68,17 +86,17 @@ def convert_to_sentence_transformer(input_dir: str, output_dir: str, pooling_met
     model = SentenceTransformer(modules=[transformer, pooling])
     model.save(output_dir)
 
-    # <<< KLUCZOWE: popraw config.json już po zapisie >>>
+    # Fix config.json after saving the SentenceTransformer wrapper.
     _fix_dynamic_config(output_dir)
 
     del model, transformer, pooling
-    torch.cuda.empty_cache()
+    _empty_cuda_cache()
     gc.collect()
 
 
 def is_sentence_transformer_dir(model_dir: str) -> bool:
     """
-    Heurystyczne sprawdzenie, czy katalog jest modelem SentenceTransformer.
+    Heuristically check whether a directory already contains a SentenceTransformer model.
     """
     p = Path(model_dir)
     return (p / "modules.json").exists() or (p / "config_sentence_transformers.json").exists()
@@ -89,38 +107,40 @@ def ensure_sentence_transformer(
     cache_dir: str = "./cache/sentence-transformers",
 ) -> str:
     """
-    Zwraca ścieżkę / nazwę modelu, którą można bezpośrednio podać do MTEB
-    jako SentenceTransformer.
+    Return a model path or name that can be passed directly to MTEB as a
+    SentenceTransformer.
 
-    - Jeśli lokalny katalog i już ST -> zwraca ten katalog.
-    - Jeśli lokalny katalog i nie ST -> tworzy <nazwa>-st obok, konwertuje tam i zwraca.
-    - Jeśli nazwa z HF:
-        * jeśli SentenceTransformer(model_name_or_path) działa -> zwraca nazwę,
-        * inaczej -> konwertuje do cache_dir/<safe_name>-st i zwraca tę ścieżkę.
+    - If the input is a local SentenceTransformer directory, return it.
+    - If the input is a local non-SentenceTransformer directory, create
+      <name>-st next to it, convert there, and return that path.
+    - If the input is a Hugging Face model name:
+        * if SentenceTransformer(model_name_or_path) works, return the name;
+        * otherwise convert to cache_dir/<safe_name>-st and return that path.
     """
+    _, SentenceTransformer = _load_sentence_transformers()
     p = Path(model_name_or_path)
     if p.exists():
-        print("Model na dysku istnieje")
-        # Lokalne zasoby
+        print("Local model path exists")
+        # Local resources.
         if is_sentence_transformer_dir(str(p)):
-            print("Katalog zawiera model SentenceTransformer")
+            print("Directory contains a SentenceTransformer model")
             return str(p.resolve())
 
-        # Sprawdź, czy obok nie ma już wersji -st
+        # Reuse a neighboring -st conversion when it already exists.
         out_dir = p.with_name(p.name + "-st")
         if out_dir.exists() and is_sentence_transformer_dir(str(out_dir)):
-            print("Zwracam ścieżkę z modelem SentenceTransformer")
+            print("Returning existing SentenceTransformer conversion")
             return str(out_dir.resolve())
 
-        # Konwersja z katalogu na dysku
+        # Convert from a local directory.
         convert_to_sentence_transformer(str(p), str(out_dir))
         return str(out_dir.resolve())
 
-    # Nazwa z HuggingFace
+    # Hugging Face model name.
     try:
         model = SentenceTransformer(model_name_or_path)
     except Exception:
-        # To nie jest "gotowy" SentenceTransformer na HF, trzeba skonwertować.
+        # This is not a ready-to-use SentenceTransformer model on Hugging Face.
         cache_root = Path(cache_dir)
         cache_root.mkdir(parents=True, exist_ok=True)
         safe_name = model_name_or_path.replace("/", "_").replace(".", "_")
@@ -132,10 +152,10 @@ def ensure_sentence_transformer(
         convert_to_sentence_transformer(model_name_or_path, str(out_dir))
         return str(out_dir.resolve())
     else:
-        # Udało się załadować jako SentenceTransformer -> jest OK, nic nie robimy.
+        # It loaded as SentenceTransformer, so no conversion is needed.
         del model
         gc.collect()
-        torch.cuda.empty_cache()
+        _empty_cuda_cache()
         return model_name_or_path
 
 
@@ -168,6 +188,12 @@ def flatten(results: list) -> dict[str, float]:
     return flat_results
 
 def run_mteb(st_dir: str, tasks, batch_size: int=64):
+    try:
+        import mteb
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "MTEB evaluation requires mteb. Install it with the matching backend requirements file."
+        ) from exc
     model = mteb.get_model(st_dir)
     evaluation = mteb.MTEB(tasks=tasks)
     results = evaluation.run(model, output_folder=None,

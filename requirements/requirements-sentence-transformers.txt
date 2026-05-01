@@ -1,0 +1,2 @@
+-r requirements-common.txt
+sentence_transformers>=5.0.0

@@ -1,0 +1,386 @@
+# Training backends
+
+The main training entry point is:
+
+```bash
+python -m training.train --backend flagembedding --training-type embedder --config configs/grid.yaml
+```
+
+CLI values take precedence over `backend` and `training_type` values from the YAML config. If neither the CLI nor the config provides them, the CLI defaults to `flagembedding + embedder` for compatibility with the previous pipeline.
+
+## Installation
+
+This repository does not currently use `pyproject.toml`, so backend-specific environments are split into requirements files:
+
+```bash
+pip install -r requirements/requirements-sentence-transformers.txt
+pip install -r requirements/requirements-flagembedding.txt
+pip install -r requirements/requirements-pylate.txt
+pip install -r requirements/requirements-all-backends.txt
+```
+
+The root `requirements.in` remains the full-environment variant for compatibility with the existing README and lock workflow.
+
+## Backends and Training Types
+
+| Backend | Training type | Status |
+| --- | --- | --- |
+| `flagembedding` | `embedder` | Implemented. Runs the existing pipeline via `torchrun -m FlagEmbedding.finetune.embedder.encoder_only.base`. |
+| `sentence-transformers` | `embedder` | Implemented. Trains a dense embedder on JSONL `query`/`pos`/`neg` records with `MultipleNegativesRankingLoss` and offline negatives. |
+| `sentence-transformers` | `matryoshka` | Implemented. Dense training with `MatryoshkaLoss` wrapping `MultipleNegativesRankingLoss`. |
+| `sentence-transformers` | `splade` | Implemented. Sparse training with `SparseEncoder`, `SparseMultipleNegativesRankingLoss`, and `SpladeLoss`. |
+| `sentence-transformers` | `multimodal` | Extension point, raises `NotImplementedError`. |
+| `sentence-transformers` | `adaptive-layer` | Extension point, raises `NotImplementedError`. |
+| `sentence-transformers` | `matryoshka-2d` | Extension point, raises `NotImplementedError`. |
+| `pylate` | `colbert` | Implemented. Trains ColBERT with PyLate `ColBERT`, `Contrastive`, and `ColBERTCollator`. |
+| `pylate` | `late-interaction` | Implemented as an alias for the same PyLate ColBERT loop. |
+
+Unsupported combinations are rejected before the backend module is loaded, for example:
+
+```text
+Training type 'splade' is not supported by backend 'pylate'. Supported types: colbert, late-interaction
+```
+
+## Example Commands
+
+```bash
+python -m training.train --backend flagembedding --training-type embedder --config configs/grid.yaml
+python -m training.train --backend sentence-transformers --training-type embedder --config configs/smoke_sentence_transformers_embedder.yaml
+python -m training.train --backend sentence-transformers --training-type matryoshka --config configs/smoke_sentence_transformers_matryoshka.yaml
+python -m training.train --backend sentence-transformers --training-type splade --config configs/smoke_sentence_transformers_splade.yaml
+python -m training.train --backend pylate --training-type colbert --config configs/smoke_pylate_colbert.yaml
+```
+
+The legacy wrapper still works:
+
+```bash
+python run_experiments.py --run_pirb --remove_checkpoints --pirb_scope small
+```
+
+In `train` mode it delegates to:
+
+```bash
+python -m training.train --backend flagembedding --training-type embedder --config configs/grid.yaml
+```
+
+## Configuration
+
+The existing `configs/grid.yaml` format is still supported:
+
+```yaml
+architectures:
+  - TaylorAI/bge-micro-v2
+hparams:
+  - learning_rate: 8e-5
+    num_train_epochs: 1
+    train_data: ./dataset-beta0001-floor00005-no_in_batch_neg
+```
+
+You can also use shared fields and backend-specific sections:
+
+```yaml
+backend: flagembedding
+training_type: embedder
+runs_dir: runs
+wandb_project: mining-tests
+
+architectures:
+  - TaylorAI/bge-micro-v2
+hparams:
+  - learning_rate: 8e-5
+    num_train_epochs: 1
+
+backend_config:
+  train_group_size: 6
+
+flagembedding:
+  sentence_pooling_method: mean
+
+sentence_transformers: {}
+pylate: {}
+```
+
+CLI values such as `--backend pylate --training-type colbert` override `backend` and `training_type` from YAML.
+
+## CLI Parameters
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `--backend` | No | Training backend. Supported values: `flagembedding`, `sentence-transformers`, `pylate`. If omitted, the CLI reads `backend` from YAML and then defaults to `flagembedding`. |
+| `--training-type` | No | Training recipe for the selected backend. The CLI validates the `backend + training_type` combination before loading the backend module. |
+| `--config` | No | Path to the YAML config file. Defaults to `configs/grid.yaml`. |
+| `--run-mteb` / `--run_mteb` | No | Runs MTEB after FlagEmbedding training. Leave disabled for smoke tests. |
+| `--run-pirb` / `--run_pirb` | No | Runs PIRB after FlagEmbedding training. Leave disabled for smoke tests. |
+| `--benchmark-name` | No | MTEB benchmark name. Defaults to `NanoBEIR`. Used only with `--run-mteb`. |
+| `--pirb-scope` / `--pirb_scope` | No | PIRB scope: `tiny`, `small`, or `all`. Used only with `--run-pirb`. |
+| `--remove-checkpoints` / `--remove_checkpoints` | No | Removes `checkpoint-*` directories after a successful FlagEmbedding run. |
+
+The CLI only overrides `backend` and `training_type`. All other training parameters are read from YAML.
+
+## YAML Parameters
+
+### Shared Fields
+
+| Field | Backends | Description |
+| --- | --- | --- |
+| `backend` | All | Default backend if `--backend` is not provided. |
+| `training_type` | All | Default training type if `--training-type` is not provided. |
+| `train_data` | All | Dataset path. For SentenceTransformers and PyLate this can point to a directory containing `dataset.jsonl` or directly to a JSONL file. |
+| `output_dir` | SentenceTransformers, PyLate | Training output directory. The final model is saved under `output_dir/final`. |
+| `model_name_or_path` | SentenceTransformers, PyLate | Hugging Face model name or local model path. |
+| `max_steps` | SentenceTransformers, PyLate, FlagEmbedding | Maximum number of training steps. Smoke configs use `1`. |
+| `num_train_epochs` | All | Number of epochs when `max_steps` does not stop training earlier. |
+| `train_batch_size` / `per_device_train_batch_size` | All | Per-device training batch size. |
+| `learning_rate` | All | Learning rate. |
+| `weight_decay` | SentenceTransformers, PyLate, FlagEmbedding | Weight decay. |
+| `warmup_ratio` | All | Warmup ratio. |
+| `gradient_accumulation_steps` | All | Number of gradient accumulation steps. |
+| `logging_steps` | All | Logging frequency. |
+| `save_strategy`, `save_steps`, `save_total_limit` | All | Checkpoint behavior. Smoke configs use `save_strategy: "no"` so only the final model is saved. |
+| `seed` | SentenceTransformers, PyLate | Seed passed to training arguments. |
+| `fp16`, `bf16` | SentenceTransformers, PyLate, FlagEmbedding | Mixed precision settings. |
+| `dataloader_drop_last`, `dataloader_num_workers` | All | Dataloader settings. |
+| `report_to` | SentenceTransformers, PyLate | Reporting integrations, for example `[]` for smoke tests without W&B. |
+| `backend_config` | All | Shared backend override section. Backend-specific sections such as `sentence_transformers` take precedence over `backend_config`. |
+
+### FlagEmbedding
+
+`flagembedding + embedder` keeps the existing grid workflow. Key fields:
+
+| Field | Description |
+| --- | --- |
+| `architectures` | List of base models to iterate over, for example `TaylorAI/bge-micro-v2`. |
+| `hparams` | List of hyperparameter variants. Each entry is combined with each model from `architectures`. |
+| `runs_dir` | Directory for training runs. Defaults to `runs`. |
+| `wandb_project` | W&B project. Defaults to `mining-tests` or `WANDB_PROJECT`. |
+| `flagembedding.train_data` | Dataset in the format accepted by FlagEmbedding. |
+| `flagembedding.train_group_size` | Number of items in each training group. |
+| `flagembedding.query_max_len`, `flagembedding.passage_max_len` | Maximum query and passage lengths. |
+| `flagembedding.query_instruction_for_retrieval` | Query instruction prefix. Defaults to `query: `. |
+| `flagembedding.sentence_pooling_method` | Pooling strategy passed to FlagEmbedding. Defaults to `cls`. |
+| `flagembedding.normalize_embeddings` | Whether to normalize embeddings. |
+| `flagembedding.temperature` | Loss temperature. |
+| `flagembedding.negatives_cross_device` | Whether to use cross-device negatives. |
+| `flagembedding.deepspeed` | Path to a DeepSpeed config. |
+| `flagembedding.gradient_checkpointing` | Whether to enable gradient checkpointing. |
+
+Fields from `flagembedding` and `backend_config` are forwarded as arguments to `torchrun -m FlagEmbedding.finetune.embedder.encoder_only.base`, so an option supported by FlagEmbedding can usually be added to YAML without changing the CLI.
+
+### SentenceTransformers
+
+Shared parameters for `embedder`, `matryoshka`, and `splade`:
+
+| Field | Description |
+| --- | --- |
+| `sentence_transformers.model_name_or_path` | Dense or sparse model. For SPLADE choose a masked-LM model, for example `hf-internal-testing/tiny-random-BertForMaskedLM` for smoke tests. |
+| `sentence_transformers.train_data` | Overrides top-level `train_data`. |
+| `sentence_transformers.output_dir` | Overrides top-level `output_dir`. |
+| `sentence_transformers.negatives_per_query` | Number of offline negatives read from `neg`. If omitted, the backend uses the minimum negative count shared by all dataset rows. |
+| `sentence_transformers.query_prefix` | Prefix added to `query` while loading the dataset. |
+| `sentence_transformers.passage_prefix` | Prefix added to `pos` and `neg` while loading the dataset. |
+| `sentence_transformers.max_seq_length` | Model maximum sequence length. |
+| `sentence_transformers.model_kwargs` | Mapping passed to the model constructor. |
+| `sentence_transformers.trust_remote_code` | Added to `model_kwargs` when set. |
+
+Parameters only for `matryoshka`:
+
+| Field | Description |
+| --- | --- |
+| `sentence_transformers.matryoshka_dims` | List of embedding dimensions, for example `[128, 64, 32]`. If omitted, the backend derives it from the model embedding dimension. |
+| `sentence_transformers.matryoshka_weights` | Optional weights for Matryoshka dimensions. |
+| `sentence_transformers.n_dims_per_step` | Number of dimensions sampled per step, passed to `MatryoshkaLoss`. |
+
+Parameters only for `splade`:
+
+| Field | Description |
+| --- | --- |
+| `sentence_transformers.document_regularizer_weight` | Document regularization weight for `SpladeLoss`. Defaults to `3e-5`. |
+| `sentence_transformers.query_regularizer_weight` | Query regularization weight for `SpladeLoss`. Defaults to `5e-5`. |
+| `sentence_transformers.scale` | Scale for `SparseMultipleNegativesRankingLoss`. Defaults to `1.0`. |
+| `sentence_transformers.gather_across_devices` | Whether to gather embeddings across devices for a larger negative pool. |
+
+### PyLate
+
+Parameters for `colbert` and `late-interaction`:
+
+| Field | Description |
+| --- | --- |
+| `pylate.model_name_or_path` | Base model for `pylate.models.ColBERT`. |
+| `pylate.train_data` | Overrides top-level `train_data`. |
+| `pylate.output_dir` | Overrides top-level `output_dir`. |
+| `pylate.negatives_per_query` | Number of offline negatives read from `neg`. Smoke configs use `1`. |
+| `pylate.query_prefix`, `pylate.passage_prefix` | Prefixes added while loading data. |
+| `pylate.embedding_size` | ColBERT projection size. The smoke config uses `16`. |
+| `pylate.query_length`, `pylate.document_length` | Query and document tokenization lengths. |
+| `pylate.temperature` | Temperature for `pylate.losses.Contrastive`. Defaults to `1.0`. |
+| `pylate.gather_across_devices` | Whether to gather representations across devices. |
+| `pylate.model_kwargs` | Mapping passed to the base model. |
+| `pylate.tokenizer_kwargs`, `pylate.config_kwargs` | Extra tokenizer and config arguments. |
+| `pylate.trust_remote_code`, `pylate.revision`, `pylate.local_files_only`, `pylate.token` | Standard Hugging Face model loading settings. |
+| `pylate.truncate_dim`, `pylate.bias`, `pylate.add_special_tokens`, `pylate.truncation` | Options forwarded to `pylate.models.ColBERT`. |
+| `pylate.do_query_expansion`, `pylate.attend_to_expansion_tokens`, `pylate.skiplist_words` | ColBERT/PyLate-specific settings. |
+
+## Dataset Format
+
+SentenceTransformers and PyLate training use FlagEmbedding-style JSONL records:
+
+```json
+{"query": "...", "pos": ["..."], "neg": ["...", "..."]}
+```
+
+Each positive passage creates a separate `anchor`/`positive` example. Offline negatives are forwarded as `negative_1`, `negative_2`, and so on. Dense SentenceTransformers training uses `MultipleNegativesRankingLoss`, so the model sees both in-batch negatives and offline negatives. `matryoshka` wraps the same loss with `MatryoshkaLoss`.
+
+`sentence-transformers + splade` uses the same loader, but loads a `SparseEncoder` and `SpladeLoss`. SPLADE needs a masked-LM model.
+
+`pylate + colbert` and `pylate + late-interaction` use the same JSONL format. The backend loads `pylate.models.ColBERT`, trains with `pylate.losses.Contrastive`, and batches with `pylate.utils.ColBERTCollator`.
+
+## Lazy Imports
+
+`training.train` and the backend registry do not globally import `FlagEmbedding`, `sentence_transformers`, or `pylate`. Only the selected backend module is loaded, and the backend library is checked inside that module.
+
+If the selected library is missing, the CLI shows a readable error instead of a raw `ModuleNotFoundError`, for example:
+
+```text
+Backend 'sentence-transformers' requires the sentence-transformers dependency. Install it with: pip install -r requirements/requirements-sentence-transformers.txt
+```
+
+FlagEmbedding checkpoint conversion to SentenceTransformers format runs only when `--run-mteb` or `--run-pirb` is enabled.
+
+## Smoke Tests From Scratch
+
+The following commands assume a fresh checkout and no prepared environment. They use `uv`, matching the main README. For another CUDA version, change `--extra-index-url` according to the README.
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+exec "$SHELL"
+```
+
+The smoke tests use the mini dataset `dataset-small-no_in_batch_neg` and the small dense model `sentence-transformers-testing/stsb-bert-tiny-safetensors`. Benchmarks are intentionally disabled, so these commands do not run checkpoint conversion, MTEB, or PIRB.
+
+### FlagEmbedding: Minimal Real Training
+
+```bash
+uv venv --python 3.10.4 .venv-flagembedding
+source .venv-flagembedding/bin/activate
+
+uv pip install -r requirements/requirements-flagembedding.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-url https://pypi.org/simple \
+  --index-strategy unsafe-best-match
+
+WANDB_MODE=disabled python -m training.train \
+  --backend flagembedding \
+  --training-type embedder \
+  --config configs/smoke_flagembedding_embedder.yaml
+
+deactivate
+```
+
+Expected result: the script runs `torchrun` for one training step (`max_steps: 1`) and writes output under `runs/smoke/`.
+
+### SentenceTransformers: Minimal Dense Training
+
+```bash
+uv venv --python 3.10.4 .venv-sentence-transformers
+source .venv-sentence-transformers/bin/activate
+
+uv pip install -r requirements/requirements-sentence-transformers.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-url https://pypi.org/simple \
+  --index-strategy unsafe-best-match
+
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type embedder \
+  --config configs/smoke_sentence_transformers_embedder.yaml
+
+deactivate
+```
+
+Expected result: the script runs one dense SentenceTransformers training step and saves the model to `runs/smoke/sentence-transformers/final`.
+
+### SentenceTransformers: Minimal Matryoshka Training
+
+```bash
+uv venv --python 3.10.4 .venv-sentence-transformers-matryoshka
+source .venv-sentence-transformers-matryoshka/bin/activate
+
+uv pip install -r requirements/requirements-sentence-transformers.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-url https://pypi.org/simple \
+  --index-strategy unsafe-best-match
+
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type matryoshka \
+  --config configs/smoke_sentence_transformers_matryoshka.yaml
+
+deactivate
+```
+
+Expected result: the script runs one Matryoshka training step and saves the model to `runs/smoke/sentence-transformers-matryoshka/final`.
+
+### SentenceTransformers: Minimal SPLADE Training
+
+```bash
+uv venv --python 3.10.4 .venv-sentence-transformers-splade
+source .venv-sentence-transformers-splade/bin/activate
+
+uv pip install -r requirements/requirements-sentence-transformers.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-url https://pypi.org/simple \
+  --index-strategy unsafe-best-match
+
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/smoke_sentence_transformers_splade.yaml
+
+deactivate
+```
+
+Expected result: the script runs one SPLADE training step and saves the model to `runs/smoke/sentence-transformers-splade/final`.
+
+### PyLate: Minimal ColBERT Training
+
+```bash
+uv venv --python 3.10.4 .venv-pylate-colbert
+source .venv-pylate-colbert/bin/activate
+
+uv pip install -r requirements/requirements-pylate.txt \
+  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --index-url https://pypi.org/simple \
+  --index-strategy unsafe-best-match
+
+python -m training.train \
+  --backend pylate \
+  --training-type colbert \
+  --config configs/smoke_pylate_colbert.yaml
+
+deactivate
+```
+
+Expected result: the script runs one ColBERT training step and saves the model to `runs/smoke/pylate-colbert/final`.
+
+### Quick Error Checks
+
+Unsupported combination:
+
+```bash
+python -m training.train \
+  --backend pylate \
+  --training-type splade \
+  --config configs/smoke_pylate_colbert.yaml
+```
+
+Expected message:
+
+```text
+Training type 'splade' is not supported by backend 'pylate'. Supported types: colbert, late-interaction
+```
+
+Main CLI import without optional backends:
+
+```bash
+python -c "import training.train; print('training CLI import ok')"
+```

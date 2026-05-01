@@ -1,0 +1,14 @@
+backend: sentence-transformers
+training_type: splade
+train_data: dataset-small-no_in_batch_neg
+output_dir: runs/smoke/sentence-transformers-splade
+
+sentence_transformers:
+  model_name_or_path: hf-internal-testing/tiny-random-BertForMaskedLM
+  max_steps: 1
+  train_batch_size: 1
+  negatives_per_query: 1
+  save_strategy: "no"
+  report_to: []
+  document_regularizer_weight: 0.00003
+  query_regularizer_weight: 0.00005

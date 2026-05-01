@@ -1,0 +1,18 @@
+architectures:
+  - Snowflake/snowflake-arctic-embed-m-v2.0
+#  - sdadas/mmlw-retrieval-roberta-base
+#  - answerdotai/ModernBERT-base
+hparams:
+#  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-small-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta001-floor0001-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta001-floor00005-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0001-floor0001-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0001-floor00005-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0005-floor0001-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0005-floor00005-no_in_batch_neg", "knowledge_distillation": True, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta001-floor0001-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta001-floor00005-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0001-floor0001-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0001-floor00005-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0005-floor0001-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}
+  - {learning_rate: 8e-5, num_train_epochs: 1, train_data: "./dataset-beta0005-floor00005-no_in_batch_neg", "knowledge_distillation": False, "train_group_size": 6, "query_instruction_for_retrieval": "query: "}

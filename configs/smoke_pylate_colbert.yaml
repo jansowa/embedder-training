@@ -1,0 +1,15 @@
+backend: pylate
+training_type: colbert
+train_data: dataset-small-no_in_batch_neg
+output_dir: runs/smoke/pylate-colbert
+
+pylate:
+  model_name_or_path: sentence-transformers-testing/stsb-bert-tiny-safetensors
+  max_steps: 1
+  train_batch_size: 1
+  negatives_per_query: 1
+  save_strategy: "no"
+  report_to: []
+  embedding_size: 16
+  query_length: 32
+  document_length: 64

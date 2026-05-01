@@ -1,7 +1,12 @@
 cache
 runs
 wandb
+smoke-logs/
 .idea
+.venv*
+.pytest_cache
+__pycache__
+*.py[cod]
 dataset-*/
 *.ipynb
 *.zip
