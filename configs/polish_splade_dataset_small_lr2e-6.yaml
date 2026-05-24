@@ -15,8 +15,9 @@ hparams:
     num_train_epochs: 1
 
 sentence_transformers:
-  train_batch_size: 1
-  negatives_per_query: 1
+  train_batch_size: 32
+  fp16: true
+  negatives_per_query: 10
   save_strategy: steps
   save_steps: 500
   save_total_limit: 2
