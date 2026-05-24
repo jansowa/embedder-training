@@ -8,8 +8,7 @@ architectures:
   - sdadas/polish-roberta-base-v2
   # This checkpoint is published as BertModel/feature-extraction, so SPLADE can
   # construct a MaskedLM head, but the head may not load pretrained weights.
-  - model_name_or_path: allegro/herbert-base-cased
-    tokenizer_name_or_path: allegro/herbert-klej-cased-tokenizer-v1
+  - allegro/herbert-base-cased
 
 hparams:
   - learning_rate: 2e-6
@@ -18,8 +17,7 @@ hparams:
 sentence_transformers:
   train_batch_size: 32
   fp16: true
-  processor_kwargs:
-    use_fast: false
+  splade_pooling_chunk_size: 32
   negatives_per_query: 10
   save_strategy: steps
   save_steps: 500

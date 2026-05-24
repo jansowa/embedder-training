@@ -219,6 +219,7 @@ Parameters only for `splade`:
 | `sentence_transformers.query_regularizer_weight` | Query regularization weight for `SpladeLoss`. Defaults to `5e-5`. |
 | `sentence_transformers.scale` | Scale for `SparseMultipleNegativesRankingLoss`. Defaults to `1.0`. |
 | `sentence_transformers.gather_across_devices` | Whether to gather embeddings across devices for a larger negative pool. |
+| `sentence_transformers.splade_pooling_chunk_size` | Optional `SpladePooling(chunk_size=...)`. Smaller values reduce pooling memory usage at the cost of speed. |
 
 ### PyLate
 
