@@ -117,7 +117,13 @@ def test_shared_grid_expands_for_sentence_transformers(tmp_path):
             "training_type": "splade",
             "runs_dir": str(tmp_path / "runs"),
             "train_data": "dataset-small-no_in_batch_neg",
-            "architectures": ["sdadas/polish-distilroberta", "allegro/herbert-base-cased"],
+            "architectures": [
+                "sdadas/polish-distilroberta",
+                {
+                    "model_name_or_path": "allegro/herbert-base-cased",
+                    "tokenizer_name_or_path": "allegro/herbert-klej-cased-tokenizer-v1",
+                },
+            ],
             "hparams": [{"learning_rate": 2e-6, "num_train_epochs": 1}],
             "sentence_transformers": {"train_batch_size": 2},
         },
@@ -133,6 +139,8 @@ def test_shared_grid_expands_for_sentence_transformers(tmp_path):
     assert variants[0]["sentence_transformers"]["train_batch_size"] == 2
     assert variants[0]["output_dir"].startswith(str(tmp_path / "runs" / "sentence-transformers" / "splade"))
     assert variants[1]["model_name_or_path"] == "allegro/herbert-base-cased"
+    assert variants[1]["tokenizer_name_or_path"] == "allegro/herbert-klej-cased-tokenizer-v1"
+    assert variants[1]["sentence_transformers"]["tokenizer_name_or_path"] == "allegro/herbert-klej-cased-tokenizer-v1"
 
 
 def test_run_training_expands_grid_before_backend_call(monkeypatch, tmp_path):

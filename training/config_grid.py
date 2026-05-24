@@ -53,6 +53,16 @@ def _first_config_value(config: dict[str, Any], backend: str, key: str) -> Any:
     return None
 
 
+def _architecture_overrides(architecture: Any) -> dict[str, Any]:
+    if isinstance(architecture, dict):
+        if "model_name_or_path" not in architecture:
+            raise ValueError("Architecture mappings must contain 'model_name_or_path'.")
+        return dict(architecture)
+    if architecture is None:
+        return {}
+    return {"model_name_or_path": architecture}
+
+
 def _safe_slug(value: Any) -> str:
     slug = str(value).strip().replace("/", "_").replace(".", "_")
     allowed = []
@@ -76,8 +86,13 @@ def _hparam_slug(hparams: dict[str, Any]) -> str:
     return "default"
 
 
+def _architecture_slug(architecture: Any) -> str:
+    overrides = _architecture_overrides(architecture)
+    return _safe_slug(overrides.get("model_name_or_path", architecture))
+
+
 def _run_slug(architecture: Any, hparams: dict[str, Any]) -> str:
-    return f"{_safe_slug(architecture)}-{_hparam_slug(hparams)}"
+    return f"{_architecture_slug(architecture)}-{_hparam_slug(hparams)}"
 
 
 def _set_backend_override(config: dict[str, Any], backend: str, values: dict[str, Any]) -> None:
@@ -137,11 +152,10 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
             variant = deepcopy(config)
             _strip_grid_keys(variant)
 
-            overrides = dict(hparam)
-            if architecture is not None:
-                overrides["model_name_or_path"] = architecture
+            architecture_overrides = _architecture_overrides(architecture)
+            overrides = {**architecture_overrides, **hparam}
             variant.update(overrides)
-            variant["grid_architecture"] = architecture
+            variant["grid_architecture"] = architecture_overrides.get("model_name_or_path", architecture)
             variant["grid_hparams"] = dict(hparam)
             variant["run_name"] = _run_slug(architecture, hparam)
             variant["backend"] = backend
