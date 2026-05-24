@@ -1157,10 +1157,19 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
 
     class FakeTrainer:
         def __init__(self, model, args, train_dataset, loss):
+            calls["args"] = args
             self.loss = loss
 
         def train(self):
             calls["trained"] = True
+
+    class FakeWandb:
+        run = object()
+
+        @classmethod
+        def finish(cls):
+            calls["wandb_finished"] = True
+            cls.run = None
 
     monkeypatch.setattr(
         sentence_transformers_backend,
@@ -1176,6 +1185,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
             FakeSpladePooling,
         ),
     )
+    monkeypatch.setitem(sys.modules, "wandb", FakeWandb)
 
     request = TrainingRequest(
         backend="sentence-transformers",
@@ -1185,8 +1195,12 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
             "output_dir": str(output_dir),
             "sentence_transformers": {
                 "model_name_or_path": "tiny-mlm",
+                "tokenizer_name_or_path": "tiny-tokenizer",
+                "processor_kwargs": {"use_fast": False},
+                "run_name": "tiny-grid-run",
                 "max_steps": 1,
                 "train_batch_size": 1,
+                "report_to": ["wandb"],
                 "document_regularizer_weight": 0.1,
                 "query_regularizer_weight": 0.2,
             },
@@ -1200,7 +1214,58 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
     assert calls["saved"] == str(output_dir / "final")
     assert calls["regularizers"] == (0.1, 0.2)
     assert calls["modules"][0].model_name_or_path == "tiny-mlm"
+    assert calls["modules"][0].kwargs["tokenizer_name_or_path"] == "tiny-tokenizer"
+    assert calls["modules"][0].kwargs["processor_kwargs"] == {"use_fast": False}
     assert calls["modules"][1].pooling_strategy == "max"
+    assert calls["args"].kwargs["run_name"] == "tiny-grid-run"
+    assert calls["args"].kwargs["report_to"] == ["wandb"]
+    assert calls["wandb_finished"] is True
+
+
+def test_sentence_transformers_splade_processor_fallback_uses_tokenizer(monkeypatch):
+    from training.backends import sentence_transformers_backend
+
+    tokenizer_calls = []
+
+    class FakeAutoProcessor:
+        @staticmethod
+        def from_pretrained(path, *args, **kwargs):
+            raise ValueError("Unrecognized processing class in tokenizer-only-checkpoint")
+
+    class FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(path, *args, **kwargs):
+            tokenizer_calls.append((path, kwargs))
+            return "loaded-tokenizer"
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(AutoProcessor=FakeAutoProcessor, AutoTokenizer=FakeAutoTokenizer),
+    )
+
+    class FakeMLMTransformer:
+        def __init__(self, model_name_or_path, **kwargs):
+            from transformers import AutoProcessor
+
+            self.model_name_or_path = model_name_or_path
+            self.processor = AutoProcessor.from_pretrained(
+                kwargs["tokenizer_name_or_path"],
+                **kwargs["processor_kwargs"],
+            )
+
+    transformer = sentence_transformers_backend._build_mlm_transformer(
+        FakeMLMTransformer,
+        "model-checkpoint",
+        {
+            "tokenizer_name_or_path": "tokenizer-only-checkpoint",
+            "processor_kwargs": {"use_fast": False},
+        },
+    )
+
+    assert transformer.model_name_or_path == "model-checkpoint"
+    assert transformer.processor == "loaded-tokenizer"
+    assert tokenizer_calls == [("tokenizer-only-checkpoint", {"use_fast": False})]
 
 
 def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):

@@ -201,6 +201,9 @@ Shared parameters for `embedder`, `matryoshka`, and `splade`:
 | `sentence_transformers.passage_prefix` | Prefix added to `pos` and `neg` while loading the dataset. |
 | `sentence_transformers.max_seq_length` | Model maximum sequence length. |
 | `sentence_transformers.model_kwargs` | Mapping passed to the model constructor. |
+| `sentence_transformers.processor_kwargs` / `sentence_transformers.tokenizer_args` | Mapping passed to the processor/tokenizer loader for SPLADE models. |
+| `sentence_transformers.tokenizer_name_or_path` | Optional tokenizer path for SPLADE models whose tokenizer lives in a separate checkpoint. |
+| `sentence_transformers.run_name` | Optional run name passed to SentenceTransformers/Transformers. Grid runs generate unique names automatically. |
 | `sentence_transformers.trust_remote_code` | Added to `model_kwargs` when set. |
 
 Parameters only for `matryoshka`:
@@ -507,10 +510,15 @@ python -m training.train \
   --training-type splade \
   --config configs/smoke_sentence_transformers_splade.yaml
 
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/smoke_sentence_transformers_splade_herbert.yaml
+
 deactivate
 ```
 
-Expected result: the script runs one SPLADE training step and saves the model to `runs/smoke/sentence-transformers-splade/final`.
+Expected result: each script runs one SPLADE training step and saves the model under `runs/smoke/`.
 
 ### PyLate: Minimal ColBERT Training
 
