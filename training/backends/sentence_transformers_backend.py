@@ -32,12 +32,14 @@ COMMON_TRAINING_KEYS = {
     "output_dir",
     "overwrite_output_dir",
     "per_device_train_batch_size",
+    "processor_kwargs",
     "query_instruction_for_retrieval",
     "report_to",
     "save_steps",
     "save_strategy",
     "save_total_limit",
     "seed",
+    "tokenizer_args",
     "train_batch_size",
     "train_data",
     "trust_remote_code",
@@ -275,6 +277,18 @@ def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     return model_kwargs
 
 
+def _kwargs_mapping(backend_config: dict[str, Any], *keys: str) -> dict[str, Any]:
+    for key in keys:
+        value = backend_config.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, dict):
+            joined = " / ".join(f"sentence_transformers.{item}" for item in keys)
+            raise SentenceTransformersConfigError(f"'{joined}' must be a mapping when provided.")
+        return dict(value)
+    return {}
+
+
 def _load_training_rows(
     config: dict[str, Any],
     backend_config: dict[str, Any],
@@ -319,6 +333,8 @@ def _build_splade_model(
     backend_config: dict[str, Any],
 ):
     model_kwargs = _model_kwargs(backend_config)
+    processor_kwargs = _kwargs_mapping(backend_config, "processor_kwargs", "tokenizer_args")
+    config_kwargs = _kwargs_mapping(backend_config, "config_kwargs", "config_args")
     max_seq_length = backend_config.get("max_seq_length")
     signature = inspect.signature(MLMTransformer)
     parameters = signature.parameters
@@ -330,11 +346,25 @@ def _build_splade_model(
     elif model_kwargs and "model_kwargs" in parameters:
         mlm_kwargs["model_kwargs"] = model_kwargs
     elif model_kwargs and accepts_kwargs:
-        mlm_kwargs["model_args"] = model_kwargs
+        mlm_kwargs["model_kwargs"] = model_kwargs
+    if processor_kwargs and "tokenizer_args" in parameters:
+        mlm_kwargs["tokenizer_args"] = processor_kwargs
+    elif processor_kwargs and "processor_kwargs" in parameters:
+        mlm_kwargs["processor_kwargs"] = processor_kwargs
+    elif processor_kwargs and accepts_kwargs:
+        mlm_kwargs["processor_kwargs"] = processor_kwargs
+    if config_kwargs and "config_args" in parameters:
+        mlm_kwargs["config_args"] = config_kwargs
+    elif config_kwargs and "config_kwargs" in parameters:
+        mlm_kwargs["config_kwargs"] = config_kwargs
+    elif config_kwargs and accepts_kwargs:
+        mlm_kwargs["config_kwargs"] = config_kwargs
     if "transformer_task" in parameters:
         mlm_kwargs["transformer_task"] = "fill-mask"
     if max_seq_length is not None and ("max_seq_length" in parameters or accepts_kwargs):
         mlm_kwargs["max_seq_length"] = int(max_seq_length)
+    if "tokenizer_name_or_path" in backend_config and ("tokenizer_name_or_path" in parameters or accepts_kwargs):
+        mlm_kwargs["tokenizer_name_or_path"] = backend_config["tokenizer_name_or_path"]
 
     mlm_transformer = MLMTransformer(str(model_name_or_path), **mlm_kwargs)
     model = SparseEncoder(modules=[mlm_transformer, SpladePooling(pooling_strategy="max")])

@@ -1187,6 +1187,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
                 "model_name_or_path": "tiny-mlm",
                 "max_steps": 1,
                 "train_batch_size": 1,
+                "processor_kwargs": {"use_fast": False},
                 "document_regularizer_weight": 0.1,
                 "query_regularizer_weight": 0.2,
             },
@@ -1200,6 +1201,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
     assert calls["saved"] == str(output_dir / "final")
     assert calls["regularizers"] == (0.1, 0.2)
     assert calls["modules"][0].model_name_or_path == "tiny-mlm"
+    assert calls["modules"][0].kwargs["processor_kwargs"] == {"use_fast": False}
     assert calls["modules"][1].pooling_strategy == "max"
 
 

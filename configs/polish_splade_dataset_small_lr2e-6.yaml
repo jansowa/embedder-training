@@ -17,6 +17,8 @@ hparams:
 sentence_transformers:
   train_batch_size: 32
   fp16: true
+  processor_kwargs:
+    use_fast: false
   negatives_per_query: 10
   save_strategy: steps
   save_steps: 500
