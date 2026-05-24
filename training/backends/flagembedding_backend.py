@@ -11,6 +11,7 @@ from time import time
 from typing import Any
 
 from training.backends.registry import BackendDependencyError, TrainingRequest
+from training.dataset_filters import apply_dataset_filter_if_configured
 
 
 DEFAULT_GRID = {
@@ -24,6 +25,7 @@ DEFAULT_GRID = {
 }
 
 QUERY_INSTRUCTION_FOR_RETRIEVAL_DEFAULT = "query: "
+DATASET_FILTER_ARG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
 
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
@@ -59,11 +61,15 @@ RESERVED_CONFIG_KEYS = {
     "benchmark",
     "benchmark_name",
     "flagembedding",
+    "grid_architecture",
+    "grid_hparams",
     "hparams",
+    "model_name_or_path",
     "output_dir",
     "pylate",
     "pirb_scope",
     "remove_checkpoints",
+    "run_name",
     "run_mteb",
     "run_pirb",
     "runs_dir",
@@ -111,14 +117,23 @@ def _dict_section(config: dict[str, Any], key: str) -> dict[str, Any]:
 
 def _grid_from_config(config: dict[str, Any]) -> dict[str, Any]:
     backend_config = _dict_section(config, "backend_config") | _dict_section(config, "flagembedding")
+    configured_model = config.get("model_name_or_path", backend_config.get("model_name_or_path"))
+    configured_architectures = config.get("architectures", backend_config.get("architectures"))
+    configured_hparams = config.get("hparams", backend_config.get("hparams"))
+
+    if configured_architectures is None and configured_model:
+        configured_architectures = [configured_model]
+    if configured_hparams is None and configured_model:
+        configured_hparams = [{}]
+
     return {
         "architectures": config.get(
             "architectures",
-            backend_config.get("architectures", DEFAULT_GRID["architectures"]),
+            configured_architectures or DEFAULT_GRID["architectures"],
         ),
         "hparams": config.get(
             "hparams",
-            backend_config.get("hparams", DEFAULT_GRID["hparams"]),
+            configured_hparams or DEFAULT_GRID["hparams"],
         ),
     }
 
@@ -129,7 +144,7 @@ def _base_training_args(config: dict[str, Any]) -> dict[str, Any]:
     backend_overrides = {
         key: value
         for key, value in backend_overrides.items()
-        if key not in {"architectures", "hparams", "runs_dir", "wandb_project"}
+        if key not in RESERVED_CONFIG_KEYS
     }
     return {**STATIC_ARGS, **root_overrides, **backend_overrides}
 
@@ -213,6 +228,13 @@ def run_training(request: TrainingRequest) -> int:
     for arch in grid["architectures"]:
         for hparams in grid["hparams"]:
             full_args = {**base_args, **hparams}
+            filter_result = apply_dataset_filter_if_configured(
+                full_args.get("train_data"),
+                full_args,
+                config_path=request.config_path,
+            )
+            if filter_result is not None:
+                full_args["train_data"] = str(filter_result.output_dir)
             lr = full_args.get("learning_rate")
             epochs = full_args.get("num_train_epochs")
             dataset_path = full_args.get("train_data")
@@ -242,6 +264,8 @@ def run_training(request: TrainingRequest) -> int:
                 "True",
             ]
             for key, value in full_args.items():
+                if key in DATASET_FILTER_ARG_KEYS:
+                    continue
                 _append_training_arg(cmd, key, value)
 
             print(">>> LAUNCH:", " ".join(cmd), flush=True)

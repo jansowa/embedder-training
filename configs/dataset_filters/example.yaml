@@ -1,0 +1,21 @@
+name: pl_high_quality
+version: 1
+missing_policy: fail
+type_mismatch_policy: fail
+
+rules:
+  - field: features.ranks.cross_encoder_v1
+    op: gte
+    value: 0.8
+
+  - field: features.flags.is_synthetic
+    op: eq
+    value: false
+
+  - field: features.categories.language
+    op: in
+    values: ["pl", "en"]
+
+  - field: features.category_lists.domains
+    op: intersects
+    values: ["medical", "legal"]

@@ -18,6 +18,7 @@ from training.backends.registry import (
     normalize_training_type,
     validate_backend_training_type,
 )
+from training.config_grid import expand_config_grid
 
 
 class ConfigError(TrainingCliError):
@@ -134,15 +135,23 @@ def run_training(args: argparse.Namespace) -> int:
     backend, training_type = resolve_backend_and_training_type(args, config)
     spec = validate_backend_training_type(backend, training_type)
     backend_module = load_backend_module(spec)
-    request = TrainingRequest(
-        backend=backend,
-        training_type=training_type,
-        config=config,
-        config_path=args.config,
-        cli_args=args,
-    )
-    result = backend_module.run_training(request)
-    return 0 if result is None else int(result)
+    try:
+        configs = expand_config_grid(config, backend=backend, training_type=training_type)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+    for run_config in configs:
+        request = TrainingRequest(
+            backend=backend,
+            training_type=training_type,
+            config=run_config,
+            config_path=args.config,
+            cli_args=args,
+        )
+        result = backend_module.run_training(request)
+        if result is not None and int(result) != 0:
+            return int(result)
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -50,6 +50,7 @@ Main parameters:
 - `--remove-checkpoints`: remove `checkpoint-*` directories after a successful FlagEmbedding run.
 
 Available backends, installation variants, lazy-import behavior, SentenceTransformers dense/Matryoshka/SPLADE training, PyLate ColBERT training, extension-point training types, and smoke tests are documented in `docs/training-backends.md`.
+Declarative pre-training dataset filters can be configured with `dataset_filter`; the profile format, cache behavior, and filtered smoke test are also documented there.
 
 Minimal FlagEmbedding smoke test:
 ```shell

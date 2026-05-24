@@ -46,6 +46,7 @@ Training type 'splade' is not supported by backend 'pylate'. Supported types: co
 ```bash
 python -m training.train --backend flagembedding --training-type embedder --config configs/grid.yaml
 python -m training.train --backend sentence-transformers --training-type embedder --config configs/smoke_sentence_transformers_embedder.yaml
+python -m training.train --backend sentence-transformers --training-type embedder --config configs/smoke_sentence_transformers_filtered_embedder.yaml
 python -m training.train --backend sentence-transformers --training-type matryoshka --config configs/smoke_sentence_transformers_matryoshka.yaml
 python -m training.train --backend sentence-transformers --training-type splade --config configs/smoke_sentence_transformers_splade.yaml
 python -m training.train --backend pylate --training-type colbert --config configs/smoke_pylate_colbert.yaml
@@ -65,18 +66,30 @@ python -m training.train --backend flagembedding --training-type embedder --conf
 
 ## Configuration
 
-The existing `configs/grid.yaml` format is still supported:
+All backends support the same grid shape. The CLI expands `architectures` x
+`hparams` before it calls the selected backend. Each expanded architecture is
+exposed to the backend as `model_name_or_path`, and each hparams mapping is
+applied as per-run overrides.
 
 ```yaml
+backend: sentence-transformers
+training_type: splade
+runs_dir: runs/polish-splade
+train_data: ./dataset-small-no_in_batch_neg
+
 architectures:
-  - TaylorAI/bge-micro-v2
+  - sdadas/polish-distilroberta
+  - sdadas/polish-roberta-base-v2
 hparams:
-  - learning_rate: 8e-5
+  - learning_rate: 2e-6
     num_train_epochs: 1
-    train_data: ./dataset-beta0001-floor00005-no_in_batch_neg
+
+sentence_transformers:
+  train_batch_size: 1
+  negatives_per_query: 1
 ```
 
-You can also use shared fields and backend-specific sections:
+The existing `configs/grid.yaml` FlagEmbedding format is still supported:
 
 ```yaml
 backend: flagembedding
@@ -99,6 +112,9 @@ flagembedding:
 sentence_transformers: {}
 pylate: {}
 ```
+
+If a grid run does not set `output_dir`, SentenceTransformers and PyLate write
+each expanded run under `runs_dir/<backend>/<training_type>/<run-name>`.
 
 CLI values such as `--backend pylate --training-type colbert` override `backend` and `training_type` from YAML.
 
@@ -125,9 +141,12 @@ The CLI only overrides `backend` and `training_type`. All other training paramet
 | --- | --- | --- |
 | `backend` | All | Default backend if `--backend` is not provided. |
 | `training_type` | All | Default training type if `--training-type` is not provided. |
+| `architectures` | All | Optional grid list. Each value becomes `model_name_or_path` for one expanded run. |
+| `hparams` | All | Optional grid list of per-run overrides. Combined with every architecture. |
+| `runs_dir` | All | Base directory for grid output directories when `output_dir` is omitted. |
 | `train_data` | All | Dataset path. For SentenceTransformers and PyLate this can point to a directory containing `dataset.jsonl` or directly to a JSONL file. |
 | `output_dir` | SentenceTransformers, PyLate | Training output directory. The final model is saved under `output_dir/final`. |
-| `model_name_or_path` | SentenceTransformers, PyLate | Hugging Face model name or local model path. |
+| `model_name_or_path` | All | Hugging Face model name or local model path. Grid `architectures` values are expanded into this field. |
 | `max_steps` | SentenceTransformers, PyLate, FlagEmbedding | Maximum number of training steps. Smoke configs use `1`. |
 | `num_train_epochs` | All | Number of epochs when `max_steps` does not stop training earlier. |
 | `train_batch_size` / `per_device_train_batch_size` | All | Per-device training batch size. |
@@ -142,6 +161,8 @@ The CLI only overrides `backend` and `training_type`. All other training paramet
 | `dataloader_drop_last`, `dataloader_num_workers` | All | Dataloader settings. |
 | `report_to` | SentenceTransformers, PyLate | Reporting integrations, for example `[]` for smoke tests without W&B. |
 | `backend_config` | All | Shared backend override section. Backend-specific sections such as `sentence_transformers` take precedence over `backend_config`. |
+| `dataset_filter` | FlagEmbedding, SentenceTransformers | Optional YAML filter profile. The filtered dataset is materialized before training. |
+| `dataset_filter_cache_dir` | FlagEmbedding, SentenceTransformers | Optional cache root for materialized filtered datasets. Defaults to `cache/filtered_datasets`. |
 
 ### FlagEmbedding
 
@@ -228,11 +249,149 @@ SentenceTransformers and PyLate training use FlagEmbedding-style JSONL records:
 {"query": "...", "pos": ["..."], "neg": ["...", "..."]}
 ```
 
+For dataset filtering, the recommended metadata layout keeps the training fields unchanged and stores per-item metadata in parallel lists:
+
+```json
+{
+  "query": "co oznacza przegroda nosowa",
+  "pos": ["positive passage 1", "positive passage 2"],
+  "neg": ["negative passage 1", "negative passage 2"],
+  "features": {
+    "query": {
+      "categories": {"language": "pl"},
+      "flags": {"has_clean_query": true}
+    },
+    "pos": [
+      {"ranks": {"cross_encoder_v1": 0.91}},
+      {"ranks": {"cross_encoder_v1": 0.74}}
+    ],
+    "neg": [
+      {"ranks": {"hard_negative_score": 0.72}},
+      {"ranks": {"hard_negative_score": 0.35}}
+    ]
+  }
+}
+```
+
+`features.pos[i]` describes `pos[i]`, and `features.neg[i]` describes `neg[i]`. If present, these metadata lists must have the same length as their passage lists. Legacy parallel fields such as `pos_scores`, `neg_scores`, `pos_id`, and `neg_id` are also kept aligned when filters remove passages.
+
 Each positive passage creates a separate `anchor`/`positive` example. Offline negatives are forwarded as `negative_1`, `negative_2`, and so on. Dense SentenceTransformers training uses `MultipleNegativesRankingLoss`, so the model sees both in-batch negatives and offline negatives. `matryoshka` wraps the same loss with `MatryoshkaLoss`.
 
-`sentence-transformers + splade` uses the same loader, but loads a `SparseEncoder` and `SpladeLoss`. SPLADE needs a masked-LM model.
+`sentence-transformers + splade` uses the same loader, but builds `MLMTransformer + SpladePooling` inside a
+`SparseEncoder` and trains with `SpladeLoss`. This forces the fill-mask/MLM path that SPLADE needs.
 
 `pylate + colbert` and `pylate + late-interaction` use the same JSONL format. The backend loads `pylate.models.ColBERT`, trains with `pylate.losses.Contrastive`, and batches with `pylate.utils.ColBERTCollator`.
+
+## Dataset Filters
+
+Encoder-only FlagEmbedding and SentenceTransformers runs can filter the training JSONL before the backend sees it:
+
+```yaml
+train_data: smoke-data/filtering-smoke
+dataset_filter: configs/dataset_filters/example.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+```
+
+For FlagEmbedding grid runs, `dataset_filter` and `dataset_filter_cache_dir` can be set globally, under `backend_config`, under `flagembedding`, or inside an individual `hparams` entry. The `hparams` value wins. For SentenceTransformers, the filter can be top-level, under `backend_config`, or under `sentence_transformers`.
+
+The existing sample-level filter profile remains supported:
+
+```yaml
+name: pl_high_quality
+version: 1
+missing_policy: fail
+type_mismatch_policy: fail
+
+rules:
+  - field: features.ranks.cross_encoder_v1
+    op: gte
+    value: 0.8
+  - field: features.flags.is_synthetic
+    op: eq
+    value: false
+  - field: features.categories.language
+    op: in
+    values: ["pl", "en"]
+  - field: features.category_lists.domains
+    op: intersects
+    values: ["medical", "legal"]
+```
+
+Rules use dot-paths, so adding a new feature only requires a new path in YAML, for example `features.ranks.teacher_score` or `features.category_lists.retrievers`.
+
+Passage-level filters use `sample_rules`, `positive_rules`, and `negative_rules`:
+
+```yaml
+name: passage_level_quality
+version: 1
+missing_policy: fail
+type_mismatch_policy: fail
+min_positives: 1
+min_negatives: 1
+
+sample_rules:
+  - field: features.query.categories.language
+    op: in
+    values: ["pl", "en"]
+
+positive_rules:
+  - field: ranks.cross_encoder_v1
+    op: gte
+    value: 0.8
+
+negative_rules:
+  - field: ranks.hard_negative_score
+    op: gte
+    value: 0.6
+```
+
+`rules` is a backward-compatible alias for `sample_rules`. `positive_rules` are evaluated against one `features.pos[i]` object at a time, so their paths are relative to that object. `negative_rules` work the same way for `features.neg[i]`.
+
+When a passage-level rule removes a positive or negative, the filter trims the corresponding text list and the aligned metadata lists. If fewer than `min_positives` or `min_negatives` remain, the full sample is removed.
+
+See `configs/dataset_filters/example.yaml` for a sample-level profile and `configs/dataset_filters/passage_level_example.yaml` for a passage-level profile.
+
+Supported operators:
+
+| Kind | Operators |
+| --- | --- |
+| Numeric | `gt`, `gte`, `lt`, `lte`, `between` |
+| Equality | `eq`, `neq` |
+| Categorical | `in`, `not_in` |
+| Lists | `intersects`, `contains_any`, `contains_all`, `contains_none` |
+| Presence | `exists`, `missing` |
+
+Logical groups are supported and evaluated strictly:
+
+```yaml
+rules:
+  - any:
+      - field: features.ranks.cross_encoder_v1
+        op: gte
+        value: 0.8
+      - field: features.ranks.teacher_score
+        op: gte
+        value: 0.75
+    missing_policy: exclude
+```
+
+Because the default `missing_policy` is `fail`, every missing field used by a profile fails the run, even inside `any`. Use `missing_policy: exclude` or `include` on a rule/group when missing optional features are expected. `type_mismatch_policy` follows the same `fail | include | exclude` choices.
+
+Aggregates are available for list/map fields:
+
+```yaml
+rules:
+  - field: features.ranks
+    aggregate: max
+    op: gte
+    value: 0.85
+```
+
+Supported aggregates are `min`, `max`, `mean`, `sum`, and `count`.
+
+When `train_data` is a directory, filtering picks `dataset.jsonl`, then `mixed_dataset.jsonl`, then the first `*.jsonl`, matching the existing loader behavior. The output is always a directory containing `dataset.jsonl` plus `filter_report.json`, under `cache/filtered_datasets/<profile>-<hash>/` by default. The hash includes the input path, input JSONL contents, and canonical filter profile, so different filters do not overwrite each other.
+
+After filtering, the console reports the profile name, input path, output path, total/kept/removed counts, and missing/type mismatch counts per field. `filter_report.json` also includes positive/negative total, kept, and removed counts, plus samples removed by `min_positives` or `min_negatives`. On cache hits, the cached report is printed without re-filtering.
 
 ## Lazy Imports
 
@@ -298,6 +457,17 @@ deactivate
 ```
 
 Expected result: the script runs one dense SentenceTransformers training step and saves the model to `runs/smoke/sentence-transformers/final`.
+
+Filtered variant:
+
+```bash
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type embedder \
+  --config configs/smoke_sentence_transformers_filtered_embedder.yaml
+```
+
+Expected result: the script materializes a filtered dataset under `cache/filtered_datasets/`, runs one dense training step, and saves the model to `runs/smoke/sentence-transformers-filtered/final`.
 
 ### SentenceTransformers: Minimal Matryoshka Training
 

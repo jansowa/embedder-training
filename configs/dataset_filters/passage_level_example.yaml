@@ -1,0 +1,21 @@
+name: passage_level_quality
+version: 1
+missing_policy: fail
+type_mismatch_policy: fail
+min_positives: 1
+min_negatives: 1
+
+sample_rules:
+  - field: features.query.categories.language
+    op: in
+    values: ["pl", "en"]
+
+positive_rules:
+  - field: ranks.cross_encoder_v1
+    op: gte
+    value: 0.8
+
+negative_rules:
+  - field: ranks.hard_negative_score
+    op: gte
+    value: 0.6

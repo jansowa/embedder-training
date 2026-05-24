@@ -1,0 +1,14 @@
+backend: sentence-transformers
+training_type: embedder
+train_data: smoke-data/filtering-smoke
+dataset_filter: configs/dataset_filters/example.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+output_dir: runs/smoke/sentence-transformers-filtered
+
+sentence_transformers:
+  model_name_or_path: sentence-transformers-testing/stsb-bert-tiny-safetensors
+  max_steps: 1
+  train_batch_size: 1
+  negatives_per_query: 1
+  save_strategy: "no"
+  report_to: []

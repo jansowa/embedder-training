@@ -1,0 +1,26 @@
+backend: sentence-transformers
+training_type: splade
+runs_dir: runs/polish-splade-dataset-small-lr2e-6
+train_data: dataset-small-no_in_batch_neg
+
+architectures:
+  - sdadas/polish-distilroberta
+  - sdadas/polish-roberta-base-v2
+  # This checkpoint is published as BertModel/feature-extraction, so SPLADE can
+  # construct a MaskedLM head, but the head may not load pretrained weights.
+  - allegro/herbert-base-cased
+
+hparams:
+  - learning_rate: 2e-6
+    num_train_epochs: 1
+
+sentence_transformers:
+  train_batch_size: 1
+  negatives_per_query: 1
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 2
+  report_to:
+    - wandb
+  document_regularizer_weight: 0.00003
+  query_regularizer_weight: 0.00005

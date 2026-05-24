@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 from typing import Any
 
 from training.backends.registry import BackendDependencyError, TrainingRequest
+from training.dataset_filters import apply_dataset_filter_if_configured
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -96,12 +98,28 @@ def _load_sparse_sentence_transformers():
             SparseMultipleNegativesRankingLoss,
             SpladeLoss,
         )
+        try:
+            from sentence_transformers.sparse_encoder.models import MLMTransformer, SpladePooling
+        except (ImportError, ModuleNotFoundError):
+            from sentence_transformers.sparse_encoder.modules import (
+                SpladePooling,
+                Transformer as MLMTransformer,
+            )
     except ModuleNotFoundError as exc:
         raise BackendDependencyError(
             "Backend 'sentence-transformers' with training type 'splade' requires the sparse encoder stack. "
             "Install it with: pip install -r requirements/requirements-sentence-transformers.txt"
         ) from exc
-    return Dataset, SparseEncoder, SparseEncoderTrainer, SparseEncoderTrainingArguments, SparseMultipleNegativesRankingLoss, SpladeLoss
+    return (
+        Dataset,
+        SparseEncoder,
+        SparseEncoderTrainer,
+        SparseEncoderTrainingArguments,
+        SparseMultipleNegativesRankingLoss,
+        SpladeLoss,
+        MLMTransformer,
+        SpladePooling,
+    )
 
 
 def _dict_section(config: dict[str, Any], key: str) -> dict[str, Any]:
@@ -120,10 +138,19 @@ def _resolve_value(config: dict[str, Any], backend_config: dict[str, Any], key: 
     return config.get(key, default)
 
 
-def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any]) -> Path:
+def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any], *, config_path: str | None = None) -> Path:
     train_data = _resolve_value(config, backend_config, "train_data")
     if not train_data:
         raise SentenceTransformersConfigError("SentenceTransformers training requires 'train_data'.")
+
+    filter_result = apply_dataset_filter_if_configured(
+        train_data,
+        config,
+        backend_config,
+        config_path=config_path,
+    )
+    if filter_result is not None:
+        return filter_result.output_path
 
     path = Path(str(train_data))
     if path.is_dir():
@@ -251,8 +278,10 @@ def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
 def _load_training_rows(
     config: dict[str, Any],
     backend_config: dict[str, Any],
+    *,
+    config_path: str | None = None,
 ) -> tuple[Path, list[dict[str, str]]]:
-    data_path = _resolve_train_data_path(config, backend_config)
+    data_path = _resolve_train_data_path(config, backend_config, config_path=config_path)
     negatives_per_query = backend_config.get("negatives_per_query")
     if negatives_per_query is not None:
         negatives_per_query = int(negatives_per_query)
@@ -277,6 +306,38 @@ def _load_training_rows(
 def _build_dense_model(SentenceTransformer: Any, model_name_or_path: str, backend_config: dict[str, Any]):
     model = SentenceTransformer(str(model_name_or_path), **_model_kwargs(backend_config))
     max_seq_length = backend_config.get("max_seq_length")
+    if max_seq_length is not None:
+        model.max_seq_length = int(max_seq_length)
+    return model
+
+
+def _build_splade_model(
+    SparseEncoder: Any,
+    MLMTransformer: Any,
+    SpladePooling: Any,
+    model_name_or_path: str,
+    backend_config: dict[str, Any],
+):
+    model_kwargs = _model_kwargs(backend_config)
+    max_seq_length = backend_config.get("max_seq_length")
+    signature = inspect.signature(MLMTransformer)
+    parameters = signature.parameters
+    accepts_kwargs = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values())
+
+    mlm_kwargs: dict[str, Any] = {}
+    if model_kwargs and "model_args" in parameters:
+        mlm_kwargs["model_args"] = model_kwargs
+    elif model_kwargs and "model_kwargs" in parameters:
+        mlm_kwargs["model_kwargs"] = model_kwargs
+    elif model_kwargs and accepts_kwargs:
+        mlm_kwargs["model_args"] = model_kwargs
+    if "transformer_task" in parameters:
+        mlm_kwargs["transformer_task"] = "fill-mask"
+    if max_seq_length is not None and ("max_seq_length" in parameters or accepts_kwargs):
+        mlm_kwargs["max_seq_length"] = int(max_seq_length)
+
+    mlm_transformer = MLMTransformer(str(model_name_or_path), **mlm_kwargs)
+    model = SparseEncoder(modules=[mlm_transformer, SpladePooling(pooling_strategy="max")])
     if max_seq_length is not None:
         model.max_seq_length = int(max_seq_length)
     return model
@@ -334,7 +395,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers")))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    data_path, rows = _load_training_rows(config, backend_config)
+    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
 
     model = _build_dense_model(SentenceTransformer, str(model_name_or_path), backend_config)
@@ -382,7 +443,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-matryoshka")))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    data_path, rows = _load_training_rows(config, backend_config)
+    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
     model = _build_dense_model(SentenceTransformer, str(model_name_or_path), backend_config)
     args = _training_args(output_dir, backend_config, SentenceTransformerTrainingArguments)
@@ -427,6 +488,8 @@ def run_splade_training(request: TrainingRequest) -> int:
         SparseEncoderTrainingArguments,
         SparseMultipleNegativesRankingLoss,
         SpladeLoss,
+        MLMTransformer,
+        SpladePooling,
     ) = _load_sparse_sentence_transformers()
 
     config = request.config
@@ -440,12 +503,9 @@ def run_splade_training(request: TrainingRequest) -> int:
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-splade")))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    data_path, rows = _load_training_rows(config, backend_config)
+    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
-    model = SparseEncoder(str(model_name_or_path), **_model_kwargs(backend_config))
-    max_seq_length = backend_config.get("max_seq_length")
-    if max_seq_length is not None:
-        model.max_seq_length = int(max_seq_length)
+    model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
 
     args = _training_args(output_dir, backend_config, SparseEncoderTrainingArguments)
     ranking_loss = SparseMultipleNegativesRankingLoss(
