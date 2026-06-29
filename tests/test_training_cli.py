@@ -135,6 +135,72 @@ def test_shared_grid_expands_for_sentence_transformers(tmp_path):
     assert variants[1]["model_name_or_path"] == "allegro/herbert-base-cased"
 
 
+def test_grid_can_append_timestamp_to_output_dirs(monkeypatch, tmp_path):
+    import training.config_grid as config_grid
+
+    monkeypatch.setattr(config_grid, "_timestamp_slug", lambda: "20260525-101112")
+
+    variants = config_grid.expand_config_grid(
+        {
+            "backend": "sentence-transformers",
+            "training_type": "splade",
+            "runs_dir": str(tmp_path / "runs"),
+            "timestamp_output_dir": True,
+            "architectures": ["sdadas/polish-distilroberta"],
+            "hparams": [{"learning_rate": 2e-6, "num_train_epochs": 1}],
+            "sentence_transformers": {},
+        },
+        backend="sentence-transformers",
+        training_type="splade",
+    )
+
+    assert variants[0]["run_timestamp"] == "20260525-101112"
+    assert variants[0]["run_name"].endswith("-20260525-101112")
+    assert variants[0]["output_dir"].endswith("sdadas_polish-distilroberta-lr-2e-06-ep-1-20260525-101112")
+    assert variants[0]["sentence_transformers"]["output_dir"] == variants[0]["output_dir"]
+
+
+def test_grid_run_names_include_distinct_hparams(monkeypatch, tmp_path):
+    import training.config_grid as config_grid
+
+    monkeypatch.setattr(config_grid, "_timestamp_slug", lambda: "20260525-101112")
+
+    variants = config_grid.expand_config_grid(
+        {
+            "backend": "sentence-transformers",
+            "training_type": "splade",
+            "runs_dir": str(tmp_path / "runs"),
+            "timestamp_output_dir": True,
+            "architectures": ["sdadas/polish-distilroberta"],
+            "hparams": [
+                {
+                    "learning_rate": 2e-6,
+                    "num_train_epochs": 1,
+                    "loss": "sparse_multiple_negatives_ranking",
+                    "document_regularizer_weight": 0.0003,
+                },
+                {
+                    "learning_rate": 2e-6,
+                    "num_train_epochs": 1,
+                    "loss": "sparse_margin_mse",
+                    "document_regularizer_weight": 0.0003,
+                    "score_normalization": "per_query_minmax",
+                },
+            ],
+            "sentence_transformers": {},
+        },
+        backend="sentence-transformers",
+        training_type="splade",
+    )
+
+    assert len({variant["run_name"] for variant in variants}) == 2
+    assert len({variant["output_dir"] for variant in variants}) == 2
+    assert "loss-sparse_multiple_negatives_ranking" in variants[0]["run_name"]
+    assert "loss-sparse_margin_mse" in variants[1]["run_name"]
+    assert "docreg-0_0003" in variants[1]["run_name"]
+    assert variants[1]["sentence_transformers"]["score_normalization"] == "per_query_minmax"
+
+
 def test_run_training_expands_grid_before_backend_call(monkeypatch, tmp_path):
     import training.train as train
 
@@ -328,6 +394,74 @@ def test_sentence_transformers_dataset_loader_expands_flagembedding_jsonl(tmp_pa
             "negative_2": "passage: negative two",
         },
     ]
+
+
+def test_sentence_transformers_dataset_loader_uses_score_labels_for_margin_mse(tmp_path):
+    from training.backends.sentence_transformers_backend import load_flagembedding_jsonl_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    data_file.write_text(
+        json.dumps(
+            {
+                "query": "question",
+                "pos": ["positive one"],
+                "neg": ["negative one", "negative two"],
+                "pos_scores": [27.0],
+                "neg_scores": [17.75, 16.5],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = load_flagembedding_jsonl_dataset(
+        data_file,
+        negatives_per_query=2,
+        query_prefix="",
+        passage_prefix="",
+        use_score_labels=True,
+        score_normalization="none",
+    )
+
+    assert rows == [
+        {
+            "anchor": "question",
+            "positive": "positive one",
+            "negative_1": "negative one",
+            "negative_2": "negative two",
+            "label": [9.25, 10.5],
+        }
+    ]
+
+
+def test_sentence_transformers_dataset_loader_can_normalize_score_labels(tmp_path):
+    from training.backends.sentence_transformers_backend import load_flagembedding_jsonl_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    data_file.write_text(
+        json.dumps(
+            {
+                "query": "question",
+                "pos": ["positive one"],
+                "neg": ["negative one", "negative two"],
+                "pos_scores": [100.0],
+                "neg_scores": [80.0, 60.0],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = load_flagembedding_jsonl_dataset(
+        data_file,
+        negatives_per_query=2,
+        query_prefix="",
+        passage_prefix="",
+        use_score_labels=True,
+        score_normalization="per_query_minmax",
+    )
+
+    assert rows[0]["label"] == [0.5, 1.0]
 
 
 def test_dataset_filter_gte_rank(tmp_path):
@@ -1151,6 +1285,10 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
         def __init__(self, model, scale, gather_across_devices):
             self.model = model
 
+    class FakeSparseMarginMSELoss:
+        def __init__(self, model):
+            self.model = model
+
     class FakeSpladeLoss:
         def __init__(self, model, loss, document_regularizer_weight, query_regularizer_weight):
             calls["regularizers"] = (document_regularizer_weight, query_regularizer_weight)
@@ -1179,6 +1317,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
             FakeSparseEncoder,
             FakeTrainer,
             FakeArgs,
+            FakeSparseMarginMSELoss,
             FakeSparseRankingLoss,
             FakeSpladeLoss,
             FakeMLMTransformer,
@@ -1200,6 +1339,8 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
                 "run_name": "tiny-grid-run",
                 "max_steps": 1,
                 "train_batch_size": 1,
+                "gradient_accumulation_steps": 4,
+                "gradient_checkpointing": True,
                 "report_to": ["wandb"],
                 "document_regularizer_weight": 0.1,
                 "query_regularizer_weight": 0.2,
@@ -1219,7 +1360,229 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
     assert calls["modules"][1].pooling_strategy == "max"
     assert calls["args"].kwargs["run_name"] == "tiny-grid-run"
     assert calls["args"].kwargs["report_to"] == ["wandb"]
+    assert calls["args"].kwargs["per_device_train_batch_size"] == 1
+    assert calls["args"].kwargs["gradient_accumulation_steps"] == 4
+    assert calls["args"].kwargs["gradient_checkpointing"] is True
     assert calls["wandb_finished"] is True
+
+
+def test_sentence_transformers_splade_can_use_margin_mse_scores(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "dataset.jsonl").write_text(
+        json.dumps(
+            {
+                "query": "q",
+                "pos": ["p"],
+                "neg": ["n1", "n2"],
+                "pos_scores": [10.0],
+                "neg_scores": [7.0, 4.0],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "out"
+    calls = {}
+
+    class FakeDataset:
+        @classmethod
+        def from_list(cls, rows):
+            calls["rows"] = rows
+            return rows
+
+    class FakeMLMTransformer:
+        def __init__(self, model_name_or_path, **kwargs):
+            pass
+
+    class FakeSpladePooling:
+        def __init__(self, pooling_strategy):
+            pass
+
+    class FakeSparseEncoder:
+        def __init__(self, modules):
+            pass
+
+        def save_pretrained(self, output_path):
+            pass
+
+    class FakeArgs:
+        def __init__(self, **kwargs):
+            pass
+
+    class FakeSparseMarginMSELoss:
+        def __init__(self, model):
+            calls["base_loss"] = "margin"
+
+    class FakeSparseRankingLoss:
+        def __init__(self, model, scale, gather_across_devices):
+            calls["base_loss"] = "mnrl"
+
+    class FakeSpladeLoss:
+        def __init__(self, model, loss, document_regularizer_weight, query_regularizer_weight):
+            pass
+
+    class FakeTrainer:
+        def __init__(self, model, args, train_dataset, loss):
+            pass
+
+        def train(self):
+            pass
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sparse_sentence_transformers",
+        lambda: (
+            FakeDataset,
+            FakeSparseEncoder,
+            FakeTrainer,
+            FakeArgs,
+            FakeSparseMarginMSELoss,
+            FakeSparseRankingLoss,
+            FakeSpladeLoss,
+            FakeMLMTransformer,
+            FakeSpladePooling,
+        ),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={
+            "train_data": str(data_dir),
+            "output_dir": str(output_dir),
+            "sentence_transformers": {
+                "model_name_or_path": "tiny-mlm",
+                "loss": "sparse_margin_mse",
+                "score_normalization": "none",
+                "negatives_per_query": 2,
+            },
+        },
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert calls["base_loss"] == "margin"
+    assert calls["rows"][0]["label"] == [3.0, 6.0]
+
+
+def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "dataset.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"query": "q1", "pos": ["p1"], "neg": ["n1"]}),
+                json.dumps({"query": "q2", "pos": ["p2"], "neg": ["n2"]}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "out"
+    callbacks = []
+
+    class FakeDataset:
+        @classmethod
+        def from_list(cls, rows):
+            return rows
+
+    class FakeMLMTransformer:
+        def __init__(self, model_name_or_path, **kwargs):
+            pass
+
+    class FakeSpladePooling:
+        def __init__(self, pooling_strategy):
+            pass
+
+    class FakeSparseEncoder:
+        def __init__(self, modules):
+            pass
+
+        def save_pretrained(self, output_path):
+            pass
+
+    class FakeArgs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeSparseRankingLoss:
+        def __init__(self, model, scale, gather_across_devices):
+            pass
+
+    class FakeSparseMarginMSELoss:
+        def __init__(self, model):
+            pass
+
+    class FakeSpladeLoss:
+        def __init__(self, model, loss, document_regularizer_weight, query_regularizer_weight):
+            pass
+
+    class FakeTrainer:
+        def __init__(self, model, args, train_dataset, loss):
+            pass
+
+        def add_callback(self, callback):
+            callbacks.append(callback)
+
+        def train(self):
+            pass
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sparse_sentence_transformers",
+        lambda: (
+            FakeDataset,
+            FakeSparseEncoder,
+            FakeTrainer,
+            FakeArgs,
+            FakeSparseMarginMSELoss,
+            FakeSparseRankingLoss,
+            FakeSpladeLoss,
+            FakeMLMTransformer,
+            FakeSpladePooling,
+        ),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={
+            "train_data": str(data_dir),
+            "output_dir": str(output_dir),
+            "sentence_transformers": {
+                "model_name_or_path": "tiny-mlm",
+                "max_steps": 1,
+                "train_batch_size": 1,
+                "splade_activation_stats": {
+                    "enabled": True,
+                    "sample_size": 2,
+                    "batch_size": 1,
+                    "interval_steps": 10,
+                    "include_negatives": True,
+                },
+            },
+        },
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert len(callbacks) == 1
+    callback = callbacks[0]
+    assert callback.query_texts == ["q1", "q2"]
+    assert callback.document_texts == ["p1", "n2"]
+    assert callback.batch_size == 1
+    assert callback.interval_steps == 10
+    assert callback.quantization_factor == 100
+    assert callback.on_epoch_begin(None, SimpleNamespace(global_step=0), "control") == "control"
 
 
 def test_sentence_transformers_splade_processor_fallback_uses_tokenizer(monkeypatch):
@@ -1380,3 +1743,70 @@ def test_run_experiments_train_mode_delegates_to_new_cli(monkeypatch):
     assert "embedder" in cmd
     assert "--run-pirb" in cmd
     assert "--remove-checkpoints" in cmd
+
+
+def test_benchmark_target_accepts_wsl_path_on_windows(monkeypatch):
+    import run_experiments
+
+    monkeypatch.setattr(run_experiments.os, "name", "nt")
+
+    target = run_experiments.parse_benchmark_target(
+        "/mnt/c/work/embedder-training-v2/runs/model/final::",
+        default_qi="",
+    )
+
+    assert target.model_or_path == r"C:\work\embedder-training-v2\runs\model\final"
+
+
+def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
+    import convert_utils
+
+    model_dir = tmp_path / "splade-model"
+    model_dir.mkdir()
+    (model_dir / "config_sentence_transformers.json").write_text(
+        json.dumps({"model_type": "SparseEncoder"}),
+        encoding="utf-8",
+    )
+
+    calls = {}
+
+    def fake_run(cmd, check, cwd):
+        calls["cmd"] = cmd
+        calls["check"] = check
+        calls["cwd"] = cwd
+        results_path = Path(cmd[cmd.index("--results_json") + 1])
+        results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 1.0}]}), encoding="utf-8")
+
+    monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
+
+    metrics = convert_utils.run_pirb(str(model_dir), query_instruction_for_retrieval="Pytanie: ", scope="tiny")
+
+    models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
+    cfg = json.loads(models_config.read_text(encoding="utf-8"))
+    assert calls["check"] is True
+    assert cfg[0]["type"] == "splade"
+    assert cfg[0]["q_prefix"] == "Pytanie: "
+    assert metrics == {"pirb_average_ndcg@10": 1.0}
+
+
+def test_run_pirb_keeps_dense_config_without_sparse_marker(monkeypatch, tmp_path):
+    import convert_utils
+
+    model_dir = tmp_path / "dense-model"
+    model_dir.mkdir()
+    (model_dir / "modules.json").write_text(json.dumps([]), encoding="utf-8")
+
+    calls = {}
+
+    def fake_run(cmd, check, cwd):
+        calls["cmd"] = cmd
+        results_path = Path(cmd[cmd.index("--results_json") + 1])
+        results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 2.0}]}), encoding="utf-8")
+
+    monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
+
+    convert_utils.run_pirb(str(model_dir), query_instruction_for_retrieval="", scope="tiny")
+
+    models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
+    cfg = json.loads(models_config.read_text(encoding="utf-8"))
+    assert "type" not in cfg[0]

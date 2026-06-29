@@ -9,6 +9,22 @@ import sys
 WANDB_PROJECT = os.getenv("WANDB_PROJECT", "mining-tests")
 
 
+def normalize_local_model_path(model_or_path: str) -> str:
+    """
+    Accept WSL-style /mnt/<drive>/... paths when the launcher runs on Windows.
+    """
+    if os.name != "nt":
+        return model_or_path
+    prefix = "/mnt/"
+    if not model_or_path.startswith(prefix) or len(model_or_path) < len(prefix) + 2:
+        return model_or_path
+    drive = model_or_path[len(prefix)]
+    if not drive.isalpha() or model_or_path[len(prefix) + 1] != "/":
+        return model_or_path
+    rest = model_or_path[len(prefix) + 2 :].replace("/", "\\")
+    return f"{drive.upper()}:\\{rest}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Grid launcher for training and benchmarks.")
     parser.add_argument(
@@ -126,7 +142,11 @@ def parse_benchmark_target(raw, default_qi):
         model_part = raw.strip()
         qi_part = default_qi
 
-    return BenchmarkTarget(raw=raw, model_or_path=model_part, query_instruction=qi_part)
+    return BenchmarkTarget(
+        raw=raw,
+        model_or_path=normalize_local_model_path(model_part),
+        query_instruction=qi_part,
+    )
 
 
 def iter_benchmark_targets_from_args(args):

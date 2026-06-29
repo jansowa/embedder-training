@@ -102,6 +102,36 @@ def is_sentence_transformer_dir(model_dir: str) -> bool:
     return (p / "modules.json").exists() or (p / "config_sentence_transformers.json").exists()
 
 
+def is_sparse_sentence_transformer_dir(model_dir: str) -> bool:
+    """
+    Check whether a local SentenceTransformers directory contains a SparseEncoder.
+    """
+    p = Path(model_dir)
+    cfg_path = p / "config_sentence_transformers.json"
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            cfg = {}
+        if cfg.get("model_type") == "SparseEncoder":
+            return True
+
+    modules_path = p / "modules.json"
+    if not modules_path.exists():
+        return False
+    try:
+        modules = json.loads(modules_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(modules, list):
+        return False
+    return any(
+        isinstance(module, dict)
+        and "sparse_encoder" in str(module.get("type", "")).lower()
+        for module in modules
+    )
+
+
 def ensure_sentence_transformer(
     model_name_or_path: str,
     cache_dir: str = "./cache/sentence-transformers",
@@ -203,7 +233,13 @@ def run_mteb(st_dir: str, tasks, batch_size: int=64):
 
 
 
-def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: int=512, scope: str = "tiny") -> dict[str, float]:
+def run_pirb(
+    st_dir: str,
+    query_instruction_for_retrieval: str,
+    max_seq_length: int = 512,
+    scope: str = "tiny",
+    model_type: str | None = None,
+) -> dict[str, float]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
 
@@ -211,14 +247,23 @@ def run_pirb(st_dir: str, query_instruction_for_retrieval: str, max_seq_length: 
     models_cfg = tmpdir / "models_config.json"
     results_json = tmpdir / "results.json"
 
-    cfg = [{
+    # if model_type is None and Path(st_dir).exists() and is_sparse_sentence_transformer_dir(st_dir):
+    #     model_type = "splade"
+
+    cfg_entry = {
         "name": st_dir,
-        "bf16": True,
+        # "bf16": True,
+        "fp16": True,
+        "type": "splade",
         "max_seq_length": max_seq_length,
         "q_prefix": query_instruction_for_retrieval,
         "rm": True,
         "trust_remote_code": True
-    }]
+    }
+    # if model_type:
+    #     cfg_entry["type"] = model_type
+
+    cfg = [cfg_entry]
     models_cfg.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
     script_path = Path(pirb_run_benchmark_path).resolve()

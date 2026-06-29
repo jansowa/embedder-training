@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +17,32 @@ BACKEND_SECTION_KEYS = {
 }
 
 GRID_KEYS = {"architectures", "hparams"}
+
+HPARAM_SLUG_LABELS = {
+    "learning_rate": "lr",
+    "num_train_epochs": "ep",
+    "train_data": "data",
+    "max_steps": "steps",
+    "loss": "loss",
+    "document_regularizer_weight": "docreg",
+    "query_regularizer_weight": "qreg",
+    "score_normalization": "score-norm",
+}
+
+HPARAM_SLUG_ORDER = (
+    "learning_rate",
+    "num_train_epochs",
+    "max_steps",
+    "loss",
+    "document_regularizer_weight",
+    "query_regularizer_weight",
+    "score_normalization",
+    "train_data",
+)
+
+
+def _timestamp_slug() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 def _dict_section(config: dict[str, Any], key: str) -> dict[str, Any]:
@@ -41,6 +70,14 @@ def _as_hparams_list(value: Any) -> list[dict[str, Any]]:
     return [dict(item) for item in value]
 
 
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
 def _first_config_value(config: dict[str, Any], backend: str, key: str) -> Any:
     backend_section_key = BACKEND_SECTION_KEYS.get(backend)
     for section in (
@@ -65,12 +102,29 @@ def _safe_slug(value: Any) -> str:
     return cleaned or "run"
 
 
+def _hparam_value_slug(value: Any) -> str:
+    if isinstance(value, (dict, list, tuple)):
+        raw = json.dumps(value, ensure_ascii=True, sort_keys=True)
+    else:
+        raw = str(value)
+    slug = _safe_slug(raw)
+    if len(slug) <= 80:
+        return slug
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:10]
+    return f"{slug[:69].rstrip('-_')}-{digest}"
+
+
+def _hparam_slug_keys(hparams: dict[str, Any]) -> list[str]:
+    ordered = [key for key in HPARAM_SLUG_ORDER if key in hparams]
+    ordered.extend(sorted(key for key in hparams if key not in HPARAM_SLUG_ORDER))
+    return ordered
+
+
 def _hparam_slug(hparams: dict[str, Any]) -> str:
     parts = []
-    for key in ("learning_rate", "num_train_epochs", "train_data"):
-        if key in hparams:
-            label = {"learning_rate": "lr", "num_train_epochs": "ep", "train_data": "data"}[key]
-            parts.append(f"{label}-{_safe_slug(hparams[key])}")
+    for key in _hparam_slug_keys(hparams):
+        label = HPARAM_SLUG_LABELS.get(key, _safe_slug(key))
+        parts.append(f"{label}-{_hparam_value_slug(hparams[key])}")
     if parts:
         return "-".join(parts)
     return "default"
@@ -131,6 +185,8 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
     total_variants = len(architectures) * len(hparams)
     root_output_dir = _first_config_value(config, backend, "output_dir")
     runs_dir = _first_config_value(config, backend, "runs_dir") or "runs"
+    timestamp_output_dir = _as_bool(_first_config_value(config, backend, "timestamp_output_dir"))
+    run_timestamp = _timestamp_slug() if timestamp_output_dir else None
 
     for architecture in architectures:
         for hparam in hparams:
@@ -144,12 +200,18 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
             variant["grid_architecture"] = architecture
             variant["grid_hparams"] = dict(hparam)
             variant["run_name"] = _run_slug(architecture, hparam)
+            if run_timestamp is not None:
+                variant["run_timestamp"] = run_timestamp
+                variant["run_name"] = f"{variant['run_name']}-{run_timestamp}"
             variant["backend"] = backend
             variant["training_type"] = training_type
             _set_backend_override(variant, backend, overrides)
 
-            if "output_dir" not in hparam:
-                if root_output_dir is not None and total_variants > 1:
+            if "output_dir" in hparam and timestamp_output_dir:
+                variant["output_dir"] = str(Path(str(hparam["output_dir"])) / variant["run_name"])
+                _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
+            elif "output_dir" not in hparam:
+                if root_output_dir is not None and (total_variants > 1 or timestamp_output_dir):
                     variant["output_dir"] = str(Path(str(root_output_dir)) / variant["run_name"])
                     _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
                 elif root_output_dir is None:

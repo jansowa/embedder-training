@@ -1,1 +1,2 @@
 sentence-transformers>=5.0.0
+FlagEmbedding==1.3.5
