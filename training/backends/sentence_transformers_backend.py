@@ -719,7 +719,9 @@ def _load_training_rows(
     backend_config: dict[str, Any],
     *,
     config_path: str | None = None,
-) -> tuple[Path, list[dict[str, str]]]:
+    use_score_labels: bool = False,
+    score_normalization: str = "none",
+) -> tuple[Path, list[dict[str, Any]]]:
     data_path = _resolve_train_data_path(config, backend_config, config_path=config_path)
     negatives_per_query = backend_config.get("negatives_per_query")
     if negatives_per_query is not None:
@@ -732,15 +734,14 @@ def _load_training_rows(
         or ""
     )
     passage_prefix = str(backend_config.get("passage_prefix", "") or "")
-    loss_name = _splade_base_loss_name(backend_config)
 
     rows = load_flagembedding_jsonl_dataset(
         data_path,
         negatives_per_query=negatives_per_query,
         query_prefix=query_prefix,
         passage_prefix=passage_prefix,
-        use_score_labels=loss_name == "sparse_margin_mse",
-        score_normalization=str(backend_config.get("score_normalization", "none")),
+        use_score_labels=use_score_labels,
+        score_normalization=score_normalization,
     )
     return data_path, rows
 
@@ -968,12 +969,18 @@ def run_splade_training(request: TrainingRequest) -> int:
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-splade")))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
+    loss_name = _splade_base_loss_name(backend_config)
+    data_path, rows = _load_training_rows(
+        config,
+        backend_config,
+        config_path=request.config_path,
+        use_score_labels=loss_name == "sparse_margin_mse",
+        score_normalization=str(backend_config.get("score_normalization", "none")),
+    )
     train_dataset = Dataset.from_list(rows)
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
 
     args = _training_args(output_dir, backend_config, SparseEncoderTrainingArguments)
-    loss_name = _splade_base_loss_name(backend_config)
     if loss_name == "sparse_margin_mse":
         ranking_loss = SparseMarginMSELoss(model)
     else:

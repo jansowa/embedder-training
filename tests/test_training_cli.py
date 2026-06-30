@@ -1037,6 +1037,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
                 "train_batch_size": 1,
                 "negatives_per_query": 1,
                 "max_seq_length": 64,
+                "loss": "dense_only_loss",
                 "save_strategy": "no",
             },
         },

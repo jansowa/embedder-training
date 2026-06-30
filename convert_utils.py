@@ -247,21 +247,20 @@ def run_pirb(
     models_cfg = tmpdir / "models_config.json"
     results_json = tmpdir / "results.json"
 
-    # if model_type is None and Path(st_dir).exists() and is_sparse_sentence_transformer_dir(st_dir):
-    #     model_type = "splade"
+    if model_type is None and Path(st_dir).exists() and is_sparse_sentence_transformer_dir(st_dir):
+        model_type = "splade"
 
     cfg_entry = {
         "name": st_dir,
         # "bf16": True,
         "fp16": True,
-        "type": "splade",
         "max_seq_length": max_seq_length,
         "q_prefix": query_instruction_for_retrieval,
         "rm": True,
         "trust_remote_code": True
     }
-    # if model_type:
-    #     cfg_entry["type"] = model_type
+    if model_type:
+        cfg_entry["type"] = model_type
 
     cfg = [cfg_entry]
     models_cfg.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
