@@ -197,6 +197,7 @@ Shared parameters for `embedder`, `matryoshka`, and `splade`:
 | `sentence_transformers.train_data` | Overrides top-level `train_data`. |
 | `sentence_transformers.output_dir` | Overrides top-level `output_dir`. |
 | `sentence_transformers.negatives_per_query` | Number of offline negatives read from `neg`. If omitted, the backend uses the minimum negative count shared by all dataset rows. |
+| `sentence_transformers.batch_sampler` | Optional SentenceTransformers batch sampler. Use `no_duplicates` with MultipleNegativesRanking losses to keep duplicate texts, including repeated queries from multi-positive rows, out of the same mini-batch. |
 | `sentence_transformers.query_prefix` | Prefix added to `query` while loading the dataset. |
 | `sentence_transformers.passage_prefix` | Prefix added to `pos` and `neg` while loading the dataset. |
 | `sentence_transformers.max_seq_length` | Model maximum sequence length. |

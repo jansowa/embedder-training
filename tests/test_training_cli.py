@@ -1339,6 +1339,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
                 "run_name": "tiny-grid-run",
                 "max_steps": 1,
                 "train_batch_size": 1,
+                "batch_sampler": "no_duplicates",
                 "gradient_accumulation_steps": 4,
                 "gradient_checkpointing": True,
                 "report_to": ["wandb"],
@@ -1361,6 +1362,7 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
     assert calls["args"].kwargs["run_name"] == "tiny-grid-run"
     assert calls["args"].kwargs["report_to"] == ["wandb"]
     assert calls["args"].kwargs["per_device_train_batch_size"] == 1
+    assert calls["args"].kwargs["batch_sampler"] == "no_duplicates"
     assert calls["args"].kwargs["gradient_accumulation_steps"] == 4
     assert calls["args"].kwargs["gradient_checkpointing"] is True
     assert calls["wandb_finished"] is True

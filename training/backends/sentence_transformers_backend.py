@@ -17,6 +17,7 @@ class SentenceTransformersConfigError(ValueError):
 
 
 COMMON_TRAINING_KEYS = {
+    "batch_sampler",
     "bf16",
     "dataloader_drop_last",
     "dataloader_num_workers",
@@ -50,6 +51,17 @@ COMMON_TRAINING_KEYS = {
     "trust_remote_code",
     "warmup_ratio",
     "weight_decay",
+}
+
+BATCH_SAMPLER_ALIASES = {
+    "batch_sampler": "batch_sampler",
+    "default": "batch_sampler",
+    "group_by_label": "group_by_label",
+    "group-by-label": "group_by_label",
+    "no_duplicate": "no_duplicates",
+    "no-duplicate": "no_duplicates",
+    "no_duplicates": "no_duplicates",
+    "no-duplicates": "no_duplicates",
 }
 
 
@@ -145,6 +157,28 @@ def _resolve_value(config: dict[str, Any], backend_config: dict[str, Any], key: 
     if key in backend_config:
         return backend_config[key]
     return config.get(key, default)
+
+
+def _accepts_kwarg(callable_obj: Any, key: str) -> bool:
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    parameters = signature.parameters
+    return key in parameters or any(param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values())
+
+
+def _normalize_batch_sampler(value: Any) -> str:
+    raw_value = getattr(value, "value", value)
+    normalized = str(raw_value).strip().lower()
+    normalized = normalized.replace("batchsamplers.", "").replace("batchsampler.", "")
+    normalized = normalized.replace(" ", "_")
+    batch_sampler = BATCH_SAMPLER_ALIASES.get(normalized)
+    if batch_sampler is None:
+        raise SentenceTransformersConfigError(
+            "'sentence_transformers.batch_sampler' must be one of: batch_sampler, no_duplicates, group_by_label."
+        )
+    return batch_sampler
 
 
 def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any], *, config_path: str | None = None) -> Path:
@@ -349,6 +383,13 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
         "dataloader_num_workers": int(backend_config.get("dataloader_num_workers", 0)),
         "report_to": backend_config.get("report_to", []),
     }
+    if backend_config.get("batch_sampler") is not None:
+        if not _accepts_kwarg(training_arguments_cls, "batch_sampler"):
+            raise SentenceTransformersConfigError(
+                "'sentence_transformers.batch_sampler' requires a SentenceTransformers version "
+                "whose training arguments support batch_sampler."
+            )
+        kwargs["batch_sampler"] = _normalize_batch_sampler(backend_config["batch_sampler"])
     if backend_config.get("run_name") is not None:
         kwargs["run_name"] = str(backend_config["run_name"])
     return training_arguments_cls(**kwargs)
