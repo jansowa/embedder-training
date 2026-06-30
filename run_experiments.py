@@ -55,6 +55,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Remove checkpoint-* directories after the run to free disk space.",
     )
+    resume_group = parser.add_mutually_exclusive_group()
+    resume_group.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume training from the latest checkpoint for each resolved run.",
+    )
+    resume_group.add_argument(
+        "--resume-from-checkpoint",
+        dest="resume_from_checkpoint",
+        default=None,
+        help="Resume training from a specific checkpoint directory.",
+    )
     parser.add_argument("--run_pirb", "--run-pirb", dest="run_pirb", action="store_true", help="Run the PIRB benchmark.")
     parser.add_argument(
         "--pirb_scope",
@@ -116,6 +128,10 @@ def run_training_mode(args: argparse.Namespace) -> int:
         cmd.append("--run-pirb")
     if args.remove_checkpoints:
         cmd.append("--remove-checkpoints")
+    if args.resume:
+        cmd.append("--resume")
+    if args.resume_from_checkpoint:
+        cmd.extend(["--resume-from-checkpoint", args.resume_from_checkpoint])
 
     subprocess.run(cmd, check=True)
     return 0

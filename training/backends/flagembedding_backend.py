@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,7 @@ from time import time
 from typing import Any
 
 from training.backends.registry import BackendDependencyError, TrainingRequest
+from training.checkpoints import resolve_resume_checkpoint
 from training.dataset_filters import apply_dataset_filter_if_configured
 
 
@@ -60,15 +62,19 @@ RESERVED_CONFIG_KEYS = {
     "backend_config",
     "benchmark",
     "benchmark_name",
+    "epoch_checkpoint_dir",
     "flagembedding",
     "grid_architecture",
     "grid_hparams",
     "hparams",
+    "keep_epoch_checkpoints",
     "model_name_or_path",
     "output_dir",
     "pylate",
     "pirb_scope",
     "remove_checkpoints",
+    "resume",
+    "resume_from_checkpoint",
     "run_name",
     "run_mteb",
     "run_pirb",
@@ -113,6 +119,21 @@ def _load_mteb():
 def _dict_section(config: dict[str, Any], key: str) -> dict[str, Any]:
     value = config.get(key, {})
     return value if isinstance(value, dict) else {}
+
+
+def _safe_slug(value: Any, *, max_length: int = 80) -> str:
+    raw_value = str(value)
+    allowed = []
+    for char in raw_value.strip().replace("\\", "/"):
+        if char.isalnum() or char in {"_", "-"}:
+            allowed.append(char)
+        else:
+            allowed.append("-")
+    slug = "".join(allowed).strip("-_") or "run"
+    if len(slug) <= max_length:
+        return slug
+    digest = hashlib.sha1(raw_value.encode("utf-8")).hexdigest()[:10]
+    return f"{slug[: max_length - 11].rstrip('-_')}-{digest}"
 
 
 def _grid_from_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -238,11 +259,28 @@ def run_training(request: TrainingRequest) -> int:
             lr = full_args.get("learning_rate")
             epochs = full_args.get("num_train_epochs")
             dataset_path = full_args.get("train_data")
-            safe_arch = arch.replace("/", "_").replace(".", "_")
-            run_name = f"{safe_arch}-{lr}lr-{epochs}ep-{dataset_path}-{int(time())}"
+            safe_arch = _safe_slug(arch)
+            safe_dataset = _safe_slug(dataset_path)
+            configured_output_dir = config.get("output_dir")
+            if configured_output_dir is not None:
+                output_dir = Path(str(configured_output_dir))
+                run_name = str(config.get("run_name") or output_dir.name)
+            else:
+                run_name = str(config.get("run_name") or f"{safe_arch}-{lr}lr-{epochs}ep-{safe_dataset}-{int(time())}")
+                output_dir = runs_dir / run_name
+            backend_resume_config = (
+                {key: config[key] for key in ("resume", "resume_from_checkpoint", "epoch_checkpoint_dir") if key in config}
+                | _dict_section(config, "backend_config")
+                | _dict_section(config, "flagembedding")
+            )
+            resume_from_checkpoint = resolve_resume_checkpoint(
+                output_dir,
+                config,
+                backend_resume_config,
+                request.cli_args,
+            )
 
             run = wandb.init(project=wandb_project, name=run_name, config={**full_args, "arch": arch})
-            output_dir = runs_dir / run_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
             cmd = [
@@ -253,7 +291,6 @@ def run_training(request: TrainingRequest) -> int:
                 "FlagEmbedding.finetune.embedder.encoder_only.base",
                 "--model_name_or_path",
                 arch,
-                "--overwrite_output_dir",
                 "--output_dir",
                 str(output_dir),
                 "--report_to",
@@ -263,6 +300,10 @@ def run_training(request: TrainingRequest) -> int:
                 "--trust_remote_code",
                 "True",
             ]
+            if resume_from_checkpoint is None:
+                cmd.append("--overwrite_output_dir")
+            else:
+                cmd.extend(["--resume-from-checkpoint", resume_from_checkpoint])
             for key, value in full_args.items():
                 if key in DATASET_FILTER_ARG_KEYS:
                     continue

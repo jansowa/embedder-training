@@ -48,9 +48,13 @@ Main parameters:
 - `--config`: YAML config path. CLI values override `backend` and `training_type` from YAML.
 - `--run-mteb` / `--run-pirb`: optional post-training evaluation for the FlagEmbedding pipeline.
 - `--remove-checkpoints`: remove `checkpoint-*` directories after a successful FlagEmbedding run.
+- `--resume`: resume each run from its latest `checkpoint-*` or preserved epoch checkpoint.
+- `--resume-from-checkpoint PATH`: resume a single run from a specific checkpoint directory.
 
 Available backends, installation variants, lazy-import behavior, SentenceTransformers dense/Matryoshka/SPLADE training, PyLate ColBERT training, extension-point training types, and smoke tests are documented in `docs/training-backends.md`.
 Declarative pre-training dataset filters can be configured with `dataset_filter`; the profile format, cache behavior, and filtered smoke test are also documented there.
+
+For long SentenceTransformers/SPLADE epochs, use `save_strategy: steps` with `keep_epoch_checkpoints: true`: rotating step checkpoints make resume frequent, while full epoch checkpoints are preserved under `epoch-checkpoints/`.
 
 Minimal FlagEmbedding smoke test:
 ```shell

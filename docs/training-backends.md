@@ -130,8 +130,10 @@ CLI values such as `--backend pylate --training-type colbert` override `backend`
 | `--benchmark-name` | No | MTEB benchmark name. Defaults to `NanoBEIR`. Used only with `--run-mteb`. |
 | `--pirb-scope` / `--pirb_scope` | No | PIRB scope: `tiny`, `small`, or `all`. Used only with `--run-pirb`. |
 | `--remove-checkpoints` / `--remove_checkpoints` | No | Removes `checkpoint-*` directories after a successful FlagEmbedding run. |
+| `--resume` | No | Resumes each resolved run from the latest checkpoint in `output_dir/checkpoint-*` or `output_dir/epoch-checkpoints/*`. |
+| `--resume-from-checkpoint` | No | Resumes a single expanded run from a specific checkpoint directory. Use `--resume` for grids. |
 
-The CLI only overrides `backend` and `training_type`. All other training parameters are read from YAML.
+The CLI overrides `backend`, `training_type`, and resume mode. All other training parameters are read from YAML.
 
 ## YAML Parameters
 
@@ -145,7 +147,7 @@ The CLI only overrides `backend` and `training_type`. All other training paramet
 | `hparams` | All | Optional grid list of per-run overrides. Combined with every architecture. |
 | `runs_dir` | All | Base directory for grid output directories when `output_dir` is omitted. |
 | `train_data` | All | Dataset path. For SentenceTransformers and PyLate this can point to a directory containing `dataset.jsonl` or directly to a JSONL file. |
-| `output_dir` | SentenceTransformers, PyLate | Training output directory. The final model is saved under `output_dir/final`. |
+| `output_dir` | All | Training output directory. SentenceTransformers and PyLate save the final model under `output_dir/final`. |
 | `model_name_or_path` | All | Hugging Face model name or local model path. Grid `architectures` values are expanded into this field. |
 | `max_steps` | SentenceTransformers, PyLate, FlagEmbedding | Maximum number of training steps. Smoke configs use `1`. |
 | `num_train_epochs` | All | Number of epochs when `max_steps` does not stop training earlier. |
@@ -156,6 +158,10 @@ The CLI only overrides `backend` and `training_type`. All other training paramet
 | `gradient_accumulation_steps` | All | Number of gradient accumulation steps. |
 | `logging_steps` | All | Logging frequency. |
 | `save_strategy`, `save_steps`, `save_total_limit` | All | Checkpoint behavior. Smoke configs use `save_strategy: "no"` so only the final model is saved. |
+| `resume` | All | YAML equivalent of `--resume` when set to `true`. |
+| `resume_from_checkpoint` | All | `latest` or a checkpoint directory. CLI resume flags take precedence. |
+| `keep_epoch_checkpoints` | SentenceTransformers, PyLate | Also preserves a full end-of-epoch checkpoint under `epoch-checkpoints/`, outside `save_total_limit` rotation. |
+| `epoch_checkpoint_dir` | SentenceTransformers, PyLate | Optional directory name for preserved epoch checkpoints. Defaults to `epoch-checkpoints`. |
 | `seed` | SentenceTransformers, PyLate | Seed passed to training arguments. |
 | `fp16`, `bf16` | SentenceTransformers, PyLate, FlagEmbedding | Mixed precision settings. |
 | `dataloader_drop_last`, `dataloader_num_workers` | All | Dataloader settings. |
@@ -187,6 +193,8 @@ The CLI only overrides `backend` and `training_type`. All other training paramet
 
 Fields from `flagembedding` and `backend_config` are forwarded as arguments to `torchrun -m FlagEmbedding.finetune.embedder.encoder_only.base`, so an option supported by FlagEmbedding can usually be added to YAML without changing the CLI.
 
+FlagEmbedding resume is forwarded as `--resume-from-checkpoint`. Preserved epoch checkpoints are implemented for trainer instances this project controls directly: SentenceTransformers, SPLADE, Matryoshka, and PyLate.
+
 ### SentenceTransformers
 
 Shared parameters for `embedder`, `matryoshka`, and `splade`:
@@ -206,6 +214,19 @@ Shared parameters for `embedder`, `matryoshka`, and `splade`:
 | `sentence_transformers.tokenizer_name_or_path` | Optional tokenizer path for SPLADE models whose tokenizer lives in a separate checkpoint. |
 | `sentence_transformers.run_name` | Optional run name passed to SentenceTransformers/Transformers. Grid runs generate unique names automatically. |
 | `sentence_transformers.trust_remote_code` | Added to `model_kwargs` when set. |
+| `sentence_transformers.keep_epoch_checkpoints` | Preserve a full checkpoint at the end of every epoch while still allowing frequent step checkpoints. |
+
+For long epochs, prefer step checkpoints plus preserved epoch checkpoints:
+
+```yaml
+sentence_transformers:
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 4
+  keep_epoch_checkpoints: true
+```
+
+This keeps a small rotating set of working `checkpoint-*` directories for power-loss recovery and durable `epoch-checkpoints/epoch-0001-step-...` snapshots for epoch milestones.
 
 Parameters only for `matryoshka`:
 

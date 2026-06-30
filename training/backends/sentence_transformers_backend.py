@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from training.backends.registry import BackendDependencyError, TrainingRequest
+from training.checkpoints import (
+    build_epoch_checkpoint_callback,
+    resolve_resume_checkpoint,
+    train_with_resume,
+)
 from training.dataset_filters import apply_dataset_filter_if_configured
 
 
@@ -21,9 +26,11 @@ COMMON_TRAINING_KEYS = {
     "bf16",
     "dataloader_drop_last",
     "dataloader_num_workers",
+    "epoch_checkpoint_dir",
     "fp16",
     "gradient_accumulation_steps",
     "gradient_checkpointing",
+    "keep_epoch_checkpoints",
     "learning_rate",
     "loss",
     "logging_steps",
@@ -38,6 +45,8 @@ COMMON_TRAINING_KEYS = {
     "processor_kwargs",
     "query_instruction_for_retrieval",
     "report_to",
+    "resume",
+    "resume_from_checkpoint",
     "run_name",
     "save_steps",
     "save_strategy",
@@ -425,6 +434,12 @@ def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
         return
     if getattr(wandb, "run", None) is not None:
         wandb.finish()
+
+
+def _add_epoch_checkpoint_callback(trainer: Any, output_dir: Path, config: dict[str, Any], backend_config: dict[str, Any]) -> None:
+    callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
+    if callback is not None and hasattr(trainer, "add_callback"):
+        trainer.add_callback(callback)
 
 
 def _unique_texts(values: list[str]) -> list[str]:
@@ -853,6 +868,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
@@ -866,6 +882,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers embedder "
@@ -873,7 +890,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -904,6 +921,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-matryoshka")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
@@ -926,6 +944,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers matryoshka "
@@ -934,7 +953,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -968,6 +987,7 @@ def run_splade_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-splade")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     loss_name = _splade_base_loss_name(backend_config)
     data_path, rows = _load_training_rows(
@@ -1004,6 +1024,7 @@ def run_splade_training(request: TrainingRequest) -> int:
     activation_stats_callback = _build_splade_activation_stats_callback(model, rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(activation_stats_callback)
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers SPLADE "
@@ -1011,7 +1032,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 

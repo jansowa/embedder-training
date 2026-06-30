@@ -15,6 +15,7 @@ from training.backends.sentence_transformers_backend import (
     _training_args,
     load_flagembedding_jsonl_dataset,
 )
+from training.checkpoints import build_epoch_checkpoint_callback, resolve_resume_checkpoint, train_with_resume
 
 
 def _require_pylate() -> None:
@@ -92,6 +93,7 @@ def run_colbert_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/pylate-colbert")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     data_path = _resolve_train_data_path(config, backend_config)
     negatives_per_query = backend_config.get("negatives_per_query", 1)
@@ -149,13 +151,16 @@ def run_colbert_training(request: TrainingRequest) -> int:
         loss=loss,
         data_collator=ColBERTCollator(tokenize_fn=model.tokenize),
     )
+    epoch_checkpoint_callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
+    if epoch_checkpoint_callback is not None and hasattr(trainer, "add_callback"):
+        trainer.add_callback(epoch_checkpoint_callback)
 
     print(
         "[INFO] Training PyLate ColBERT "
         f"with {len(rows)} examples from {data_path} and model {model_name_or_path}.",
         flush=True,
     )
-    trainer.train()
+    train_with_resume(trainer, resume_from_checkpoint)
 
     final_dir = output_dir / "final"
     final_dir.mkdir(parents=True, exist_ok=True)

@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from training.checkpoints import DEFAULT_EPOCH_CHECKPOINT_DIR, find_latest_checkpoint
+
 
 BACKEND_SECTION_KEYS = {
     "flagembedding": "flagembedding",
@@ -156,7 +158,30 @@ def _strip_grid_keys(config: dict[str, Any]) -> None:
                 section.pop(key, None)
 
 
-def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: str) -> list[dict[str, Any]]:
+def _latest_matching_run_dir(parent: Path, run_name_prefix: str, epoch_checkpoint_dir: str) -> Path | None:
+    if not parent.exists():
+        return None
+
+    candidates = [path for path in parent.glob(f"{run_name_prefix}-*") if path.is_dir()]
+    if not candidates:
+        return None
+
+    with_checkpoints = [
+        path
+        for path in candidates
+        if find_latest_checkpoint(path, epoch_checkpoint_dir=epoch_checkpoint_dir) is not None
+    ]
+    candidates = with_checkpoints or candidates
+    return sorted(candidates, key=lambda path: path.name)[-1]
+
+
+def expand_config_grid(
+    config: dict[str, Any],
+    *,
+    backend: str,
+    training_type: str,
+    resume: bool = False,
+) -> list[dict[str, Any]]:
     """Expand root/backend `architectures` x `hparams` into per-run configs.
 
     The expanded configs use shared top-level keys and the selected backend
@@ -186,7 +211,8 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
     root_output_dir = _first_config_value(config, backend, "output_dir")
     runs_dir = _first_config_value(config, backend, "runs_dir") or "runs"
     timestamp_output_dir = _as_bool(_first_config_value(config, backend, "timestamp_output_dir"))
-    run_timestamp = _timestamp_slug() if timestamp_output_dir else None
+    run_timestamp = _timestamp_slug() if timestamp_output_dir and not resume else None
+    epoch_checkpoint_dir = str(_first_config_value(config, backend, "epoch_checkpoint_dir") or DEFAULT_EPOCH_CHECKPOINT_DIR)
 
     for architecture in architectures:
         for hparam in hparams:
@@ -199,7 +225,8 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
             variant.update(overrides)
             variant["grid_architecture"] = architecture
             variant["grid_hparams"] = dict(hparam)
-            variant["run_name"] = _run_slug(architecture, hparam)
+            base_run_name = _run_slug(architecture, hparam)
+            variant["run_name"] = base_run_name
             if run_timestamp is not None:
                 variant["run_timestamp"] = run_timestamp
                 variant["run_name"] = f"{variant['run_name']}-{run_timestamp}"
@@ -216,6 +243,14 @@ def expand_config_grid(config: dict[str, Any], *, backend: str, training_type: s
                     _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
                 elif root_output_dir is None:
                     variant["output_dir"] = str(Path(str(runs_dir)) / backend / training_type / variant["run_name"])
+                    _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
+
+            if timestamp_output_dir and resume and "output_dir" in variant:
+                output_dir = Path(str(variant["output_dir"]))
+                resumed_dir = _latest_matching_run_dir(output_dir.parent, base_run_name, epoch_checkpoint_dir)
+                if resumed_dir is not None:
+                    variant["run_name"] = resumed_dir.name
+                    variant["output_dir"] = str(resumed_dir)
                     _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
 
             variants.append(variant)
