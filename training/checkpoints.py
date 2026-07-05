@@ -16,6 +16,17 @@ DEFAULT_EPOCH_CHECKPOINT_DIR = "epoch-checkpoints"
 
 _STEP_CHECKPOINT_RE = re.compile(r"^checkpoint-(\d+)$")
 _EPOCH_CHECKPOINT_RE = re.compile(r"^epoch-(\d+)-step-(\d+)$")
+_MODEL_WEIGHT_FILENAMES = {
+    "model.safetensors",
+    "model.safetensors.index.json",
+    "pytorch_model.bin",
+    "pytorch_model.bin.index.json",
+    "tf_model.h5",
+    "model.ckpt.index",
+    "flax_model.msgpack",
+    "adapter_model.safetensors",
+    "adapter_model.bin",
+}
 
 
 class CheckpointError(TrainingCliError):
@@ -100,6 +111,19 @@ def _checkpoint_sort_key(path: Path) -> tuple[int, float, str]:
     return checkpoint_step(path), mtime, path.name
 
 
+def checkpoint_missing_files(path: Path) -> list[str]:
+    missing = []
+    if not (path / "trainer_state.json").exists():
+        missing.append("trainer_state.json")
+    if not any((path / filename).exists() for filename in _MODEL_WEIGHT_FILENAMES):
+        missing.append("model weights")
+    return missing
+
+
+def is_complete_checkpoint(path: Path) -> bool:
+    return path.is_dir() and not checkpoint_missing_files(path)
+
+
 def iter_checkpoint_dirs(output_dir: Path, *, epoch_checkpoint_dir: str = DEFAULT_EPOCH_CHECKPOINT_DIR) -> list[Path]:
     candidates: list[Path] = []
     if output_dir.exists():
@@ -115,22 +139,31 @@ def find_latest_checkpoint(
     *,
     epoch_checkpoint_dir: str = DEFAULT_EPOCH_CHECKPOINT_DIR,
 ) -> Path | None:
-    candidates = iter_checkpoint_dirs(output_dir, epoch_checkpoint_dir=epoch_checkpoint_dir)
+    candidates = [
+        path
+        for path in iter_checkpoint_dirs(output_dir, epoch_checkpoint_dir=epoch_checkpoint_dir)
+        if is_complete_checkpoint(path)
+    ]
     if not candidates:
         return None
     return max(candidates, key=_checkpoint_sort_key)
 
 
-def ensure_checkpoint_path(path: Path) -> Path:
+def ensure_checkpoint_path(path: Path, *, require_complete: bool = True) -> Path:
     if not path.exists():
         raise CheckpointError(f"Requested checkpoint '{path}' does not exist.")
     if not path.is_dir():
         raise CheckpointError(f"Requested checkpoint '{path}' is not a directory.")
+    if require_complete:
+        missing = checkpoint_missing_files(path)
+        if missing:
+            missing_text = ", ".join(missing)
+            raise CheckpointError(f"Requested checkpoint '{path}' is incomplete; missing: {missing_text}.")
     return path
 
 
 def output_dir_from_checkpoint(path: Path, *, epoch_checkpoint_dir: str = DEFAULT_EPOCH_CHECKPOINT_DIR) -> Path:
-    checkpoint = ensure_checkpoint_path(path)
+    checkpoint = ensure_checkpoint_path(path, require_complete=False)
     if checkpoint.parent.name == epoch_checkpoint_dir:
         return checkpoint.parent.parent
     return checkpoint.parent
