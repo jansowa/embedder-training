@@ -9,6 +9,7 @@ import shutil
 from typing import Any
 
 from training.backends.registry import TrainingCliError
+from training.distributed import is_main_process
 
 
 LATEST_CHECKPOINT = "latest"
@@ -210,6 +211,8 @@ class EpochCheckpointCallback:
         return _noop
 
     def on_epoch_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        if not is_main_process():
+            return control
         step = int(getattr(state, "global_step", 0) or 0)
         if step <= 0:
             return control
@@ -231,6 +234,8 @@ class EpochCheckpointCallback:
         return control
 
     def on_save(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        if not is_main_process():
+            return control
         pending = self._pending_epoch_checkpoint
         self._pending_epoch_checkpoint = None
         if pending is None:

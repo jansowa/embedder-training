@@ -14,6 +14,7 @@ from typing import Any
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import resolve_resume_checkpoint
 from training.dataset_filters import apply_dataset_filter_if_configured
+from training.distributed import resolve_distributed_config
 
 
 DEFAULT_GRID = {
@@ -28,6 +29,7 @@ DEFAULT_GRID = {
 
 QUERY_INSTRUCTION_FOR_RETRIEVAL_DEFAULT = "query: "
 DATASET_FILTER_ARG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
+TRAINING_CONTROL_ARG_KEYS = DATASET_FILTER_ARG_KEYS | {"distributed", "gpus", "num_gpus"}
 
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
@@ -62,6 +64,7 @@ RESERVED_CONFIG_KEYS = {
     "backend_config",
     "benchmark",
     "benchmark_name",
+    "distributed",
     "epoch_checkpoint_dir",
     "flagembedding",
     "grid_architecture",
@@ -242,6 +245,11 @@ def run_training(request: TrainingRequest) -> int:
     config = request.config
     grid = _grid_from_config(config)
     base_args = _base_training_args(config)
+    distributed_config = resolve_distributed_config(
+        backend=request.backend,
+        config=config,
+        cli_args=request.cli_args,
+    )
     runs_dir = Path(config.get("runs_dir") or _dict_section(config, "flagembedding").get("runs_dir") or "runs")
     runs_dir.mkdir(exist_ok=True)
     wandb_project = config.get("wandb_project") or os.getenv("WANDB_PROJECT", "mining-tests")
@@ -286,7 +294,7 @@ def run_training(request: TrainingRequest) -> int:
             cmd = [
                 "torchrun",
                 "--nproc_per_node",
-                "1",
+                str(distributed_config.nproc_per_node),
                 "-m",
                 "FlagEmbedding.finetune.embedder.encoder_only.base",
                 "--model_name_or_path",
@@ -305,7 +313,7 @@ def run_training(request: TrainingRequest) -> int:
             else:
                 cmd.extend(["--resume-from-checkpoint", resume_from_checkpoint])
             for key, value in full_args.items():
-                if key in DATASET_FILTER_ARG_KEYS:
+                if key in TRAINING_CONTROL_ARG_KEYS:
                     continue
                 _append_training_arg(cmd, key, value)
 
@@ -318,6 +326,8 @@ def run_training(request: TrainingRequest) -> int:
                     "WANDB_RUN_GROUP": safe_arch,
                 }
             )
+            if distributed_config.cuda_visible_devices is not None:
+                env["CUDA_VISIBLE_DEVICES"] = distributed_config.cuda_visible_devices
             subprocess.run(cmd, check=True, env=env)
 
             if request.cli_args.run_mteb or request.cli_args.run_pirb:

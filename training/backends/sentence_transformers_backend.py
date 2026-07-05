@@ -15,6 +15,7 @@ from training.checkpoints import (
     train_with_resume,
 )
 from training.dataset_filters import apply_dataset_filter_if_configured
+from training.distributed import barrier_if_distributed, is_main_process
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -426,6 +427,8 @@ def _as_bool(value: Any) -> bool:
 
 
 def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
+    if not is_main_process():
+        return
     if not _reports_to_wandb(backend_config.get("report_to", [])):
         return
     try:
@@ -437,9 +440,29 @@ def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
 
 
 def _add_epoch_checkpoint_callback(trainer: Any, output_dir: Path, config: dict[str, Any], backend_config: dict[str, Any]) -> None:
+    if not is_main_process():
+        return
     callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
     if callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(callback)
+
+
+def _trainer_is_main_process(trainer: Any) -> bool:
+    is_world_process_zero = getattr(trainer, "is_world_process_zero", None)
+    if callable(is_world_process_zero):
+        try:
+            return bool(is_world_process_zero())
+        except TypeError:
+            pass
+    return is_main_process()
+
+
+def _save_final_model(trainer: Any, model: Any, final_dir: Path, *, label: str) -> None:
+    if _trainer_is_main_process(trainer):
+        final_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(final_dir))
+        print(f"[INFO] Saved final {label} model to: {final_dir}", flush=True)
+    barrier_if_distributed()
 
 
 def _unique_texts(values: list[str]) -> list[str]:
@@ -649,6 +672,8 @@ def _build_splade_activation_stats_callback(
     rows: list[dict[str, str]],
     backend_config: dict[str, Any],
 ) -> SpladeActivationStatsCallback | None:
+    if not is_main_process():
+        return None
     stats_config = _splade_activation_stats_config(backend_config)
     if stats_config is None:
         return None
@@ -894,10 +919,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
     finally:
         _finish_wandb_run(backend_config)
 
-    final_dir = output_dir / "final"
-    final_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(str(final_dir))
-    print(f"[INFO] Saved final SentenceTransformer model to: {final_dir}", flush=True)
+    _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
     return 0
 
 
@@ -957,10 +979,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     finally:
         _finish_wandb_run(backend_config)
 
-    final_dir = output_dir / "final"
-    final_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(str(final_dir))
-    print(f"[INFO] Saved final SentenceTransformer model to: {final_dir}", flush=True)
+    _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
     return 0
 
 
@@ -1036,10 +1055,7 @@ def run_splade_training(request: TrainingRequest) -> int:
     finally:
         _finish_wandb_run(backend_config)
 
-    final_dir = output_dir / "final"
-    final_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(str(final_dir))
-    print(f"[INFO] Saved final SparseEncoder model to: {final_dir}", flush=True)
+    _save_final_model(trainer, model, output_dir / "final", label="SparseEncoder")
     return 0
 
 

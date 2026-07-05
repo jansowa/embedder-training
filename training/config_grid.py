@@ -6,10 +6,12 @@ from copy import deepcopy
 from datetime import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from training.checkpoints import DEFAULT_EPOCH_CHECKPOINT_DIR, find_latest_checkpoint
+from training.distributed import RUN_TIMESTAMP_ENV
 
 
 BACKEND_SECTION_KEYS = {
@@ -44,6 +46,9 @@ HPARAM_SLUG_ORDER = (
 
 
 def _timestamp_slug() -> str:
+    configured_timestamp = os.environ.get(RUN_TIMESTAMP_ENV)
+    if configured_timestamp:
+        return configured_timestamp
     return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 

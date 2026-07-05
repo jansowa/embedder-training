@@ -33,6 +33,12 @@ def _read_jsonl(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
+def _write_complete_checkpoint(path):
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "trainer_state.json").write_text(json.dumps({"global_step": 1}), encoding="utf-8")
+    (path / "model.safetensors").write_bytes(b"weights")
+
+
 def test_cli_import_does_not_import_optional_backends(monkeypatch):
     for module_name in list(sys.modules):
         if module_name.split(".", 1)[0] in OPTIONAL_BACKENDS:
@@ -91,11 +97,109 @@ def test_parser_accepts_resume_flags():
     assert checkpoint_args.resume_from_checkpoint == "runs/model/checkpoint-10"
 
 
+def test_parser_accepts_distributed_gpu_flags():
+    from training.train import build_parser
+
+    gpu_args = build_parser().parse_args(["--config", "configs/grid.yaml", "--gpus", "2,3"])
+    count_args = build_parser().parse_args(["--config", "configs/grid.yaml", "--num-gpus", "2"])
+    disabled_args = build_parser().parse_args(["--config", "configs/grid.yaml", "--no-distributed"])
+
+    assert gpu_args.gpus == "2,3"
+    assert gpu_args.num_gpus is None
+    assert count_args.gpus is None
+    assert count_args.num_gpus == 2
+    assert disabled_args.no_distributed is True
+
+
+def test_parser_rejects_conflicting_gpu_flags():
+    from training.train import build_parser
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--gpus", "0,1", "--num-gpus", "2"])
+
+
 def test_parser_rejects_conflicting_resume_flags():
     from training.train import build_parser
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--resume", "--resume-from-checkpoint", "runs/model/checkpoint-10"])
+
+
+def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
+    from training.distributed import resolve_distributed_config
+
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+
+    config = {"distributed": {"gpus": [2, 3]}}
+    launch_config = resolve_distributed_config(
+        backend="sentence-transformers",
+        config=config,
+        cli_args=SimpleNamespace(gpus=None, num_gpus=None, no_distributed=False),
+    )
+
+    assert launch_config.enabled is True
+    assert launch_config.nproc_per_node == 2
+    assert launch_config.cuda_visible_devices == "2,3"
+
+
+def test_distributed_config_selects_first_visible_gpu_count(monkeypatch):
+    from training.distributed import resolve_distributed_config
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "4,5,6,7")
+
+    config = {"distributed": {"num_gpus": 2}}
+    launch_config = resolve_distributed_config(
+        backend="pylate",
+        config=config,
+        cli_args=SimpleNamespace(gpus=None, num_gpus=None, no_distributed=False),
+    )
+
+    assert launch_config.nproc_per_node == 2
+    assert launch_config.cuda_visible_devices == "4,5"
+
+
+def test_run_training_relaunches_sentence_transformers_with_torchrun(monkeypatch, tmp_path):
+    import training.distributed as distributed
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    config.write_text(
+        dedent(
+            """
+            backend: sentence-transformers
+            training_type: splade
+            timestamp_output_dir: true
+            train_data: dataset-small-no_in_batch_neg
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(["--config", str(config), "--gpus", "2,3"])
+    args._raw_argv = ["--config", str(config), "--gpus", "2,3"]
+    calls = {}
+
+    def fake_run(cmd, check, env):
+        calls["cmd"] = cmd
+        calls["check"] = check
+        calls["env"] = env
+        return SimpleNamespace(returncode=0)
+
+    def fail_load_backend_module(spec):
+        raise AssertionError("backend module should not be loaded by the parent launcher")
+
+    monkeypatch.delenv("LOCAL_RANK", raising=False)
+    monkeypatch.delenv("RANK", raising=False)
+    monkeypatch.delenv("WORLD_SIZE", raising=False)
+    monkeypatch.setattr(distributed.subprocess, "run", fake_run)
+    monkeypatch.setattr(train, "load_backend_module", fail_load_backend_module)
+
+    assert train.run_training(args) == 0
+    assert calls["check"] is False
+    assert calls["cmd"][:5] == ["torchrun", "--standalone", "--nproc_per_node", "2", "-m"]
+    assert calls["cmd"][5:7] == ["training.train", "--config"]
+    assert calls["env"]["CUDA_VISIBLE_DEVICES"] == "2,3"
+    assert "EMBEDDER_TRAINING_RUN_TIMESTAMP" in calls["env"]
 
 
 def test_unsupported_backend_training_type_combination_is_rejected():
@@ -218,12 +322,35 @@ def test_checkpoint_resolver_finds_latest_regular_and_epoch_checkpoints(tmp_path
     from training.checkpoints import find_latest_checkpoint
 
     output_dir = tmp_path / "out"
-    (output_dir / "checkpoint-100").mkdir(parents=True)
-    (output_dir / "checkpoint-300").mkdir()
-    (output_dir / "epoch-checkpoints" / "epoch-0001-step-200").mkdir(parents=True)
-    (output_dir / "epoch-checkpoints" / "epoch-0002-step-400").mkdir()
+    for checkpoint in (
+        output_dir / "checkpoint-100",
+        output_dir / "checkpoint-300",
+        output_dir / "epoch-checkpoints" / "epoch-0001-step-200",
+        output_dir / "epoch-checkpoints" / "epoch-0002-step-400",
+    ):
+        _write_complete_checkpoint(checkpoint)
+    (output_dir / "checkpoint-500").mkdir()
 
     assert find_latest_checkpoint(output_dir) == output_dir / "epoch-checkpoints" / "epoch-0002-step-400"
+
+
+def test_explicit_resume_rejects_incomplete_checkpoint(tmp_path):
+    from training.checkpoints import CheckpointError, resolve_resume_checkpoint
+
+    output_dir = tmp_path / "out"
+    incomplete = output_dir / "checkpoint-500"
+    incomplete.mkdir(parents=True)
+
+    with pytest.raises(CheckpointError) as exc:
+        resolve_resume_checkpoint(
+            output_dir,
+            {"resume_from_checkpoint": str(incomplete)},
+            {},
+            SimpleNamespace(),
+        )
+
+    assert "is incomplete" in str(exc.value)
+    assert "trainer_state.json" in str(exc.value)
 
 
 def test_epoch_checkpoint_callback_preserves_epoch_checkpoint(tmp_path):
@@ -496,7 +623,7 @@ def test_flagembedding_backend_adds_resume_checkpoint_arg(monkeypatch, tmp_path)
     )
     output_dir = tmp_path / "runs" / "tiny-run"
     checkpoint = output_dir / "checkpoint-10"
-    checkpoint.mkdir(parents=True)
+    _write_complete_checkpoint(checkpoint)
     calls = {"cmd": None}
 
     class FakeRun:
@@ -544,6 +671,62 @@ def test_flagembedding_backend_adds_resume_checkpoint_arg(monkeypatch, tmp_path)
     assert cmd[cmd.index("--resume-from-checkpoint") + 1] == str(checkpoint)
     assert "--overwrite_output_dir" not in cmd
     assert cmd[cmd.index("--output_dir") + 1] == str(output_dir)
+
+
+def test_flagembedding_backend_uses_distributed_gpu_selection(monkeypatch, tmp_path):
+    from training.backends import flagembedding_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "dataset.jsonl").write_text(
+        json.dumps({"query": "q", "pos": ["p"], "neg": ["n"]}) + "\n",
+        encoding="utf-8",
+    )
+    calls = {"cmd": None, "env": None}
+
+    class FakeRun:
+        def finish(self):
+            pass
+
+    class FakeWandb:
+        @staticmethod
+        def init(**kwargs):
+            return FakeRun()
+
+    def fake_subprocess_run(cmd, check, env):
+        calls["cmd"] = cmd
+        calls["env"] = env
+
+    monkeypatch.setattr(flagembedding_backend, "_require_flagembedding", lambda: None)
+    monkeypatch.setattr(flagembedding_backend, "_load_wandb", lambda: FakeWandb)
+    monkeypatch.setattr(flagembedding_backend.subprocess, "run", fake_subprocess_run)
+
+    request = TrainingRequest(
+        backend="flagembedding",
+        training_type="embedder",
+        config={
+            "runs_dir": str(tmp_path / "runs"),
+            "distributed": {"gpus": [2, 3]},
+            "architectures": ["tiny-model"],
+            "hparams": [
+                {
+                    "learning_rate": 1e-5,
+                    "num_train_epochs": 1,
+                    "train_data": str(data_dir),
+                    "knowledge_distillation": False,
+                }
+            ],
+        },
+        config_path=str(tmp_path / "config.yaml"),
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False, remove_checkpoints=False),
+    )
+
+    assert flagembedding_backend.run_training(request) == 0
+    cmd = calls["cmd"]
+    assert cmd is not None
+    assert cmd[cmd.index("--nproc_per_node") + 1] == "2"
+    assert calls["env"]["CUDA_VISIBLE_DEVICES"] == "2,3"
 
 
 def test_sentence_transformers_dataset_loader_expands_flagembedding_jsonl(tmp_path):
@@ -1251,8 +1434,8 @@ def test_sentence_transformers_embedder_resumes_from_latest_checkpoint(monkeypat
         encoding="utf-8",
     )
     output_dir = tmp_path / "out"
-    (output_dir / "checkpoint-10").mkdir(parents=True)
-    (output_dir / "checkpoint-20").mkdir()
+    _write_complete_checkpoint(output_dir / "checkpoint-10")
+    _write_complete_checkpoint(output_dir / "checkpoint-20")
     calls = {"resume": None, "saved": None}
 
     class FakeDataset:
@@ -1515,7 +1698,7 @@ def test_sentence_transformers_matryoshka_resumes_from_checkpoint(monkeypatch, t
     )
     output_dir = tmp_path / "out"
     checkpoint = output_dir / "checkpoint-30"
-    checkpoint.mkdir(parents=True)
+    _write_complete_checkpoint(checkpoint)
     calls = {"resume": None}
 
     class FakeDataset:
@@ -1719,7 +1902,7 @@ def test_sentence_transformers_splade_resumes_from_epoch_checkpoint(monkeypatch,
     )
     output_dir = tmp_path / "out"
     checkpoint = output_dir / "epoch-checkpoints" / "epoch-0001-step-40"
-    checkpoint.mkdir(parents=True)
+    _write_complete_checkpoint(checkpoint)
     calls = {"resume": None}
 
     class FakeDataset:
@@ -2158,7 +2341,7 @@ def test_pylate_colbert_resumes_from_checkpoint(monkeypatch, tmp_path):
     )
     output_dir = tmp_path / "out"
     checkpoint = output_dir / "checkpoint-50"
-    checkpoint.mkdir(parents=True)
+    _write_complete_checkpoint(checkpoint)
     calls = {"resume": None}
 
     class FakeDataset:

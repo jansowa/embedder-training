@@ -20,6 +20,7 @@ from training.backends.registry import (
 )
 from training.checkpoints import LATEST_CHECKPOINT, output_dir_from_checkpoint, resume_spec_from_sources
 from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
+from training.distributed import argv_from_args, maybe_launch_distributed_training
 
 
 class ConfigError(TrainingCliError):
@@ -92,6 +93,28 @@ def build_parser() -> argparse.ArgumentParser:
         dest="remove_checkpoints",
         action="store_true",
         help="Remove checkpoint-* directories after a successful FlagEmbedding run.",
+    )
+    gpu_group = parser.add_mutually_exclusive_group()
+    gpu_group.add_argument(
+        "--gpus",
+        default=None,
+        help=(
+            "Comma-separated GPU ids to expose to the run, for example '0,1' or '2'. "
+            "Use 'auto' to use all visible GPUs."
+        ),
+    )
+    gpu_group.add_argument(
+        "--num-gpus",
+        dest="num_gpus",
+        type=int,
+        default=None,
+        help="Use the first N visible GPUs. Prefer --gpus when selecting specific GPU ids.",
+    )
+    parser.add_argument(
+        "--no-distributed",
+        dest="no_distributed",
+        action="store_true",
+        help="Disable automatic torchrun launch and force single-process training.",
     )
     resume_group = parser.add_mutually_exclusive_group()
     resume_group.add_argument(
@@ -192,8 +215,17 @@ def _apply_resume_to_configs(configs: list[dict[str, Any]], backend: str, resume
 def run_training(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     backend, training_type = resolve_backend_and_training_type(args, config)
-    resume_spec = resume_spec_from_sources(config, _resume_backend_config(config, backend), args)
     spec = validate_backend_training_type(backend, training_type)
+    launch_result = maybe_launch_distributed_training(
+        backend=backend,
+        config=config,
+        cli_args=args,
+        argv=argv_from_args(args),
+    )
+    if launch_result is not None:
+        return launch_result
+
+    resume_spec = resume_spec_from_sources(config, _resume_backend_config(config, backend), args)
     backend_module = load_backend_module(spec)
     try:
         configs = expand_config_grid(
@@ -223,6 +255,7 @@ def run_training(args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    args._raw_argv = list(argv) if argv is not None else sys.argv[1:]
     try:
         return run_training(args)
     except BackendDependencyError as exc:

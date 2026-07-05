@@ -12,6 +12,7 @@ import sys
 from typing import Any
 
 from training.backends.registry import TrainingCliError
+from training.distributed import is_main_process, is_torchrun_child, wait_for_files
 
 
 DEFAULT_CACHE_DIR = Path("cache/filtered_datasets")
@@ -642,14 +643,28 @@ def materialize_filtered_dataset(
     output_path = output_dir / "dataset.jsonl"
     report_path = output_dir / "filter_report.json"
 
-    if output_path.exists() and report_path.exists():
+    def cached_result(*, cache_hit: bool) -> FilteredDatasetResult | None:
+        if not (output_path.exists() and report_path.exists()):
+            return None
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            report = {}
-        if report:
-            _print_report(report, cache_hit=True)
-            return FilteredDatasetResult(input_path, output_dir, output_path, report_path, report, cache_hit=True)
+            return None
+        if not report:
+            return None
+        _print_report(report, cache_hit=cache_hit)
+        return FilteredDatasetResult(input_path, output_dir, output_path, report_path, report, cache_hit=cache_hit)
+
+    result = cached_result(cache_hit=True)
+    if result is not None:
+        return result
+
+    if is_torchrun_child() and not is_main_process():
+        wait_for_files([output_path, report_path])
+        result = cached_result(cache_hit=True)
+        if result is None:
+            raise DatasetFilterError(f"Filtered dataset cache under '{output_dir}' is incomplete after rank 0 finished.")
+        return result
 
     output_dir.mkdir(parents=True, exist_ok=True)
     profile_name = str(profile["name"])

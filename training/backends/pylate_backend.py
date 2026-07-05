@@ -16,6 +16,7 @@ from training.backends.sentence_transformers_backend import (
     load_flagembedding_jsonl_dataset,
 )
 from training.checkpoints import build_epoch_checkpoint_callback, resolve_resume_checkpoint, train_with_resume
+from training.distributed import barrier_if_distributed, is_main_process
 
 
 def _require_pylate() -> None:
@@ -71,6 +72,16 @@ def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(model_kwargs, dict):
         raise SentenceTransformersConfigError("'pylate.model_kwargs' must be a mapping when provided.")
     return dict(model_kwargs)
+
+
+def _trainer_is_main_process(trainer: Any) -> bool:
+    is_world_process_zero = getattr(trainer, "is_world_process_zero", None)
+    if callable(is_world_process_zero):
+        try:
+            return bool(is_world_process_zero())
+        except TypeError:
+            pass
+    return is_main_process()
 
 
 def run_colbert_training(request: TrainingRequest) -> int:
@@ -152,7 +163,7 @@ def run_colbert_training(request: TrainingRequest) -> int:
         data_collator=ColBERTCollator(tokenize_fn=model.tokenize),
     )
     epoch_checkpoint_callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
-    if epoch_checkpoint_callback is not None and hasattr(trainer, "add_callback"):
+    if is_main_process() and epoch_checkpoint_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(epoch_checkpoint_callback)
 
     print(
@@ -163,9 +174,11 @@ def run_colbert_training(request: TrainingRequest) -> int:
     train_with_resume(trainer, resume_from_checkpoint)
 
     final_dir = output_dir / "final"
-    final_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(str(final_dir))
-    print(f"[INFO] Saved final PyLate ColBERT model to: {final_dir}", flush=True)
+    if _trainer_is_main_process(trainer):
+        final_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(final_dir))
+        print(f"[INFO] Saved final PyLate ColBERT model to: {final_dir}", flush=True)
+    barrier_if_distributed()
     return 0
 
 

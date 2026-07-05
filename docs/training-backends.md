@@ -118,6 +118,88 @@ each expanded run under `runs_dir/<backend>/<training_type>/<run-name>`.
 
 CLI values such as `--backend pylate --training-type colbert` override `backend` and `training_type` from YAML.
 
+## Multi-GPU and GPU Selection
+
+Implemented training backends can use multiple GPUs through `torchrun`:
+
+- `sentence-transformers` and `pylate` are automatically relaunched by `training.train` when more than one GPU is selected.
+- `flagembedding` keeps its backend-owned launcher and passes the selected GPU count to its internal `torchrun`.
+
+By default, `distributed.enabled: auto` and GPU selection is `auto`, so the CLI uses all GPUs visible through CUDA. If only one GPU is visible, the run stays single-process.
+
+Use all visible GPUs:
+
+```bash
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/polish_splade_dataset_small_multiple_lr.yaml
+```
+
+Use specific GPU ids:
+
+```bash
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/polish_splade_dataset_small_multiple_lr.yaml \
+  --gpus 2,3
+```
+
+Use the first two currently visible GPUs:
+
+```bash
+python -m training.train \
+  --backend pylate \
+  --training-type colbert \
+  --config configs/smoke_pylate_colbert.yaml \
+  --num-gpus 2
+```
+
+Disable automatic distributed launch:
+
+```bash
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/polish_splade_dataset_small_multiple_lr.yaml \
+  --no-distributed
+```
+
+The equivalent YAML configuration is:
+
+```yaml
+distributed:
+  enabled: auto      # auto | true | false
+  gpus: [2, 3]       # exact CUDA_VISIBLE_DEVICES ids, or "auto"
+```
+
+or:
+
+```yaml
+distributed:
+  enabled: auto
+  num_gpus: 2        # first two currently visible GPUs
+```
+
+`--gpus` and `distributed.gpus` select exact ids and are passed to `CUDA_VISIBLE_DEVICES`.
+For one specific GPU in YAML, use a list, for example `gpus: [2]`.
+`--num-gpus` and `distributed.num_gpus` select the first N currently visible devices. For example, if
+`CUDA_VISIBLE_DEVICES=4,5,6,7`, then `--num-gpus 2` launches on `4,5`.
+
+For cross-device negative pools, enable the backend loss option as well:
+
+```yaml
+sentence_transformers:
+  gather_across_devices: true
+
+pylate:
+  gather_across_devices: true
+```
+
+For FlagEmbedding, use the same CLI/YAML GPU selection. Do not wrap `python -m training.train --backend flagembedding`
+in your own `torchrun`; the FlagEmbedding backend already launches `torchrun` internally.
+
 ## CLI Parameters
 
 | Parameter | Required | Description |
@@ -130,6 +212,9 @@ CLI values such as `--backend pylate --training-type colbert` override `backend`
 | `--benchmark-name` | No | MTEB benchmark name. Defaults to `NanoBEIR`. Used only with `--run-mteb`. |
 | `--pirb-scope` / `--pirb_scope` | No | PIRB scope: `tiny`, `small`, or `all`. Used only with `--run-pirb`. |
 | `--remove-checkpoints` / `--remove_checkpoints` | No | Removes `checkpoint-*` directories after a successful FlagEmbedding run. |
+| `--gpus` | No | Exact GPU ids to expose, for example `0,1` or `2`. Use `auto` for all visible GPUs. |
+| `--num-gpus` | No | Use the first N currently visible GPUs. |
+| `--no-distributed` | No | Disable automatic multi-process training and force a single process. |
 | `--resume` | No | Resumes each resolved run from the latest checkpoint in `output_dir/checkpoint-*` or `output_dir/epoch-checkpoints/*`. |
 | `--resume-from-checkpoint` | No | Resumes a single expanded run from a specific checkpoint directory. Use `--resume` for grids. |
 
@@ -167,6 +252,9 @@ The CLI overrides `backend`, `training_type`, and resume mode. All other trainin
 | `dataloader_drop_last`, `dataloader_num_workers` | All | Dataloader settings. |
 | `report_to` | SentenceTransformers, PyLate | Reporting integrations, for example `[]` for smoke tests without W&B. |
 | `backend_config` | All | Shared backend override section. Backend-specific sections such as `sentence_transformers` take precedence over `backend_config`. |
+| `distributed.enabled` | All | `auto`, `true`, or `false`. Defaults to `auto`. |
+| `distributed.gpus` | All | Exact GPU ids, for example `[0, 1]`, or `auto`. CLI `--gpus` wins. |
+| `distributed.num_gpus` | All | First N visible GPUs. CLI `--num-gpus` wins. |
 | `dataset_filter` | FlagEmbedding, SentenceTransformers | Optional YAML filter profile. The filtered dataset is materialized before training. |
 | `dataset_filter_cache_dir` | FlagEmbedding, SentenceTransformers | Optional cache root for materialized filtered datasets. Defaults to `cache/filtered_datasets`. |
 

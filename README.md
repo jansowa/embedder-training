@@ -48,11 +48,45 @@ Main parameters:
 - `--config`: YAML config path. CLI values override `backend` and `training_type` from YAML.
 - `--run-mteb` / `--run-pirb`: optional post-training evaluation for the FlagEmbedding pipeline.
 - `--remove-checkpoints`: remove `checkpoint-*` directories after a successful FlagEmbedding run.
+- `--gpus 0,1`: use specific GPU ids. By default the implemented backends use all visible GPUs.
+- `--num-gpus 2`: use the first N currently visible GPUs.
+- `--no-distributed`: force single-process training.
 - `--resume`: resume each run from its latest `checkpoint-*` or preserved epoch checkpoint.
 - `--resume-from-checkpoint PATH`: resume a single run from a specific checkpoint directory.
 
 Available backends, installation variants, lazy-import behavior, SentenceTransformers dense/Matryoshka/SPLADE training, PyLate ColBERT training, extension-point training types, and smoke tests are documented in `docs/training-backends.md`.
 Declarative pre-training dataset filters can be configured with `dataset_filter`; the profile format, cache behavior, and filtered smoke test are also documented there.
+
+Multi-GPU examples:
+```shell
+# Use all visible GPUs.
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/polish_splade_dataset_small_multiple_lr.yaml
+
+# Use only GPU 2 and GPU 3.
+python -m training.train \
+  --backend sentence-transformers \
+  --training-type splade \
+  --config configs/polish_splade_dataset_small_multiple_lr.yaml \
+  --gpus 2,3
+
+# Use the first two visible GPUs.
+python -m training.train \
+  --backend pylate \
+  --training-type colbert \
+  --config configs/smoke_pylate_colbert.yaml \
+  --num-gpus 2
+```
+
+The equivalent YAML block is:
+```yaml
+distributed:
+  enabled: auto
+  gpus: [2, 3]
+```
+Use `gpus: [2]` for one specific GPU, and `num_gpus: 2` for the first two visible GPUs.
 
 For long SentenceTransformers/SPLADE epochs, use `save_strategy: steps` with `keep_epoch_checkpoints: true`: rotating step checkpoints make resume frequent, while full epoch checkpoints are preserved under `epoch-checkpoints/`.
 
