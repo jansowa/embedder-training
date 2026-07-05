@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from training.backends.registry import BackendDependencyError, TrainingRequest
+from training.checkpoints import (
+    build_epoch_checkpoint_callback,
+    resolve_resume_checkpoint,
+    train_with_resume,
+)
 from training.dataset_filters import apply_dataset_filter_if_configured
 
 
@@ -17,12 +22,17 @@ class SentenceTransformersConfigError(ValueError):
 
 
 COMMON_TRAINING_KEYS = {
+    "batch_sampler",
     "bf16",
     "dataloader_drop_last",
     "dataloader_num_workers",
+    "epoch_checkpoint_dir",
     "fp16",
     "gradient_accumulation_steps",
+    "gradient_checkpointing",
+    "keep_epoch_checkpoints",
     "learning_rate",
+    "loss",
     "logging_steps",
     "max_seq_length",
     "max_steps",
@@ -35,11 +45,14 @@ COMMON_TRAINING_KEYS = {
     "processor_kwargs",
     "query_instruction_for_retrieval",
     "report_to",
+    "resume",
+    "resume_from_checkpoint",
     "run_name",
     "save_steps",
     "save_strategy",
     "save_total_limit",
     "seed",
+    "splade_activation_stats",
     "tokenizer_args",
     "tokenizer_name_or_path",
     "train_batch_size",
@@ -47,6 +60,17 @@ COMMON_TRAINING_KEYS = {
     "trust_remote_code",
     "warmup_ratio",
     "weight_decay",
+}
+
+BATCH_SAMPLER_ALIASES = {
+    "batch_sampler": "batch_sampler",
+    "default": "batch_sampler",
+    "group_by_label": "group_by_label",
+    "group-by-label": "group_by_label",
+    "no_duplicate": "no_duplicates",
+    "no-duplicate": "no_duplicates",
+    "no_duplicates": "no_duplicates",
+    "no-duplicates": "no_duplicates",
 }
 
 
@@ -99,6 +123,7 @@ def _load_sparse_sentence_transformers():
             SparseEncoderTrainingArguments,
         )
         from sentence_transformers.sparse_encoder.losses import (
+            SparseMarginMSELoss,
             SparseMultipleNegativesRankingLoss,
             SpladeLoss,
         )
@@ -119,6 +144,7 @@ def _load_sparse_sentence_transformers():
         SparseEncoder,
         SparseEncoderTrainer,
         SparseEncoderTrainingArguments,
+        SparseMarginMSELoss,
         SparseMultipleNegativesRankingLoss,
         SpladeLoss,
         MLMTransformer,
@@ -140,6 +166,28 @@ def _resolve_value(config: dict[str, Any], backend_config: dict[str, Any], key: 
     if key in backend_config:
         return backend_config[key]
     return config.get(key, default)
+
+
+def _accepts_kwarg(callable_obj: Any, key: str) -> bool:
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    parameters = signature.parameters
+    return key in parameters or any(param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values())
+
+
+def _normalize_batch_sampler(value: Any) -> str:
+    raw_value = getattr(value, "value", value)
+    normalized = str(raw_value).strip().lower()
+    normalized = normalized.replace("batchsamplers.", "").replace("batchsampler.", "")
+    normalized = normalized.replace(" ", "_")
+    batch_sampler = BATCH_SAMPLER_ALIASES.get(normalized)
+    if batch_sampler is None:
+        raise SentenceTransformersConfigError(
+            "'sentence_transformers.batch_sampler' must be one of: batch_sampler, no_duplicates, group_by_label."
+        )
+    return batch_sampler
 
 
 def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any], *, config_path: str | None = None) -> Path:
@@ -180,8 +228,59 @@ def _ensure_text_list(value: Any, field_name: str, line_no: int) -> list[str]:
     raise SentenceTransformersConfigError(f"Line {line_no}: field '{field_name}' must be a non-empty string or list of strings.")
 
 
+def _ensure_float_list(value: Any, field_name: str, line_no: int) -> list[float]:
+    if not isinstance(value, list) or not value:
+        raise SentenceTransformersConfigError(f"Line {line_no}: field '{field_name}' must be a non-empty list of numbers.")
+    try:
+        return [float(item) for item in value]
+    except (TypeError, ValueError) as exc:
+        raise SentenceTransformersConfigError(f"Line {line_no}: field '{field_name}' must contain only numbers.") from exc
+
+
 def _prefix_text(prefix: str, text: str) -> str:
     return f"{prefix}{text}" if prefix else text
+
+
+def _normalize_teacher_scores(pos_score: float, neg_scores: list[float], normalization: str) -> tuple[float, list[float]]:
+    if normalization == "none":
+        return pos_score, neg_scores
+    values = [pos_score, *neg_scores]
+    if normalization == "per_query_minmax":
+        min_value, max_value = min(values), max(values)
+        span = max_value - min_value
+        if span == 0:
+            return 0.0, [0.0 for _ in neg_scores]
+        normalized = [(value - min_value) / span for value in values]
+        return normalized[0], normalized[1:]
+    if normalization == "per_query_zscore":
+        mean = sum(values) / len(values)
+        variance = sum((value - mean) ** 2 for value in values) / len(values)
+        std = variance ** 0.5
+        if std == 0:
+            return 0.0, [0.0 for _ in neg_scores]
+        normalized = [(value - mean) / std for value in values]
+        return normalized[0], normalized[1:]
+    raise SentenceTransformersConfigError(
+        "'sentence_transformers.score_normalization' must be one of: none, per_query_minmax, per_query_zscore."
+    )
+
+
+def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
+    loss_name = str(backend_config.get("loss", "sparse_multiple_negatives_ranking")).strip().lower().replace("-", "_")
+    aliases = {
+        "mnrl": "sparse_multiple_negatives_ranking",
+        "multiple_negatives_ranking": "sparse_multiple_negatives_ranking",
+        "sparse_multiple_negatives_ranking_loss": "sparse_multiple_negatives_ranking",
+        "sparse_margin_mse_loss": "sparse_margin_mse",
+        "margin_mse": "sparse_margin_mse",
+        "distil_margin_mse": "sparse_margin_mse",
+    }
+    loss_name = aliases.get(loss_name, loss_name)
+    if loss_name not in {"sparse_multiple_negatives_ranking", "sparse_margin_mse"}:
+        raise SentenceTransformersConfigError(
+            "'sentence_transformers.loss' must be one of: sparse_multiple_negatives_ranking, sparse_margin_mse."
+        )
+    return loss_name
 
 
 def load_flagembedding_jsonl_dataset(
@@ -190,8 +289,10 @@ def load_flagembedding_jsonl_dataset(
     negatives_per_query: int | None,
     query_prefix: str,
     passage_prefix: str,
-) -> list[dict[str, str]]:
-    parsed_items: list[tuple[int, str, list[str], list[str]]] = []
+    use_score_labels: bool = False,
+    score_normalization: str = "none",
+) -> list[dict[str, Any]]:
+    parsed_items: list[tuple[int, str, list[str], list[str], list[float] | None, list[float] | None]] = []
     min_negatives: int | None = None
 
     with data_path.open(encoding="utf-8") as fh:
@@ -211,8 +312,20 @@ def load_flagembedding_jsonl_dataset(
             negatives = _ensure_text_list(item.get("neg"), "neg", line_no)
             if not negatives:
                 raise SentenceTransformersConfigError(f"Line {line_no}: at least one negative is required.")
+            pos_scores = neg_scores = None
+            if use_score_labels:
+                pos_scores = _ensure_float_list(item.get("pos_scores"), "pos_scores", line_no)
+                neg_scores = _ensure_float_list(item.get("neg_scores"), "neg_scores", line_no)
+                if len(pos_scores) not in {1, len(positives)}:
+                    raise SentenceTransformersConfigError(
+                        f"Line {line_no}: field 'pos_scores' must have length 1 or match the number of positives."
+                    )
+                if len(neg_scores) < len(negatives):
+                    raise SentenceTransformersConfigError(
+                        f"Line {line_no}: field 'neg_scores' must have at least as many scores as negatives."
+                    )
 
-            parsed_items.append((line_no, query, positives, negatives))
+            parsed_items.append((line_no, query, positives, negatives, pos_scores, neg_scores))
             min_negatives = len(negatives) if min_negatives is None else min(min_negatives, len(negatives))
 
     if not parsed_items:
@@ -222,21 +335,32 @@ def load_flagembedding_jsonl_dataset(
     if effective_negatives is None or effective_negatives <= 0:
         raise SentenceTransformersConfigError("'negatives_per_query' must be greater than zero.")
 
-    rows: list[dict[str, str]] = []
-    for line_no, query, positives, negatives in parsed_items:
+    rows: list[dict[str, Any]] = []
+    for line_no, query, positives, negatives, pos_scores, neg_scores in parsed_items:
         if len(negatives) < effective_negatives:
             raise SentenceTransformersConfigError(
                 f"Line {line_no}: expected at least {effective_negatives} negatives, got {len(negatives)}."
             )
 
         selected_negatives = negatives[:effective_negatives]
-        for positive in positives:
+        for positive_idx, positive in enumerate(positives):
             row = {
                 "anchor": _prefix_text(query_prefix, query),
                 "positive": _prefix_text(passage_prefix, positive),
             }
             for idx, negative in enumerate(selected_negatives, start=1):
                 row[f"negative_{idx}"] = _prefix_text(passage_prefix, negative)
+            if use_score_labels:
+                assert pos_scores is not None and neg_scores is not None
+                pos_score = pos_scores[positive_idx] if len(pos_scores) > 1 else pos_scores[0]
+                selected_neg_scores = neg_scores[:effective_negatives]
+                pos_score, selected_neg_scores = _normalize_teacher_scores(
+                    pos_score,
+                    selected_neg_scores,
+                    score_normalization,
+                )
+                labels = [pos_score - neg_score for neg_score in selected_neg_scores]
+                row["label"] = labels[0] if len(labels) == 1 else labels
             rows.append(row)
 
     return rows
@@ -253,6 +377,7 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
             backend_config.get("per_device_train_batch_size", backend_config.get("train_batch_size", 8))
         ),
         "gradient_accumulation_steps": int(backend_config.get("gradient_accumulation_steps", 1)),
+        "gradient_checkpointing": bool(backend_config.get("gradient_checkpointing", False)),
         "learning_rate": float(backend_config.get("learning_rate", 5e-5)),
         "weight_decay": float(backend_config.get("weight_decay", 0.0)),
         "warmup_ratio": float(backend_config.get("warmup_ratio", 0.0)),
@@ -267,6 +392,13 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
         "dataloader_num_workers": int(backend_config.get("dataloader_num_workers", 0)),
         "report_to": backend_config.get("report_to", []),
     }
+    if backend_config.get("batch_sampler") is not None:
+        if not _accepts_kwarg(training_arguments_cls, "batch_sampler"):
+            raise SentenceTransformersConfigError(
+                "'sentence_transformers.batch_sampler' requires a SentenceTransformers version "
+                "whose training arguments support batch_sampler."
+            )
+        kwargs["batch_sampler"] = _normalize_batch_sampler(backend_config["batch_sampler"])
     if backend_config.get("run_name") is not None:
         kwargs["run_name"] = str(backend_config["run_name"])
     return training_arguments_cls(**kwargs)
@@ -285,6 +417,14 @@ def _reports_to_wandb(report_to: Any) -> bool:
     return any(str(value).lower() in {"all", "wandb"} for value in values)
 
 
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
 def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
     if not _reports_to_wandb(backend_config.get("report_to", [])):
         return
@@ -294,6 +434,245 @@ def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
         return
     if getattr(wandb, "run", None) is not None:
         wandb.finish()
+
+
+def _add_epoch_checkpoint_callback(trainer: Any, output_dir: Path, config: dict[str, Any], backend_config: dict[str, Any]) -> None:
+    callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
+    if callback is not None and hasattr(trainer, "add_callback"):
+        trainer.add_callback(callback)
+
+
+def _unique_texts(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _even_sample(values: list[str], sample_size: int) -> list[str]:
+    values = _unique_texts(values)
+    if len(values) <= sample_size:
+        return values
+    if sample_size == 1:
+        return [values[0]]
+    step = (len(values) - 1) / (sample_size - 1)
+    return [values[round(idx * step)] for idx in range(sample_size)]
+
+
+def _activation_stats(values: list[int]) -> dict[str, float | int]:
+    if not values:
+        return {"samples": 0, "mean": 0.0, "median": 0.0, "p90": 0.0, "p95": 0.0, "p99": 0.0, "max": 0}
+    ordered = sorted(values)
+    return {
+        "samples": len(ordered),
+        "mean": sum(ordered) / len(ordered),
+        "median": _percentile(ordered, 0.50),
+        "p90": _percentile(ordered, 0.90),
+        "p95": _percentile(ordered, 0.95),
+        "p99": _percentile(ordered, 0.99),
+        "max": ordered[-1],
+    }
+
+
+def _percentile(sorted_values: list[int], q: float) -> float:
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    position = q * (len(sorted_values) - 1)
+    lower = int(position)
+    upper = min(lower + 1, len(sorted_values) - 1)
+    fraction = position - lower
+    return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
+
+
+class SpladeActivationStatsCallback:
+    def __init__(
+        self,
+        *,
+        model: Any,
+        query_texts: list[str],
+        document_texts: list[str],
+        batch_size: int,
+        interval_steps: int,
+        quantization_factor: int,
+        log_on_train_begin: bool,
+        log_on_train_end: bool,
+        prefix: str,
+    ) -> None:
+        self.model = model
+        self.query_texts = query_texts
+        self.document_texts = document_texts
+        self.batch_size = batch_size
+        self.interval_steps = interval_steps
+        self.quantization_factor = quantization_factor
+        self.log_on_train_begin = log_on_train_begin
+        self.log_on_train_end = log_on_train_end
+        self.prefix = prefix.rstrip("/")
+        self._last_logged_step: int | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("on_"):
+            def _noop(args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+                return control
+
+            return _noop
+        raise AttributeError(name)
+
+    def on_train_begin(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        if self.log_on_train_begin:
+            self._log(getattr(state, "global_step", 0))
+        return control
+
+    def on_log(self, args: Any, state: Any, control: Any, logs: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        step = int(getattr(state, "global_step", 0) or 0)
+        if step > 0 and step % self.interval_steps == 0:
+            metrics = self._log(step)
+            if logs is not None:
+                logs.update(metrics)
+        return control
+
+    def on_train_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        if self.log_on_train_end:
+            self._log(getattr(state, "global_step", 0))
+        return control
+
+    def _log(self, step: int) -> dict[str, float | int]:
+        step = int(step or 0)
+        if self._last_logged_step == step:
+            return {}
+        self._last_logged_step = step
+        metrics = self._compute_metrics()
+        if not metrics:
+            return metrics
+        metrics[f"{self.prefix}/quantization_factor"] = self.quantization_factor
+        self._log_to_wandb(metrics, step)
+        return metrics
+
+    def _compute_metrics(self) -> dict[str, float | int]:
+        metrics: dict[str, float | int] = {}
+        for kind, texts, encoder_name in (
+            ("query", self.query_texts, "encode_query"),
+            ("document", self.document_texts, "encode_document"),
+        ):
+            if not texts:
+                continue
+            counts = self._count_active_dims(texts, encoder_name)
+            for stat_name, value in _activation_stats(counts).items():
+                metrics[f"{self.prefix}/{kind}_active_dims_{stat_name}"] = value
+        return metrics
+
+    def _count_active_dims(self, texts: list[str], encoder_name: str) -> list[int]:
+        import torch
+
+        counts: list[int] = []
+        was_training = bool(getattr(self.model, "training", False))
+        if hasattr(self.model, "eval"):
+            self.model.eval()
+        try:
+            for batch in _batch_texts(texts, self.batch_size):
+                encoder = getattr(self.model, encoder_name, None) or getattr(self.model, "encode")
+                embeddings = encoder(
+                    batch,
+                    batch_size=len(batch),
+                    show_progress_bar=False,
+                    convert_to_tensor=True,
+                    convert_to_sparse_tensor=False,
+                    save_to_cpu=True,
+                )
+                tensor = _as_dense_tensor(embeddings, torch)
+                quantized = torch.round(tensor.float() * self.quantization_factor)
+                counts.extend((quantized > 0).sum(dim=-1).cpu().tolist())
+                del embeddings, tensor, quantized
+        finally:
+            if was_training and hasattr(self.model, "train"):
+                self.model.train()
+        return [int(value) for value in counts]
+
+    def _log_to_wandb(self, metrics: dict[str, float | int], step: int) -> None:
+        try:
+            import wandb
+        except ModuleNotFoundError:
+            return
+        if getattr(wandb, "run", None) is None:
+            return
+        wandb.log(metrics, step=step)
+
+
+def _batch_texts(values: list[str], batch_size: int) -> list[list[str]]:
+    return [values[idx : idx + batch_size] for idx in range(0, len(values), batch_size)]
+
+
+def _as_dense_tensor(embeddings: Any, torch: Any) -> Any:
+    if isinstance(embeddings, list):
+        tensors = [_as_dense_tensor(value, torch) for value in embeddings]
+        return torch.stack(tensors)
+    if not isinstance(embeddings, torch.Tensor):
+        return torch.as_tensor(embeddings)
+    if embeddings.is_sparse:
+        return embeddings.to_dense()
+    return embeddings
+
+
+def _splade_activation_stats_config(backend_config: dict[str, Any]) -> dict[str, Any] | None:
+    raw_config = backend_config.get("splade_activation_stats")
+    if raw_config is None:
+        return None
+    if isinstance(raw_config, bool):
+        if not raw_config:
+            return None
+        raw_config = {}
+    if not isinstance(raw_config, dict):
+        raise SentenceTransformersConfigError("'sentence_transformers.splade_activation_stats' must be a mapping or boolean.")
+    if not _as_bool(raw_config.get("enabled", True)):
+        return None
+
+    config = dict(raw_config)
+    config["sample_size"] = int(config.get("sample_size", 128))
+    config["batch_size"] = int(config.get("batch_size", 16))
+    config["interval_steps"] = int(config.get("interval_steps", 500))
+    config["quantization_factor"] = int(config.get("quantization_factor", 100))
+    config["include_negatives"] = _as_bool(config.get("include_negatives", True))
+    config["log_on_train_begin"] = _as_bool(config.get("log_on_train_begin", True))
+    config["log_on_train_end"] = _as_bool(config.get("log_on_train_end", True))
+    config["prefix"] = str(config.get("prefix", "train/splade_activation_stats"))
+    for key in ("sample_size", "batch_size", "interval_steps", "quantization_factor"):
+        if config[key] <= 0:
+            raise SentenceTransformersConfigError(f"'sentence_transformers.splade_activation_stats.{key}' must be positive.")
+    return config
+
+
+def _build_splade_activation_stats_callback(
+    model: Any,
+    rows: list[dict[str, str]],
+    backend_config: dict[str, Any],
+) -> SpladeActivationStatsCallback | None:
+    stats_config = _splade_activation_stats_config(backend_config)
+    if stats_config is None:
+        return None
+
+    sample_size = int(stats_config["sample_size"])
+    query_texts = _even_sample([row["anchor"] for row in rows if row.get("anchor")], sample_size)
+    document_candidates = [row["positive"] for row in rows if row.get("positive")]
+    if stats_config["include_negatives"]:
+        for row in rows:
+            for key, value in row.items():
+                if key.startswith("negative_") and value:
+                    document_candidates.append(value)
+    document_texts = _even_sample(document_candidates, sample_size)
+    return SpladeActivationStatsCallback(
+        model=model,
+        query_texts=query_texts,
+        document_texts=document_texts,
+        batch_size=int(stats_config["batch_size"]),
+        interval_steps=int(stats_config["interval_steps"]),
+        quantization_factor=int(stats_config["quantization_factor"]),
+        log_on_train_begin=bool(stats_config["log_on_train_begin"]),
+        log_on_train_end=bool(stats_config["log_on_train_end"]),
+        prefix=str(stats_config["prefix"]),
+    )
 
 
 def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
@@ -355,7 +734,9 @@ def _load_training_rows(
     backend_config: dict[str, Any],
     *,
     config_path: str | None = None,
-) -> tuple[Path, list[dict[str, str]]]:
+    use_score_labels: bool = False,
+    score_normalization: str = "none",
+) -> tuple[Path, list[dict[str, Any]]]:
     data_path = _resolve_train_data_path(config, backend_config, config_path=config_path)
     negatives_per_query = backend_config.get("negatives_per_query")
     if negatives_per_query is not None:
@@ -374,6 +755,8 @@ def _load_training_rows(
         negatives_per_query=negatives_per_query,
         query_prefix=query_prefix,
         passage_prefix=passage_prefix,
+        use_score_labels=use_score_labels,
+        score_normalization=score_normalization,
     )
     return data_path, rows
 
@@ -485,6 +868,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
@@ -498,6 +882,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers embedder "
@@ -505,7 +890,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -536,6 +921,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-matryoshka")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
     train_dataset = Dataset.from_list(rows)
@@ -558,6 +944,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers matryoshka "
@@ -566,7 +953,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -583,6 +970,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         SparseEncoder,
         SparseEncoderTrainer,
         SparseEncoderTrainingArguments,
+        SparseMarginMSELoss,
         SparseMultipleNegativesRankingLoss,
         SpladeLoss,
         MLMTransformer,
@@ -599,17 +987,28 @@ def run_splade_training(request: TrainingRequest) -> int:
     )
     output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", "runs/sentence-transformers-splade")))
     output_dir.mkdir(parents=True, exist_ok=True)
+    resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
-    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
+    loss_name = _splade_base_loss_name(backend_config)
+    data_path, rows = _load_training_rows(
+        config,
+        backend_config,
+        config_path=request.config_path,
+        use_score_labels=loss_name == "sparse_margin_mse",
+        score_normalization=str(backend_config.get("score_normalization", "none")),
+    )
     train_dataset = Dataset.from_list(rows)
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
 
     args = _training_args(output_dir, backend_config, SparseEncoderTrainingArguments)
-    ranking_loss = SparseMultipleNegativesRankingLoss(
-        model,
-        scale=float(backend_config.get("scale", 1.0)),
-        gather_across_devices=bool(backend_config.get("gather_across_devices", False)),
-    )
+    if loss_name == "sparse_margin_mse":
+        ranking_loss = SparseMarginMSELoss(model)
+    else:
+        ranking_loss = SparseMultipleNegativesRankingLoss(
+            model,
+            scale=float(backend_config.get("scale", 1.0)),
+            gather_across_devices=bool(backend_config.get("gather_across_devices", False)),
+        )
     loss = SpladeLoss(
         model,
         loss=ranking_loss,
@@ -622,6 +1021,10 @@ def run_splade_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    activation_stats_callback = _build_splade_activation_stats_callback(model, rows, backend_config)
+    if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
+        trainer.add_callback(activation_stats_callback)
+    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers SPLADE "
@@ -629,7 +1032,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        trainer.train()
+        train_with_resume(trainer, resume_from_checkpoint)
     finally:
         _finish_wandb_run(backend_config)
 

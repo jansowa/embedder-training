@@ -18,7 +18,8 @@ from training.backends.registry import (
     normalize_training_type,
     validate_backend_training_type,
 )
-from training.config_grid import expand_config_grid
+from training.checkpoints import LATEST_CHECKPOINT, output_dir_from_checkpoint, resume_spec_from_sources
+from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
 
 
 class ConfigError(TrainingCliError):
@@ -92,6 +93,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Remove checkpoint-* directories after a successful FlagEmbedding run.",
     )
+    resume_group = parser.add_mutually_exclusive_group()
+    resume_group.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume each run from its latest checkpoint under the resolved output directory.",
+    )
+    resume_group.add_argument(
+        "--resume-from-checkpoint",
+        dest="resume_from_checkpoint",
+        default=None,
+        help="Resume from a specific checkpoint directory. Use --resume for expanded grids.",
+    )
     return parser
 
 
@@ -130,15 +143,68 @@ def resolve_backend_and_training_type(
     return normalize_backend(str(backend)), normalize_training_type(str(training_type))
 
 
+def _dict_section(config: dict[str, Any], key: str | None) -> dict[str, Any]:
+    if key is None:
+        return {}
+    value = config.get(key, {})
+    return value if isinstance(value, dict) else {}
+
+
+def _resume_backend_config(config: dict[str, Any], backend: str) -> dict[str, Any]:
+    backend_section_key = BACKEND_SECTION_KEYS.get(backend)
+    common = {
+        key: config[key]
+        for key in ("resume", "resume_from_checkpoint", "epoch_checkpoint_dir")
+        if key in config
+    }
+    return common | _dict_section(config, "backend_config") | _dict_section(config, backend_section_key)
+
+
+def _set_backend_values(config: dict[str, Any], backend: str, values: dict[str, Any]) -> None:
+    config.update(values)
+    backend_section_key = BACKEND_SECTION_KEYS.get(backend)
+    if backend_section_key is None:
+        return
+    section = config.get(backend_section_key)
+    if section is None:
+        section = {}
+        config[backend_section_key] = section
+    if isinstance(section, dict):
+        section.update(values)
+
+
+def _apply_resume_to_configs(configs: list[dict[str, Any]], backend: str, resume_spec: str | None) -> None:
+    if resume_spec is None:
+        return
+
+    if resume_spec != LATEST_CHECKPOINT and len(configs) > 1:
+        raise ConfigError("--resume-from-checkpoint can only be used with a single expanded run. Use --resume for grids.")
+
+    for run_config in configs:
+        values = {"resume": True, "resume_from_checkpoint": resume_spec}
+        if resume_spec != LATEST_CHECKPOINT:
+            epoch_dir = str(_resume_backend_config(run_config, backend).get("epoch_checkpoint_dir") or "epoch-checkpoints")
+            output_dir = output_dir_from_checkpoint(Path(resume_spec), epoch_checkpoint_dir=epoch_dir)
+            values["output_dir"] = str(output_dir)
+        _set_backend_values(run_config, backend, values)
+
+
 def run_training(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     backend, training_type = resolve_backend_and_training_type(args, config)
+    resume_spec = resume_spec_from_sources(config, _resume_backend_config(config, backend), args)
     spec = validate_backend_training_type(backend, training_type)
     backend_module = load_backend_module(spec)
     try:
-        configs = expand_config_grid(config, backend=backend, training_type=training_type)
+        configs = expand_config_grid(
+            config,
+            backend=backend,
+            training_type=training_type,
+            resume=resume_spec is not None,
+        )
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+    _apply_resume_to_configs(configs, backend, resume_spec)
 
     for run_config in configs:
         request = TrainingRequest(
