@@ -20,7 +20,7 @@ BACKEND_SECTION_KEYS = {
     "pylate": "pylate",
 }
 
-GRID_KEYS = {"architectures", "hparams"}
+GRID_KEYS = {"architectures", "hparams", "train_data_groups"}
 
 HPARAM_SLUG_LABELS = {
     "learning_rate": "lr",
@@ -75,6 +75,45 @@ def _as_hparams_list(value: Any) -> list[dict[str, Any]]:
     if not all(isinstance(item, dict) for item in value):
         raise ValueError("Grid field 'hparams' must contain only mappings.")
     return [dict(item) for item in value]
+
+
+def _as_train_data_list(value: Any, *, field_name: str) -> str | list[str]:
+    if isinstance(value, (str, Path)):
+        return str(value)
+    if isinstance(value, list) and value and all(isinstance(item, (str, Path)) for item in value):
+        return [str(item) for item in value]
+    raise ValueError(f"Grid field '{field_name}' must be a non-empty string or list of strings.")
+
+
+def _train_data_group_slug(train_data: str | list[str], name: str | None = None) -> str:
+    if name:
+        return _safe_slug(name)
+    if isinstance(train_data, str):
+        return _safe_slug(train_data)
+    return _hparam_value_slug(train_data)
+
+
+def _as_train_data_groups(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("Grid field 'train_data_groups' must be a list.")
+    groups: list[dict[str, Any]] = []
+    for index, item in enumerate(value, start=1):
+        field_name = f"train_data_groups[{index}]"
+        if isinstance(item, dict):
+            if "train_data" not in item:
+                raise ValueError(f"Grid field '{field_name}' must contain 'train_data'.")
+            train_data = _as_train_data_list(item["train_data"], field_name=f"{field_name}.train_data")
+            name = item.get("name")
+            if name is not None and not isinstance(name, str):
+                raise ValueError(f"Grid field '{field_name}.name' must be a string when provided.")
+        else:
+            train_data = _as_train_data_list(item, field_name=field_name)
+            name = None
+        slug = _train_data_group_slug(train_data, name)
+        groups.append({"name": name or slug, "slug": slug, "train_data": train_data})
+    return groups
 
 
 def _as_bool(value: Any) -> bool:
@@ -137,8 +176,11 @@ def _hparam_slug(hparams: dict[str, Any]) -> str:
     return "default"
 
 
-def _run_slug(architecture: Any, hparams: dict[str, Any]) -> str:
-    return f"{_safe_slug(architecture)}-{_hparam_slug(hparams)}"
+def _run_slug(architecture: Any, hparams: dict[str, Any], train_data_group: dict[str, Any] | None = None) -> str:
+    slug = f"{_safe_slug(architecture)}-{_hparam_slug(hparams)}"
+    if train_data_group is not None:
+        slug = f"{slug}-data-{train_data_group['slug']}"
+    return slug
 
 
 def _set_backend_override(config: dict[str, Any], backend: str, values: dict[str, Any]) -> None:
@@ -201,8 +243,12 @@ def expand_config_grid(
         field_name="architectures",
     )
     hparams = _as_hparams_list(config.get("hparams", backend_section.get("hparams")))
+    train_data_groups = _as_train_data_groups(config.get("train_data_groups", backend_section.get("train_data_groups")))
 
-    if not architectures and not hparams:
+    if train_data_groups and any("train_data" in hparam for hparam in hparams):
+        raise ValueError("Grid field 'train_data_groups' cannot be combined with 'train_data' inside 'hparams'.")
+
+    if not architectures and not hparams and not train_data_groups:
         return [config]
 
     if not architectures:
@@ -210,9 +256,11 @@ def expand_config_grid(
         architectures = [configured_model] if configured_model is not None else [None]
     if not hparams:
         hparams = [{}]
+    if not train_data_groups:
+        train_data_groups = [None]
 
     variants: list[dict[str, Any]] = []
-    total_variants = len(architectures) * len(hparams)
+    total_variants = len(architectures) * len(hparams) * len(train_data_groups)
     root_output_dir = _first_config_value(config, backend, "output_dir")
     runs_dir = _first_config_value(config, backend, "runs_dir") or "runs"
     timestamp_output_dir = _as_bool(_first_config_value(config, backend, "timestamp_output_dir"))
@@ -221,43 +269,47 @@ def expand_config_grid(
 
     for architecture in architectures:
         for hparam in hparams:
-            variant = deepcopy(config)
-            _strip_grid_keys(variant)
+            for train_data_group in train_data_groups:
+                variant = deepcopy(config)
+                _strip_grid_keys(variant)
 
-            overrides = dict(hparam)
-            if architecture is not None:
-                overrides["model_name_or_path"] = architecture
-            variant.update(overrides)
-            variant["grid_architecture"] = architecture
-            variant["grid_hparams"] = dict(hparam)
-            base_run_name = _run_slug(architecture, hparam)
-            variant["run_name"] = base_run_name
-            if run_timestamp is not None:
-                variant["run_timestamp"] = run_timestamp
-                variant["run_name"] = f"{variant['run_name']}-{run_timestamp}"
-            variant["backend"] = backend
-            variant["training_type"] = training_type
-            _set_backend_override(variant, backend, overrides)
+                overrides = dict(hparam)
+                if architecture is not None:
+                    overrides["model_name_or_path"] = architecture
+                if train_data_group is not None:
+                    overrides["train_data"] = train_data_group["train_data"]
+                    variant["grid_train_data_group"] = dict(train_data_group)
+                variant.update(overrides)
+                variant["grid_architecture"] = architecture
+                variant["grid_hparams"] = dict(hparam)
+                base_run_name = _run_slug(architecture, hparam, train_data_group)
+                variant["run_name"] = base_run_name
+                if run_timestamp is not None:
+                    variant["run_timestamp"] = run_timestamp
+                    variant["run_name"] = f"{variant['run_name']}-{run_timestamp}"
+                variant["backend"] = backend
+                variant["training_type"] = training_type
+                _set_backend_override(variant, backend, overrides)
 
-            if "output_dir" in hparam and timestamp_output_dir:
-                variant["output_dir"] = str(Path(str(hparam["output_dir"])) / variant["run_name"])
-                _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
-            elif "output_dir" not in hparam:
-                if root_output_dir is not None and (total_variants > 1 or timestamp_output_dir):
-                    variant["output_dir"] = str(Path(str(root_output_dir)) / variant["run_name"])
+                if "output_dir" in hparam and timestamp_output_dir:
+                    variant["output_dir"] = str(Path(str(hparam["output_dir"])) / variant["run_name"])
                     _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
-                elif root_output_dir is None:
-                    variant["output_dir"] = str(Path(str(runs_dir)) / backend / training_type / variant["run_name"])
-                    _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
+                elif "output_dir" not in hparam:
+                    if root_output_dir is not None and (total_variants > 1 or timestamp_output_dir):
+                        variant["output_dir"] = str(Path(str(root_output_dir)) / variant["run_name"])
+                        _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
+                    elif root_output_dir is None:
+                        variant["output_dir"] = str(Path(str(runs_dir)) / backend / training_type / variant["run_name"])
+                        _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
 
-            if timestamp_output_dir and resume and "output_dir" in variant:
-                output_dir = Path(str(variant["output_dir"]))
-                resumed_dir = _latest_matching_run_dir(output_dir.parent, base_run_name, epoch_checkpoint_dir)
-                if resumed_dir is not None:
-                    variant["run_name"] = resumed_dir.name
-                    variant["output_dir"] = str(resumed_dir)
-                    _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
+                if timestamp_output_dir and resume and "output_dir" in variant:
+                    output_dir = Path(str(variant["output_dir"]))
+                    resumed_dir = _latest_matching_run_dir(output_dir.parent, base_run_name, epoch_checkpoint_dir)
+                    if resumed_dir is not None:
+                        variant["run_name"] = resumed_dir.name
+                        variant["output_dir"] = str(resumed_dir)
+                        _set_backend_override(variant, backend, {"output_dir": variant["output_dir"]})
 
-            variants.append(variant)
+                variants.append(variant)
 
     return variants

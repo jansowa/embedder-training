@@ -15,6 +15,13 @@ from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import resolve_resume_checkpoint
 from training.dataset_filters import apply_dataset_filter_if_configured
 from training.distributed import resolve_distributed_config
+from training.multi_dataset import (
+    PROPORTIONAL_BATCH_BEST_EFFORT,
+    is_multi_train_data,
+    materialize_mixed_jsonl_dataset,
+    normalize_dataset_mix_strategy,
+    normalize_train_data_entries,
+)
 
 
 DEFAULT_GRID = {
@@ -29,7 +36,8 @@ DEFAULT_GRID = {
 
 QUERY_INSTRUCTION_FOR_RETRIEVAL_DEFAULT = "query: "
 DATASET_FILTER_ARG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
-TRAINING_CONTROL_ARG_KEYS = DATASET_FILTER_ARG_KEYS | {"distributed", "gpus", "num_gpus"}
+MIXED_DATASET_ARG_KEYS = {"dataset_mix_strategy", "mixed_dataset_cache_dir"}
+TRAINING_CONTROL_ARG_KEYS = DATASET_FILTER_ARG_KEYS | MIXED_DATASET_ARG_KEYS | {"distributed", "gpus", "num_gpus"}
 
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
@@ -65,13 +73,16 @@ RESERVED_CONFIG_KEYS = {
     "benchmark",
     "benchmark_name",
     "distributed",
+    "dataset_mix_strategy",
     "epoch_checkpoint_dir",
     "flagembedding",
     "grid_architecture",
     "grid_hparams",
+    "grid_train_data_group",
     "hparams",
     "keep_epoch_checkpoints",
     "model_name_or_path",
+    "mixed_dataset_cache_dir",
     "output_dir",
     "pylate",
     "pirb_scope",
@@ -83,6 +94,7 @@ RESERVED_CONFIG_KEYS = {
     "run_pirb",
     "runs_dir",
     "sentence_transformers",
+    "train_data_groups",
     "training-type",
     "training_type",
     "wandb_project",
@@ -257,13 +269,53 @@ def run_training(request: TrainingRequest) -> int:
     for arch in grid["architectures"]:
         for hparams in grid["hparams"]:
             full_args = {**base_args, **hparams}
-            filter_result = apply_dataset_filter_if_configured(
-                full_args.get("train_data"),
-                full_args,
-                config_path=request.config_path,
+            mix_strategy = normalize_dataset_mix_strategy(
+                full_args.get(
+                    "dataset_mix_strategy",
+                    config.get(
+                        "dataset_mix_strategy",
+                        _dict_section(config, "backend_config").get(
+                            "dataset_mix_strategy",
+                            _dict_section(config, "flagembedding").get("dataset_mix_strategy"),
+                        ),
+                    ),
+                )
             )
-            if filter_result is not None:
-                full_args["train_data"] = str(filter_result.output_dir)
+            if mix_strategy == PROPORTIONAL_BATCH_BEST_EFFORT:
+                raise NotImplementedError(
+                    "'dataset_mix_strategy: proportional_batch_best_effort' is not supported for backend "
+                    "'flagembedding' because it runs training in an external process."
+                )
+
+            train_data_entries = normalize_train_data_entries(full_args.get("train_data"))
+            if is_multi_train_data(full_args.get("train_data")):
+                grid_group = config.get("grid_train_data_group") if isinstance(config.get("grid_train_data_group"), dict) else {}
+                mixed_result = materialize_mixed_jsonl_dataset(
+                    full_args.get("train_data"),
+                    full_args,
+                    config_path=request.config_path,
+                    cache_dir=full_args.get(
+                        "mixed_dataset_cache_dir",
+                        config.get(
+                            "mixed_dataset_cache_dir",
+                            _dict_section(config, "backend_config").get(
+                                "mixed_dataset_cache_dir",
+                                _dict_section(config, "flagembedding").get("mixed_dataset_cache_dir"),
+                            ),
+                        ),
+                    ),
+                    group_name=str(grid_group.get("slug") or config.get("run_name") or "mixed"),
+                )
+                full_args["train_data"] = str(mixed_result.output_dir)
+            else:
+                full_args["train_data"] = train_data_entries[0]
+                filter_result = apply_dataset_filter_if_configured(
+                    full_args.get("train_data"),
+                    full_args,
+                    config_path=request.config_path,
+                )
+                if filter_result is not None:
+                    full_args["train_data"] = str(filter_result.output_dir)
             lr = full_args.get("learning_rate")
             epochs = full_args.get("num_train_epochs")
             dataset_path = full_args.get("train_data")

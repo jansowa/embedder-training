@@ -14,8 +14,15 @@ from training.checkpoints import (
     resolve_resume_checkpoint,
     train_with_resume,
 )
-from training.dataset_filters import apply_dataset_filter_if_configured
 from training.distributed import barrier_if_distributed, is_main_process
+from training.multi_dataset import (
+    LoadedTrainingRows,
+    PROPORTIONAL_BATCH_BEST_EFFORT,
+    ProportionalNoDuplicatesBatchSamplerFactory,
+    dedupe_values_from_training_row,
+    normalize_dataset_mix_strategy,
+    resolve_dataset_sources,
+)
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -27,6 +34,7 @@ COMMON_TRAINING_KEYS = {
     "bf16",
     "dataloader_drop_last",
     "dataloader_num_workers",
+    "dataset_mix_strategy",
     "epoch_checkpoint_dir",
     "fp16",
     "gradient_accumulation_steps",
@@ -179,6 +187,8 @@ def _accepts_kwarg(callable_obj: Any, key: str) -> bool:
 
 
 def _normalize_batch_sampler(value: Any) -> str:
+    if callable(value):
+        return "custom"
     raw_value = getattr(value, "value", value)
     normalized = str(raw_value).strip().lower()
     normalized = normalized.replace("batchsamplers.", "").replace("batchsampler.", "")
@@ -191,34 +201,22 @@ def _normalize_batch_sampler(value: Any) -> str:
     return batch_sampler
 
 
-def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any], *, config_path: str | None = None) -> Path:
+def _resolve_train_data_sources(
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+    *,
+    config_path: str | None = None,
+):
     train_data = _resolve_value(config, backend_config, "train_data")
     if not train_data:
         raise SentenceTransformersConfigError("SentenceTransformers training requires 'train_data'.")
 
-    filter_result = apply_dataset_filter_if_configured(
+    return resolve_dataset_sources(
         train_data,
         config,
         backend_config,
         config_path=config_path,
     )
-    if filter_result is not None:
-        return filter_result.output_path
-
-    path = Path(str(train_data))
-    if path.is_dir():
-        preferred_files = ("dataset.jsonl", "mixed_dataset.jsonl")
-        for filename in preferred_files:
-            candidate = path / filename
-            if candidate.exists():
-                return candidate
-        jsonl_files = sorted(path.glob("*.jsonl"))
-        if jsonl_files:
-            return jsonl_files[0]
-        raise SentenceTransformersConfigError(f"No JSONL training file found under '{path}'.")
-    if not path.exists():
-        raise SentenceTransformersConfigError(f"Training data path '{path}' does not exist.")
-    return path
 
 
 def _ensure_text_list(value: Any, field_name: str, line_no: int) -> list[str]:
@@ -282,6 +280,26 @@ def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
             "'sentence_transformers.loss' must be one of: sparse_multiple_negatives_ranking, sparse_margin_mse."
         )
     return loss_name
+
+
+def _min_negatives_in_flagembedding_jsonl(data_path: Path) -> int:
+    min_negatives: int | None = None
+    with data_path.open(encoding="utf-8") as fh:
+        for line_no, raw_line in enumerate(fh, start=1):
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            try:
+                item = json.loads(raw_line)
+            except json.JSONDecodeError as exc:
+                raise SentenceTransformersConfigError(f"Line {line_no}: invalid JSON: {exc}") from exc
+            negatives = _ensure_text_list(item.get("neg"), "neg", line_no)
+            if not negatives:
+                raise SentenceTransformersConfigError(f"Line {line_no}: at least one negative is required.")
+            min_negatives = len(negatives) if min_negatives is None else min(min_negatives, len(negatives))
+    if min_negatives is None:
+        raise SentenceTransformersConfigError(f"Training data file '{data_path}' did not yield any examples.")
+    return min_negatives
 
 
 def load_flagembedding_jsonl_dataset(
@@ -399,10 +417,32 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
                 "'sentence_transformers.batch_sampler' requires a SentenceTransformers version "
                 "whose training arguments support batch_sampler."
             )
-        kwargs["batch_sampler"] = _normalize_batch_sampler(backend_config["batch_sampler"])
+        batch_sampler = backend_config["batch_sampler"]
+        kwargs["batch_sampler"] = batch_sampler if callable(batch_sampler) else _normalize_batch_sampler(batch_sampler)
     if backend_config.get("run_name") is not None:
         kwargs["run_name"] = str(backend_config["run_name"])
     return training_arguments_cls(**kwargs)
+
+
+def _training_args_config_for_rows(backend_config: dict[str, Any], loaded: LoadedTrainingRows) -> dict[str, Any]:
+    strategy = normalize_dataset_mix_strategy(backend_config.get("dataset_mix_strategy"))
+    if strategy != PROPORTIONAL_BATCH_BEST_EFFORT:
+        return backend_config
+    if not loaded.is_multi_source:
+        raise SentenceTransformersConfigError(
+            "'dataset_mix_strategy: proportional_batch_best_effort' requires at least two training data sources."
+        )
+    configured_batch_sampler = backend_config.get("batch_sampler")
+    if configured_batch_sampler is None or _normalize_batch_sampler(configured_batch_sampler) != "no_duplicates":
+        raise SentenceTransformersConfigError(
+            "'dataset_mix_strategy: proportional_batch_best_effort' requires 'batch_sampler: no_duplicates'."
+        )
+    updated = dict(backend_config)
+    updated["batch_sampler"] = ProportionalNoDuplicatesBatchSamplerFactory(
+        loaded.dataset_ids,
+        loaded.dedupe_values,
+    )
+    return updated
 
 
 def _reports_to_wandb(report_to: Any) -> bool:
@@ -761,11 +801,14 @@ def _load_training_rows(
     config_path: str | None = None,
     use_score_labels: bool = False,
     score_normalization: str = "none",
-) -> tuple[Path, list[dict[str, Any]]]:
-    data_path = _resolve_train_data_path(config, backend_config, config_path=config_path)
-    negatives_per_query = backend_config.get("negatives_per_query")
+    default_negatives_per_query: int | None = None,
+) -> LoadedTrainingRows:
+    sources = _resolve_train_data_sources(config, backend_config, config_path=config_path)
+    negatives_per_query = backend_config.get("negatives_per_query", default_negatives_per_query)
     if negatives_per_query is not None:
         negatives_per_query = int(negatives_per_query)
+    elif len(sources) > 1:
+        negatives_per_query = min(_min_negatives_in_flagembedding_jsonl(source.path) for source in sources)
     query_prefix = str(
         backend_config.get(
             "query_prefix",
@@ -775,15 +818,22 @@ def _load_training_rows(
     )
     passage_prefix = str(backend_config.get("passage_prefix", "") or "")
 
-    rows = load_flagembedding_jsonl_dataset(
-        data_path,
-        negatives_per_query=negatives_per_query,
-        query_prefix=query_prefix,
-        passage_prefix=passage_prefix,
-        use_score_labels=use_score_labels,
-        score_normalization=score_normalization,
-    )
-    return data_path, rows
+    rows: list[dict[str, Any]] = []
+    dataset_ids: list[str] = []
+    dedupe_values: list[set[str]] = []
+    for source in sources:
+        source_rows = load_flagembedding_jsonl_dataset(
+            source.path,
+            negatives_per_query=negatives_per_query,
+            query_prefix=query_prefix,
+            passage_prefix=passage_prefix,
+            use_score_labels=use_score_labels,
+            score_normalization=score_normalization,
+        )
+        rows.extend(source_rows)
+        dataset_ids.extend([source.name] * len(source_rows))
+        dedupe_values.extend(dedupe_values_from_training_row(row) for row in source_rows)
+    return LoadedTrainingRows(sources=sources, rows=rows, dataset_ids=dataset_ids, dedupe_values=dedupe_values)
 
 
 def _build_dense_model(SentenceTransformer: Any, model_name_or_path: str, backend_config: dict[str, Any]):
@@ -895,11 +945,11 @@ def run_embedder_training(request: TrainingRequest) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
-    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
-    train_dataset = Dataset.from_list(rows)
+    loaded = _load_training_rows(config, backend_config, config_path=request.config_path)
+    train_dataset = Dataset.from_list(loaded.rows)
 
     model = _build_dense_model(SentenceTransformer, str(model_name_or_path), backend_config)
-    args = _training_args(output_dir, backend_config, SentenceTransformerTrainingArguments)
+    args = _training_args(output_dir, _training_args_config_for_rows(backend_config, loaded), SentenceTransformerTrainingArguments)
     loss = MultipleNegativesRankingLoss(model)
     trainer = SentenceTransformerTrainer(
         model=model,
@@ -911,7 +961,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
 
     print(
         "[INFO] Training SentenceTransformers embedder "
-        f"with {len(rows)} examples from {data_path} and model {model_name_or_path}.",
+        f"with {len(loaded.rows)} examples from {loaded.source_label} and model {model_name_or_path}.",
         flush=True,
     )
     try:
@@ -945,10 +995,10 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
-    data_path, rows = _load_training_rows(config, backend_config, config_path=request.config_path)
-    train_dataset = Dataset.from_list(rows)
+    loaded = _load_training_rows(config, backend_config, config_path=request.config_path)
+    train_dataset = Dataset.from_list(loaded.rows)
     model = _build_dense_model(SentenceTransformer, str(model_name_or_path), backend_config)
-    args = _training_args(output_dir, backend_config, SentenceTransformerTrainingArguments)
+    args = _training_args(output_dir, _training_args_config_for_rows(backend_config, loaded), SentenceTransformerTrainingArguments)
 
     matryoshka_kwargs: dict[str, Any] = {
         "matryoshka_dims": _resolve_matryoshka_dims(backend_config, model),
@@ -970,7 +1020,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
 
     print(
         "[INFO] Training SentenceTransformers matryoshka "
-        f"with {len(rows)} examples from {data_path}, model {model_name_or_path}, "
+        f"with {len(loaded.rows)} examples from {loaded.source_label}, model {model_name_or_path}, "
         f"and dims {matryoshka_kwargs['matryoshka_dims']}.",
         flush=True,
     )
@@ -1009,17 +1059,17 @@ def run_splade_training(request: TrainingRequest) -> int:
     resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     loss_name = _splade_base_loss_name(backend_config)
-    data_path, rows = _load_training_rows(
+    loaded = _load_training_rows(
         config,
         backend_config,
         config_path=request.config_path,
         use_score_labels=loss_name == "sparse_margin_mse",
         score_normalization=str(backend_config.get("score_normalization", "none")),
     )
-    train_dataset = Dataset.from_list(rows)
+    train_dataset = Dataset.from_list(loaded.rows)
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
 
-    args = _training_args(output_dir, backend_config, SparseEncoderTrainingArguments)
+    args = _training_args(output_dir, _training_args_config_for_rows(backend_config, loaded), SparseEncoderTrainingArguments)
     if loss_name == "sparse_margin_mse":
         ranking_loss = SparseMarginMSELoss(model)
     else:
@@ -1040,14 +1090,14 @@ def run_splade_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
-    activation_stats_callback = _build_splade_activation_stats_callback(model, rows, backend_config)
+    activation_stats_callback = _build_splade_activation_stats_callback(model, loaded.rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(activation_stats_callback)
     _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers SPLADE "
-        f"with {len(rows)} examples from {data_path} and model {model_name_or_path}.",
+        f"with {len(loaded.rows)} examples from {loaded.source_label} and model {model_name_or_path}.",
         flush=True,
     )
     try:

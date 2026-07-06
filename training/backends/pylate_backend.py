@@ -11,9 +11,10 @@ from training.backends.sentence_transformers_backend import (
     COMMON_TRAINING_KEYS,
     SentenceTransformersConfigError,
     _dict_section,
+    _load_training_rows,
     _resolve_value,
     _training_args,
-    load_flagembedding_jsonl_dataset,
+    _training_args_config_for_rows,
 )
 from training.checkpoints import build_epoch_checkpoint_callback, resolve_resume_checkpoint, train_with_resume
 from training.distributed import barrier_if_distributed, is_main_process
@@ -45,26 +46,6 @@ def _load_pylate_training_stack():
 def _backend_config(config: dict[str, Any]) -> dict[str, Any]:
     common = {key: config[key] for key in COMMON_TRAINING_KEYS if key in config}
     return common | _dict_section(config, "backend_config") | _dict_section(config, "pylate")
-
-
-def _resolve_train_data_path(config: dict[str, Any], backend_config: dict[str, Any]) -> Path:
-    train_data = _resolve_value(config, backend_config, "train_data")
-    if not train_data:
-        raise SentenceTransformersConfigError("PyLate training requires 'train_data'.")
-
-    path = Path(str(train_data))
-    if path.is_dir():
-        for filename in ("dataset.jsonl", "mixed_dataset.jsonl"):
-            candidate = path / filename
-            if candidate.exists():
-                return candidate
-        jsonl_files = sorted(path.glob("*.jsonl"))
-        if jsonl_files:
-            return jsonl_files[0]
-        raise SentenceTransformersConfigError(f"No JSONL training file found under '{path}'.")
-    if not path.exists():
-        raise SentenceTransformersConfigError(f"Training data path '{path}' does not exist.")
-    return path
 
 
 def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
@@ -106,17 +87,13 @@ def run_colbert_training(request: TrainingRequest) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
-    data_path = _resolve_train_data_path(config, backend_config)
-    negatives_per_query = backend_config.get("negatives_per_query", 1)
-    if negatives_per_query is not None:
-        negatives_per_query = int(negatives_per_query)
-    rows = load_flagembedding_jsonl_dataset(
-        data_path,
-        negatives_per_query=negatives_per_query,
-        query_prefix=str(backend_config.get("query_prefix", "") or ""),
-        passage_prefix=str(backend_config.get("passage_prefix", "") or ""),
+    loaded = _load_training_rows(
+        config,
+        backend_config,
+        config_path=request.config_path,
+        default_negatives_per_query=1,
     )
-    train_dataset = Dataset.from_list(rows)
+    train_dataset = Dataset.from_list(loaded.rows)
 
     colbert_kwargs: dict[str, Any] = {
         "model_name_or_path": str(model_name_or_path),
@@ -147,7 +124,8 @@ def run_colbert_training(request: TrainingRequest) -> int:
             colbert_kwargs[key] = backend_config[key]
 
     model = ColBERT(**colbert_kwargs)
-    args = _training_args(output_dir, backend_config | {"remove_unused_columns": False}, SentenceTransformerTrainingArguments)
+    args_config = _training_args_config_for_rows(backend_config, loaded) | {"remove_unused_columns": False}
+    args = _training_args(output_dir, args_config, SentenceTransformerTrainingArguments)
     if hasattr(args, "remove_unused_columns"):
         args.remove_unused_columns = False
     loss = Contrastive(
@@ -168,7 +146,7 @@ def run_colbert_training(request: TrainingRequest) -> int:
 
     print(
         "[INFO] Training PyLate ColBERT "
-        f"with {len(rows)} examples from {data_path} and model {model_name_or_path}.",
+        f"with {len(loaded.rows)} examples from {loaded.source_label} and model {model_name_or_path}.",
         flush=True,
     )
     train_with_resume(trainer, resume_from_checkpoint)
