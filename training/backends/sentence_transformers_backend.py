@@ -429,9 +429,7 @@ def _training_args_config_for_rows(backend_config: dict[str, Any], loaded: Loade
     if strategy != PROPORTIONAL_BATCH_BEST_EFFORT:
         return backend_config
     if not loaded.is_multi_source:
-        raise SentenceTransformersConfigError(
-            "'dataset_mix_strategy: proportional_batch_best_effort' requires at least two training data sources."
-        )
+        return backend_config
     configured_batch_sampler = backend_config.get("batch_sampler")
     if configured_batch_sampler is None or _normalize_batch_sampler(configured_batch_sampler) != "no_duplicates":
         raise SentenceTransformersConfigError(

@@ -14,6 +14,7 @@ from typing import Any
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import resolve_resume_checkpoint
 from training.dataset_filters import apply_dataset_filter_if_configured
+from training.dataset_sources import HF_DATASET_CACHE_CONFIG_KEYS, resolve_train_data_entry
 from training.distributed import resolve_distributed_config
 from training.multi_dataset import (
     PROPORTIONAL_BATCH_BEST_EFFORT,
@@ -37,7 +38,12 @@ DEFAULT_GRID = {
 QUERY_INSTRUCTION_FOR_RETRIEVAL_DEFAULT = "query: "
 DATASET_FILTER_ARG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
 MIXED_DATASET_ARG_KEYS = {"dataset_mix_strategy", "mixed_dataset_cache_dir"}
-TRAINING_CONTROL_ARG_KEYS = DATASET_FILTER_ARG_KEYS | MIXED_DATASET_ARG_KEYS | {"distributed", "gpus", "num_gpus"}
+TRAINING_CONTROL_ARG_KEYS = (
+    DATASET_FILTER_ARG_KEYS
+    | MIXED_DATASET_ARG_KEYS
+    | HF_DATASET_CACHE_CONFIG_KEYS
+    | {"distributed", "gpus", "num_gpus"}
+)
 
 STATIC_ARGS = {
     "cache_dir": "./cache/model",
@@ -80,6 +86,8 @@ RESERVED_CONFIG_KEYS = {
     "grid_hparams",
     "grid_train_data_group",
     "hparams",
+    "hf_dataset_cache_dir",
+    "huggingface_dataset_cache_dir",
     "keep_epoch_checkpoints",
     "model_name_or_path",
     "mixed_dataset_cache_dir",
@@ -293,6 +301,7 @@ def run_training(request: TrainingRequest) -> int:
                 mixed_result = materialize_mixed_jsonl_dataset(
                     full_args.get("train_data"),
                     full_args,
+                    config,
                     config_path=request.config_path,
                     cache_dir=full_args.get(
                         "mixed_dataset_cache_dir",
@@ -308,7 +317,7 @@ def run_training(request: TrainingRequest) -> int:
                 )
                 full_args["train_data"] = str(mixed_result.output_dir)
             else:
-                full_args["train_data"] = train_data_entries[0]
+                full_args["train_data"] = str(resolve_train_data_entry(train_data_entries[0], full_args, config))
                 filter_result = apply_dataset_filter_if_configured(
                     full_args.get("train_data"),
                     full_args,

@@ -11,6 +11,7 @@ from pathlib import Path
 import random
 from typing import Any, Iterable, Iterator
 
+from training.dataset_sources import resolve_train_data_entry
 from training.dataset_filters import apply_dataset_filter_if_configured
 
 
@@ -92,8 +93,8 @@ def is_multi_train_data(train_data: Any) -> bool:
     return len(normalize_train_data_entries(train_data)) > 1
 
 
-def resolve_jsonl_train_data_path(train_data: str | Path) -> Path:
-    path = Path(train_data)
+def resolve_jsonl_train_data_path(train_data: str | Path, *settings: dict[str, Any] | None) -> Path:
+    path = Path(resolve_train_data_entry(train_data, *settings))
     if path.is_dir():
         for filename in ("dataset.jsonl", "mixed_dataset.jsonl"):
             candidate = path / filename
@@ -143,7 +144,7 @@ def resolve_dataset_sources(
             if apply_filters
             else None
         )
-        path = filtered.output_path if filtered is not None else resolve_jsonl_train_data_path(entry)
+        path = filtered.output_path if filtered is not None else resolve_jsonl_train_data_path(entry, *settings)
         sources.append(DatasetSource(name=_source_name(entry, index), original=entry, path=path))
     return sources
 

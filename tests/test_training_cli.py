@@ -980,6 +980,52 @@ def test_sentence_transformers_load_training_rows_combines_multiple_sources(tmp_
     assert "_dataset_id" not in loaded.rows[0]
 
 
+def test_huggingface_dataset_file_url_is_downloaded_once(monkeypatch, tmp_path):
+    from training import dataset_sources
+
+    url = "https://huggingface.co/datasets/mining-negatives/fiqa_pl/blob/main/train_pl.jsonl"
+    calls = []
+
+    def fake_download(download_url, output_path):
+        calls.append(download_url)
+        _write_jsonl(output_path, [{"query": "q", "pos": ["p"], "neg": ["n"]}])
+
+    monkeypatch.setattr(dataset_sources, "_download_url_to_path", fake_download)
+
+    first = dataset_sources.materialize_huggingface_dataset_file(url, cache_dir=tmp_path / "hf-cache")
+    second = dataset_sources.materialize_huggingface_dataset_file(url, cache_dir=tmp_path / "hf-cache")
+
+    assert calls == ["https://huggingface.co/datasets/mining-negatives/fiqa_pl/resolve/main/train_pl.jsonl"]
+    assert first.cache_hit is False
+    assert second.cache_hit is True
+    assert first.output_path == second.output_path
+    assert first.output_path.name == "dataset.jsonl"
+    assert _read_jsonl(first.output_path) == [{"query": "q", "pos": ["p"], "neg": ["n"]}]
+    assert json.loads(first.metadata_path.read_text(encoding="utf-8"))["original_url"] == url
+
+
+def test_sentence_transformers_load_training_rows_accepts_huggingface_file_url(monkeypatch, tmp_path):
+    from training import dataset_sources
+    from training.backends.sentence_transformers_backend import _load_training_rows
+
+    url = "https://huggingface.co/datasets/mining-negatives/fiqa_pl/blob/main/train_pl.jsonl"
+
+    def fake_download(download_url, output_path):
+        _write_jsonl(output_path, [{"query": "q", "pos": ["p"], "neg": ["n1", "n2"]}])
+
+    monkeypatch.setattr(dataset_sources, "_download_url_to_path", fake_download)
+
+    loaded = _load_training_rows(
+        {"train_data": url, "hf_dataset_cache_dir": str(tmp_path / "hf-cache")},
+        {"negatives_per_query": 1},
+        config_path=str(tmp_path / "config.yaml"),
+    )
+
+    assert loaded.rows == [{"anchor": "q", "positive": "p", "negative_1": "n1"}]
+    assert loaded.sources[0].original == url
+    assert loaded.sources[0].path.parent.parent == tmp_path / "hf-cache"
+
+
 def test_sentence_transformers_dataset_loader_uses_score_labels_for_margin_mse(tmp_path):
     from training.backends.sentence_transformers_backend import load_flagembedding_jsonl_dataset
 

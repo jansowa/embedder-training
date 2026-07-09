@@ -12,6 +12,7 @@ import sys
 from typing import Any
 
 from training.backends.registry import TrainingCliError
+from training.dataset_sources import HF_DATASET_CACHE_CONFIG_KEYS, resolve_train_data_entry
 from training.distributed import is_main_process, is_torchrun_child, wait_for_files
 
 
@@ -74,8 +75,8 @@ def _resolve_relative_path(path_value: str | Path, *, config_path: str | None = 
     return path
 
 
-def resolve_jsonl_input_path(train_data: str | Path) -> Path:
-    path = Path(train_data)
+def resolve_jsonl_input_path(train_data: str | Path, *settings: dict[str, Any] | None) -> Path:
+    path = Path(resolve_train_data_entry(train_data, *settings))
     if path.is_dir():
         for filename in ("dataset.jsonl", "mixed_dataset.jsonl"):
             candidate = path / filename
@@ -632,9 +633,10 @@ def materialize_filtered_dataset(
     *,
     cache_dir: str | Path | None = None,
     config_path: str | None = None,
+    source_settings: dict[str, Any] | None = None,
 ) -> FilteredDatasetResult:
     profile_path, profile = _load_profile(dataset_filter, config_path=config_path)
-    input_path = resolve_jsonl_input_path(train_data)
+    input_path = resolve_jsonl_input_path(train_data, source_settings)
     input_hash = _file_sha256(input_path)
     key = _cache_key(input_path, input_hash, profile)
 
@@ -744,7 +746,7 @@ def _merged_filter_settings(*settings: dict[str, Any] | None) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     for section in settings:
         if isinstance(section, dict):
-            for key in FILTER_CONFIG_KEYS:
+            for key in FILTER_CONFIG_KEYS | HF_DATASET_CACHE_CONFIG_KEYS:
                 if key in section:
                     merged[key] = section[key]
     return merged
@@ -764,4 +766,5 @@ def apply_dataset_filter_if_configured(
         dataset_filter,
         cache_dir=merged.get("dataset_filter_cache_dir"),
         config_path=config_path,
+        source_settings=merged,
     )
