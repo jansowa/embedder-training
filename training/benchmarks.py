@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,14 @@ DEFAULT_BENCHMARK_NAME = "NanoBEIR"
 DEFAULT_PIRB_SCOPE = "tiny"
 DEFAULT_BENCHMARK_BATCH_SIZE = 64
 DEFAULT_PIRB_MAX_SEQ_LENGTH = 512
+LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class BenchmarkTarget:
+    label: str
+    path: Path
+    step: int | None = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +34,7 @@ class BenchmarkSettings:
     query_instruction_for_retrieval: str
     output_dir: Path | None = None
     log_to_wandb: bool = True
+    checkpoints: tuple[Any, ...] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -132,6 +142,12 @@ def resolve_benchmark_settings(
         config.get("benchmark_output_dir"),
     )
     log_to_wandb = _as_bool(_config_value(config, backend_config, "log_to_wandb", default=True), default=True)
+    checkpoints = _config_value(config, backend_config, "checkpoints")
+    if checkpoints is not None:
+        if isinstance(checkpoints, (list, tuple)):
+            checkpoints = tuple(checkpoints)
+        else:
+            checkpoints = (checkpoints,)
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -143,6 +159,7 @@ def resolve_benchmark_settings(
         query_instruction_for_retrieval=query_instruction,
         output_dir=Path(str(output_dir)) if output_dir is not None else None,
         log_to_wandb=log_to_wandb,
+        checkpoints=checkpoints,
     )
 
 
@@ -154,6 +171,103 @@ def _safe_label(value: str) -> str:
         else:
             allowed.append("-")
     return "".join(allowed).strip("-_") or "benchmark"
+
+
+def _positive_int(value: Any, *, target_type: str) -> int | None:
+    if isinstance(value, bool):
+        LOGGER.warning("Ignoring benchmark %s target with non-integer value %r.", target_type, value)
+        return None
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        LOGGER.warning("Ignoring benchmark %s target with non-integer value %r.", target_type, value)
+        return None
+    if normalized <= 0:
+        LOGGER.warning("Ignoring benchmark %s target with non-positive value %r.", target_type, value)
+        return None
+    return normalized
+
+
+def _epoch_checkpoint_step(path: Path) -> int | None:
+    marker = "-step-"
+    if marker not in path.name:
+        return None
+    try:
+        return int(path.name.rsplit(marker, 1)[1])
+    except ValueError:
+        return None
+
+
+def _latest_epoch_checkpoint(output_dir: Path, epoch: int) -> Path | None:
+    epoch_dir = output_dir / "epoch-checkpoints"
+    pattern = f"epoch-{epoch:04d}-step-*"
+    candidates = [path for path in epoch_dir.glob(pattern) if path.is_dir()]
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda path: (
+            _epoch_checkpoint_step(path) is not None,
+            _epoch_checkpoint_step(path) or -1,
+            path.name,
+        ),
+    )
+
+
+def _warn_missing_target(label: str, expected: Path | str) -> None:
+    LOGGER.warning("Selected benchmark checkpoint '%s' was not found at %s; skipping.", label, expected)
+
+
+def _resolve_benchmark_target(output_dir: Path, spec: Any) -> BenchmarkTarget | None:
+    if isinstance(spec, str):
+        normalized = spec.strip().lower()
+        if normalized == "final":
+            path = output_dir / "final"
+            if not path.is_dir():
+                _warn_missing_target("final", path)
+                return None
+            return BenchmarkTarget(label="final", path=path, step=0)
+        LOGGER.warning("Ignoring unsupported benchmark checkpoint selector %r.", spec)
+        return None
+
+    if isinstance(spec, dict):
+        selected_keys = [key for key in ("epoch", "step") if key in spec]
+        if len(selected_keys) != 1:
+            LOGGER.warning("Ignoring unsupported benchmark checkpoint selector %r.", spec)
+            return None
+
+        key = selected_keys[0]
+        number = _positive_int(spec[key], target_type=key)
+        if number is None:
+            return None
+
+        if key == "epoch":
+            label = f"epoch-{number:04d}"
+            path = _latest_epoch_checkpoint(output_dir, number)
+            if path is None:
+                _warn_missing_target(label, output_dir / "epoch-checkpoints" / f"{label}-step-*")
+                return None
+            return BenchmarkTarget(label=label, path=path, step=_epoch_checkpoint_step(path))
+
+        label = f"step-{number}"
+        path = output_dir / f"checkpoint-{number}"
+        if not path.is_dir():
+            _warn_missing_target(label, path)
+            return None
+        return BenchmarkTarget(label=label, path=path, step=number)
+
+    LOGGER.warning("Ignoring unsupported benchmark checkpoint selector %r.", spec)
+    return None
+
+
+def resolve_benchmark_targets(output_dir: Path, settings: BenchmarkSettings) -> list[BenchmarkTarget]:
+    specs = settings.checkpoints if settings.checkpoints is not None else ("final",)
+    targets: list[BenchmarkTarget] = []
+    for spec in specs:
+        target = _resolve_benchmark_target(output_dir, spec)
+        if target is not None:
+            targets.append(target)
+    return targets
 
 
 def _load_mteb_tasks(benchmark_name: str):

@@ -207,8 +207,8 @@ in your own `torchrun`; the FlagEmbedding backend already launches `torchrun` in
 | `--backend` | No | Training backend. Supported values: `flagembedding`, `sentence-transformers`, `pylate`. If omitted, the CLI reads `backend` from YAML and then defaults to `flagembedding`. |
 | `--training-type` | No | Training recipe for the selected backend. The CLI validates the `backend + training_type` combination before loading the backend module. |
 | `--config` | No | Path to the YAML config file. Defaults to `configs/grid.yaml`. |
-| `--run-mteb` / `--run_mteb` | No | Runs MTEB after FlagEmbedding training. Leave disabled for smoke tests. |
-| `--run-pirb` / `--run_pirb` | No | Runs PIRB after FlagEmbedding training. Leave disabled for smoke tests. |
+| `--run-mteb` / `--run_mteb` | No | Runs MTEB after supported post-training backends. Leave disabled for smoke tests. |
+| `--run-pirb` / `--run_pirb` | No | Runs PIRB after supported post-training backends. Leave disabled for smoke tests. |
 | `--benchmark-name` | No | MTEB benchmark name. Defaults to `NanoBEIR`. Used only with `--run-mteb`. |
 | `--pirb-scope` / `--pirb_scope` | No | PIRB scope: `tiny`, `small`, or `all`. Used only with `--run-pirb`. |
 | `--remove-checkpoints` / `--remove_checkpoints` | No | Removes `checkpoint-*` directories after a successful FlagEmbedding run. |
@@ -281,7 +281,7 @@ The CLI overrides `backend`, `training_type`, and resume mode. All other trainin
 
 Fields from `flagembedding` and `backend_config` are forwarded as arguments to `torchrun -m FlagEmbedding.finetune.embedder.encoder_only.base`, so an option supported by FlagEmbedding can usually be added to YAML without changing the CLI.
 
-FlagEmbedding resume is forwarded as `--resume-from-checkpoint`. Preserved epoch checkpoints are implemented for trainer instances this project controls directly: SentenceTransformers, SPLADE, Matryoshka, and PyLate.
+FlagEmbedding resume is forwarded as `--resume-from-checkpoint`. Preserved epoch checkpoints are implemented for trainer instances this project controls directly: SentenceTransformers training types (`embedder`, `matryoshka`, `splade`) and PyLate training types (`colbert`, `late-interaction`).
 
 ### SentenceTransformers
 
@@ -315,6 +315,34 @@ sentence_transformers:
 ```
 
 This keeps a small rotating set of working `checkpoint-*` directories for power-loss recovery and durable `epoch-checkpoints/epoch-0001-step-...` snapshots for epoch milestones.
+
+#### Post-Training Benchmarks
+
+Benchmark settings can be set at top level under `benchmark` or in the backend section. CLI flags such as `--run-pirb`, `--pirb-scope`, and `--benchmark-output-dir` override the matching YAML values.
+
+```yaml
+benchmark:
+  run_pirb: true
+  scope: small
+  output_dir: /scratch/$USER/benchmarks/example-run
+  query_instruction: ""
+  checkpoints:
+    - final
+    - epoch: 1
+    - epoch: 2
+    - step: 20000
+```
+
+For supported post-training backends, `benchmark.checkpoints` selects which saved model directories are evaluated after training. The shared resolver lives in `training.benchmarks` and is used by SentenceTransformers training types including `embedder`, `matryoshka`, and `splade`. `final` maps to `output_dir/final`, `epoch: 1` maps to the latest matching `output_dir/epoch-checkpoints/epoch-0001-step-*`, and `step: 20000` maps to `output_dir/checkpoint-20000`. Missing selected checkpoints log a warning and are skipped. If `benchmark.checkpoints` is omitted, existing final-only benchmark behavior continues to work. PyLate currently logs a warning when post-training benchmarks are requested because its benchmark runner is not wired yet.
+
+Benchmark outputs and W&B metric prefixes use the target label:
+
+```text
+<benchmark_output_dir>/final/metrics.json
+<benchmark_output_dir>/epoch-0001/metrics.json
+<benchmark_output_dir>/epoch-0002/metrics.json
+<benchmark_output_dir>/step-20000/metrics.json
+```
 
 Parameters only for `matryoshka`:
 

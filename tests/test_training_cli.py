@@ -330,6 +330,64 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
     assert json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8")) == metrics
 
 
+def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
+    from training.benchmarks import BenchmarkSettings, resolve_benchmark_targets
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    (output_dir / "epoch-checkpoints" / "epoch-0001-step-100").mkdir(parents=True)
+    (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").mkdir(parents=True)
+    (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").mkdir(parents=True)
+    (output_dir / "checkpoint-20000").mkdir(parents=True)
+
+    settings = BenchmarkSettings(
+        run_mteb=False,
+        run_pirb=True,
+        benchmark_name="NanoBEIR",
+        pirb_scope="small",
+        batch_size=32,
+        pirb_max_seq_length=384,
+        query_instruction_for_retrieval="",
+        checkpoints=("final", {"epoch": 1}, {"epoch": 2}, {"step": 20000}),
+    )
+
+    targets = resolve_benchmark_targets(output_dir, settings)
+
+    assert [(target.label, target.path.relative_to(output_dir), target.step) for target in targets] == [
+        ("final", Path("final"), 0),
+        ("epoch-0001", Path("epoch-checkpoints") / "epoch-0001-step-123", 123),
+        ("epoch-0002", Path("epoch-checkpoints") / "epoch-0002-step-456", 456),
+        ("step-20000", Path("checkpoint-20000"), 20000),
+    ]
+
+
+def test_resolve_benchmark_targets_warns_and_skips_missing_checkpoints(caplog, tmp_path):
+    import logging
+
+    from training.benchmarks import BenchmarkSettings, resolve_benchmark_targets
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    settings = BenchmarkSettings(
+        run_mteb=False,
+        run_pirb=True,
+        benchmark_name="NanoBEIR",
+        pirb_scope="small",
+        batch_size=32,
+        pirb_max_seq_length=384,
+        query_instruction_for_retrieval="",
+        checkpoints=("final", {"epoch": 2}, {"step": 20000}),
+    )
+
+    caplog.set_level(logging.WARNING, logger="training.benchmarks")
+
+    targets = resolve_benchmark_targets(output_dir, settings)
+
+    assert [target.label for target in targets] == ["final"]
+    assert "Selected benchmark checkpoint 'epoch-0002' was not found" in caplog.text
+    assert "Selected benchmark checkpoint 'step-20000' was not found" in caplog.text
+
+
 def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
     from training.distributed import resolve_distributed_config
 
@@ -2127,6 +2185,105 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
     assert calls["model_kwargs"]["cache_folder"] == str(tmp_path / "model-cache")
 
 
+def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "dataset.jsonl").write_text(
+        json.dumps({"query": "q", "pos": ["p"], "neg": ["n1"]}) + "\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "out"
+    (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").mkdir(parents=True)
+    (output_dir / "checkpoint-20000").mkdir(parents=True)
+    calls = {"trained": False, "saved": None, "benchmarks": []}
+
+    class FakeDataset:
+        @classmethod
+        def from_list(cls, rows):
+            return rows
+
+    class FakeModel:
+        def __init__(self, model_name_or_path, **model_kwargs):
+            self.max_seq_length = None
+
+        def save_pretrained(self, output_path):
+            calls["saved"] = output_path
+
+    class FakeArgs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeLoss:
+        def __init__(self, model):
+            self.model = model
+
+    class FakeTrainer:
+        def __init__(self, model, args, train_dataset, loss):
+            pass
+
+        def train(self):
+            calls["trained"] = True
+
+    def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
+        calls["benchmarks"].append(
+            {
+                "model_dir": model_dir,
+                "metric_prefix": metric_prefix,
+                "step": step,
+                "label": label,
+                "settings": settings,
+            }
+        )
+        return {f"{metric_prefix}pirb_average_ndcg@10": 0.5}
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sentence_transformers",
+        lambda: (FakeDataset, FakeModel, FakeTrainer, FakeArgs, FakeLoss, object),
+    )
+    monkeypatch.setattr(sentence_transformers_backend, "run_benchmarks_for_model", fake_run_benchmarks_for_model)
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="embedder",
+        config={
+            "train_data": str(data_dir),
+            "output_dir": str(output_dir),
+            "benchmark": {
+                "run_pirb": True,
+                "scope": "small",
+                "output_dir": str(tmp_path / "bench"),
+                "checkpoints": ["final", {"epoch": 1}, {"step": 20000}],
+            },
+            "sentence_transformers": {
+                "model_name_or_path": "tiny-model",
+                "max_steps": 1,
+                "train_batch_size": 1,
+                "negatives_per_query": 1,
+            },
+        },
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert calls["trained"] is True
+    assert calls["saved"] == str(output_dir / "final")
+    assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls["benchmarks"]] == [
+        ("final", "final/", 0),
+        ("epoch-0001", "epoch-0001/", 123),
+        ("step-20000", "step-20000/", 20000),
+    ]
+    assert [Path(call["model_dir"]) for call in calls["benchmarks"]] == [
+        (output_dir / "final").resolve(),
+        (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").resolve(),
+        (output_dir / "checkpoint-20000").resolve(),
+    ]
+
+
 def test_sentence_transformers_embedder_resumes_from_latest_checkpoint(monkeypatch, tmp_path):
     from training.backends import sentence_transformers_backend
     from training.backends.registry import TrainingRequest
@@ -3130,6 +3287,66 @@ def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, 
     assert settings.pirb_max_seq_length == 384
     assert settings.query_instruction_for_retrieval == "Pytanie: "
     assert settings.output_dir == tmp_path / "bench"
+
+
+def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").mkdir(parents=True)
+    (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").mkdir(parents=True)
+    (output_dir / "checkpoint-20000").mkdir(parents=True)
+    calls = []
+    barriers = []
+
+    def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
+        calls.append(
+            {
+                "model_dir": model_dir,
+                "settings": settings,
+                "metric_prefix": metric_prefix,
+                "step": step,
+                "label": label,
+            }
+        )
+        return {f"{metric_prefix}pirb_average_ndcg@10": 0.5}
+
+    monkeypatch.setattr(sentence_transformers_backend, "is_main_process", lambda: True)
+    monkeypatch.setattr(sentence_transformers_backend, "barrier_if_distributed", lambda: barriers.append(True))
+    monkeypatch.setattr(sentence_transformers_backend, "run_benchmarks_for_model", fake_run_benchmarks_for_model)
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={
+            "benchmark": {
+                "run_pirb": True,
+                "scope": "small",
+                "output_dir": str(tmp_path / "bench"),
+                "checkpoints": ["final", {"epoch": 1}, {"epoch": 2}, {"step": 20000}],
+            }
+        },
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False),
+    )
+
+    sentence_transformers_backend._run_sentence_transformers_post_training_benchmarks(output_dir, request.config, {}, request)
+
+    assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls] == [
+        ("final", "final/", 0),
+        ("epoch-0001", "epoch-0001/", 123),
+        ("epoch-0002", "epoch-0002/", 456),
+        ("step-20000", "step-20000/", 20000),
+    ]
+    assert [Path(call["model_dir"]) for call in calls] == [
+        (output_dir / "final").resolve(),
+        (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").resolve(),
+        (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").resolve(),
+        (output_dir / "checkpoint-20000").resolve(),
+    ]
+    assert barriers == [True]
 
 
 def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():

@@ -46,7 +46,7 @@ Main parameters:
 - `--backend`: one of `flagembedding`, `sentence-transformers`, `pylate`.
 - `--training-type`: recipe for the selected backend, for example `embedder`, `splade`, `matryoshka`, `colbert`.
 - `--config`: YAML config path. CLI values override `backend` and `training_type` from YAML.
-- `--run-mteb` / `--run-pirb`: optional post-training evaluation for the FlagEmbedding pipeline.
+- `--run-mteb` / `--run-pirb`: optional post-training evaluation for supported backends.
 - `--remove-checkpoints`: remove `checkpoint-*` directories after a successful FlagEmbedding run.
 - `--gpus 0,1`: use specific GPU ids. By default the implemented backends use all visible GPUs.
 - `--num-gpus 2`: use the first N currently visible GPUs.
@@ -89,6 +89,19 @@ distributed:
 Use `gpus: [2]` for one specific GPU, and `num_gpus: 2` for the first two visible GPUs.
 
 For long SentenceTransformers/SPLADE epochs, use `save_strategy: steps` with `keep_epoch_checkpoints: true`: rotating step checkpoints make resume frequent, while full epoch checkpoints are preserved under `epoch-checkpoints/`.
+
+Post-training benchmarks can evaluate selected saved checkpoints for supported backends. When `benchmark.checkpoints` is omitted, the backend keeps its existing final-only behavior.
+
+```yaml
+benchmark:
+  run_pirb: true
+  scope: small
+  checkpoints:
+    - final
+    - epoch: 1
+    - epoch: 2
+    - step: 20000
+```
 
 Minimal FlagEmbedding smoke test:
 ```shell

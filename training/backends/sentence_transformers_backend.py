@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from training.benchmarks import resolve_benchmark_settings, run_benchmarks_for_model
+from training.benchmarks import resolve_benchmark_settings, resolve_benchmark_targets, run_benchmarks_for_model
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import (
     build_epoch_checkpoint_callback,
@@ -507,13 +507,11 @@ def _save_final_model(trainer: Any, model: Any, final_dir: Path, *, label: str) 
     barrier_if_distributed()
 
 
-def _run_post_training_benchmarks(
-    final_dir: Path,
+def _run_sentence_transformers_post_training_benchmarks(
+    output_dir: Path,
     config: dict[str, Any],
     backend_config: dict[str, Any],
     request: TrainingRequest,
-    *,
-    label: str = "final",
 ) -> None:
     default_query_instruction = str(
         backend_config.get(
@@ -533,14 +531,15 @@ def _run_post_training_benchmarks(
 
     try:
         if is_main_process():
-            print(f"[INFO] Running post-training benchmarks for {final_dir}.", flush=True)
-            run_benchmarks_for_model(
-                str(final_dir.resolve()),
-                settings,
-                metric_prefix=f"{label}/",
-                step=0,
-                label=label,
-            )
+            for target in resolve_benchmark_targets(output_dir, settings):
+                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
+                run_benchmarks_for_model(
+                    str(target.path.resolve()),
+                    settings,
+                    metric_prefix=f"{target.label}/",
+                    step=target.step,
+                    label=target.label,
+                )
     finally:
         barrier_if_distributed()
 
@@ -1027,10 +1026,11 @@ def run_embedder_training(request: TrainingRequest) -> int:
     )
     try:
         train_with_resume(trainer, resume_from_checkpoint)
+        _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
+        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 
-    _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
     return 0
 
 
@@ -1087,10 +1087,11 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     )
     try:
         train_with_resume(trainer, resume_from_checkpoint)
+        _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
+        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 
-    _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
     return 0
 
 
@@ -1165,7 +1166,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         train_with_resume(trainer, resume_from_checkpoint)
         final_dir = output_dir / "final"
         _save_final_model(trainer, model, final_dir, label="SparseEncoder")
-        _run_post_training_benchmarks(final_dir, config, backend_config, request)
+        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 

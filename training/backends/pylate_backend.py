@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 from pathlib import Path
 from typing import Any
 
+from training.benchmarks import resolve_benchmark_settings
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.backends.sentence_transformers_backend import (
     COMMON_TRAINING_KEYS,
@@ -19,6 +21,9 @@ from training.backends.sentence_transformers_backend import (
 )
 from training.checkpoints import build_epoch_checkpoint_callback, resolve_resume_checkpoint, train_with_resume
 from training.distributed import barrier_if_distributed, is_main_process
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _require_pylate() -> None:
@@ -64,6 +69,24 @@ def _trainer_is_main_process(trainer: Any) -> bool:
         except TypeError:
             pass
     return is_main_process()
+
+
+def _warn_if_pylate_benchmarks_requested(
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+    request: TrainingRequest,
+) -> None:
+    settings = resolve_benchmark_settings(
+        config,
+        backend_config,
+        request.cli_args,
+        default_query_instruction=str(backend_config.get("query_prefix", "") or ""),
+    )
+    if settings.enabled and is_main_process():
+        LOGGER.warning(
+            "PyLate post-training benchmarks are not wired yet; benchmark.checkpoints uses the shared "
+            "training.benchmarks resolver, but this backend still needs a benchmark runner integration."
+        )
 
 
 def run_colbert_training(request: TrainingRequest) -> int:
@@ -161,6 +184,7 @@ def run_colbert_training(request: TrainingRequest) -> int:
         model.save_pretrained(str(final_dir))
         print(f"[INFO] Saved final PyLate ColBERT model to: {final_dir}", flush=True)
     barrier_if_distributed()
+    _warn_if_pylate_benchmarks_requested(config, backend_config, request)
     return 0
 
 
