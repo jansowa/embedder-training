@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import shlex
 import sys
 from typing import Any, Sequence
 
@@ -86,9 +87,47 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="Resolve config overrides and grids, print the run plan, and exit without training.",
+    )
+    parser.add_argument(
+        "--print-config",
+        dest="print_config",
+        action="store_true",
+        help="Print fully resolved expanded YAML config(s) and exit without training.",
+    )
+    parser.add_argument(
+        "--no-save-resolved-config",
+        dest="save_resolved_config",
+        action="store_false",
+        default=True,
+        help="Do not write resolved_config.yaml and command.txt into each resolved output_dir.",
+    )
+    parser.add_argument(
         "--benchmark-name",
-        default="NanoBEIR",
+        default=None,
         help="Name of the MTEB benchmark to use when --run-mteb is enabled.",
+    )
+    parser.add_argument(
+        "--benchmark-output-dir",
+        dest="benchmark_output_dir",
+        default=None,
+        help="Directory for benchmark configs, raw outputs, and metrics JSON files.",
+    )
+    parser.add_argument(
+        "--benchmark-batch-size",
+        dest="benchmark_batch_size",
+        type=int,
+        default=None,
+        help="Batch size used by MTEB encoding.",
+    )
+    parser.add_argument(
+        "--benchmark-query-instruction",
+        dest="benchmark_query_instruction",
+        default=None,
+        help="Query instruction used by post-training benchmarks.",
     )
     parser.add_argument(
         "--run-mteb",
@@ -109,8 +148,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--pirb_scope",
         dest="pirb_scope",
         choices=("tiny", "small", "all"),
-        default="tiny",
+        default=None,
         help="PIRB benchmark scope used with --run-pirb.",
+    )
+    parser.add_argument(
+        "--pirb-max-seq-length",
+        "--pirb_max_seq_length",
+        dest="pirb_max_seq_length",
+        type=int,
+        default=None,
+        help="Maximum sequence length used by PIRB evaluation.",
     )
     parser.add_argument(
         "--remove-checkpoints",
@@ -332,6 +379,77 @@ def _apply_resume_to_configs(configs: list[dict[str, Any]], backend: str, resume
         _set_backend_values(run_config, backend, values)
 
 
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _should_save_resolved_config(config: dict[str, Any], args: argparse.Namespace) -> bool:
+    if not bool(getattr(args, "save_resolved_config", True)):
+        return False
+    if "save_resolved_config" in config:
+        return _as_bool(config["save_resolved_config"])
+    return True
+
+
+def _resolved_output_dir(config: dict[str, Any], backend: str, training_type: str) -> Path | None:
+    backend_section_key = BACKEND_SECTION_KEYS.get(backend)
+    for source in (
+        _dict_section(config, backend_section_key) if backend_section_key else {},
+        _dict_section(config, "backend_config"),
+        config,
+    ):
+        if source.get("output_dir") is not None:
+            return Path(str(source["output_dir"]))
+    return None
+
+
+def _command_text(args: argparse.Namespace) -> str:
+    raw_argv = list(getattr(args, "_raw_argv", None) or [])
+    return shlex.join(["python", "-m", "training.train", *raw_argv])
+
+
+def _write_resolved_config_artifacts(
+    run_config: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    backend: str,
+    training_type: str,
+) -> None:
+    output_dir = _resolved_output_dir(run_config, backend, training_type)
+    if output_dir is None:
+        return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    yaml = _load_yaml_module()
+    (output_dir / "resolved_config.yaml").write_text(
+        yaml.safe_dump(run_config, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    (output_dir / "command.txt").write_text(_command_text(args) + "\n", encoding="utf-8")
+
+
+def _print_run_plan(configs: list[dict[str, Any]], *, backend: str, training_type: str) -> None:
+    print(f"[DRY-RUN] {len(configs)} run(s) would execute.")
+    for index, run_config in enumerate(configs, start=1):
+        output_dir = _resolved_output_dir(run_config, backend, training_type)
+        run_name = run_config.get("run_name", "<none>")
+        train_data = run_config.get("train_data", "<unset>")
+        print(
+            f"[DRY-RUN] {index}/{len(configs)} "
+            f"backend={backend} training_type={training_type} "
+            f"run_name={run_name} output_dir={output_dir or '<unresolved>'} train_data={train_data}",
+        )
+
+
+def _print_resolved_configs(configs: list[dict[str, Any]]) -> None:
+    yaml = _load_yaml_module()
+    print(yaml.safe_dump_all(configs, sort_keys=False, allow_unicode=True), end="")
+
+
 def run_training(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     apply_config_overrides(
@@ -341,17 +459,17 @@ def run_training(args: argparse.Namespace) -> int:
     )
     backend, training_type = resolve_backend_and_training_type(args, config)
     spec = validate_backend_training_type(backend, training_type)
+    dry_run = bool(getattr(args, "dry_run", False) or getattr(args, "print_config", False))
     launch_result = maybe_launch_distributed_training(
         backend=backend,
         config=config,
         cli_args=args,
         argv=argv_from_args(args),
-    )
+    ) if not dry_run else None
     if launch_result is not None:
         return launch_result
 
     resume_spec = resume_spec_from_sources(config, _resume_backend_config(config, backend), args)
-    backend_module = load_backend_module(spec)
     try:
         configs = expand_config_grid(
             config,
@@ -363,7 +481,23 @@ def run_training(args: argparse.Namespace) -> int:
         raise ConfigError(str(exc)) from exc
     _apply_resume_to_configs(configs, backend, resume_spec)
 
+    if getattr(args, "dry_run", False):
+        _print_run_plan(configs, backend=backend, training_type=training_type)
+    if getattr(args, "print_config", False):
+        _print_resolved_configs(configs)
+    if dry_run:
+        return 0
+
+    backend_module = load_backend_module(spec)
+    should_save_resolved_config = _should_save_resolved_config(config, args)
     for run_config in configs:
+        if should_save_resolved_config:
+            _write_resolved_config_artifacts(
+                run_config,
+                args,
+                backend=backend,
+                training_type=training_type,
+            )
         request = TrainingRequest(
             backend=backend,
             training_type=training_type,

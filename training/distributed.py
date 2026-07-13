@@ -307,12 +307,20 @@ def argv_from_args(args: Any) -> list[str]:
         argv.extend(["--training-type", str(args.training_type)])
     if getattr(args, "benchmark_name", None) is not None:
         argv.extend(["--benchmark-name", str(args.benchmark_name)])
+    if getattr(args, "benchmark_output_dir", None) is not None:
+        argv.extend(["--benchmark-output-dir", str(args.benchmark_output_dir)])
+    if getattr(args, "benchmark_batch_size", None) is not None:
+        argv.extend(["--benchmark-batch-size", str(args.benchmark_batch_size)])
+    if getattr(args, "benchmark_query_instruction", None) is not None:
+        argv.extend(["--benchmark-query-instruction", str(args.benchmark_query_instruction)])
     if getattr(args, "run_mteb", False):
         argv.append("--run-mteb")
     if getattr(args, "run_pirb", False):
         argv.append("--run-pirb")
     if getattr(args, "pirb_scope", None) is not None:
         argv.extend(["--pirb-scope", str(args.pirb_scope)])
+    if getattr(args, "pirb_max_seq_length", None) is not None:
+        argv.extend(["--pirb-max-seq-length", str(args.pirb_max_seq_length)])
     if getattr(args, "remove_checkpoints", False):
         argv.append("--remove-checkpoints")
     if getattr(args, "resume", False):
@@ -325,6 +333,8 @@ def argv_from_args(args: Any) -> list[str]:
         argv.extend(["--num-gpus", str(args.num_gpus)])
     if getattr(args, "no_distributed", False):
         argv.append("--no-distributed")
+    if not getattr(args, "save_resolved_config", True):
+        argv.append("--no-save-resolved-config")
     for override in getattr(args, "config_overrides", None) or []:
         argv.extend(["--set", str(override)])
     for override in getattr(args, "config_string_overrides", None) or []:

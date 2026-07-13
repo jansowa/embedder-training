@@ -131,6 +131,58 @@ def test_parser_accepts_config_override_flags():
     assert args.config_string_overrides == ["sentence_transformers.save_strategy=no"]
 
 
+def test_parser_accepts_benchmark_parameter_flags():
+    from training.train import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "--config",
+            "configs/grid.yaml",
+            "--run-pirb",
+            "--run-mteb",
+            "--benchmark-name",
+            "NanoBEIR",
+            "--benchmark-output-dir",
+            "runs/benchmarks",
+            "--benchmark-batch-size",
+            "32",
+            "--benchmark-query-instruction",
+            "Pytanie: ",
+            "--pirb-scope",
+            "small",
+            "--pirb-max-seq-length",
+            "384",
+        ]
+    )
+
+    assert args.run_pirb is True
+    assert args.run_mteb is True
+    assert args.benchmark_name == "NanoBEIR"
+    assert args.benchmark_output_dir == "runs/benchmarks"
+    assert args.benchmark_batch_size == 32
+    assert args.benchmark_query_instruction == "Pytanie: "
+    assert args.pirb_scope == "small"
+    assert args.pirb_max_seq_length == 384
+
+
+def test_parser_accepts_dry_run_and_resolved_config_flags():
+    from training.train import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "--config",
+            "configs/grid.yaml",
+            "--dry-run",
+            "--print-config",
+            "--no-save-resolved-config",
+        ]
+    )
+
+    assert args.dry_run is True
+    assert args.print_config is True
+    assert args.save_resolved_config is False
+
+
 def test_parser_rejects_conflicting_gpu_flags():
     from training.train import build_parser
 
@@ -178,6 +230,104 @@ def test_apply_config_overrides_rejects_missing_assignment():
 
     with pytest.raises(train.ConfigError, match="PATH=VALUE"):
         train.apply_config_overrides({}, ["train_data"])
+
+
+def test_benchmark_settings_resolve_from_config_and_cli(tmp_path):
+    from training.benchmarks import resolve_benchmark_settings
+
+    settings = resolve_benchmark_settings(
+        {
+            "benchmark": {
+                "run_pirb": True,
+                "name": "ConfigBenchmark",
+                "scope": "small",
+                "batch_size": 16,
+                "max_seq_length": 384,
+                "output_dir": str(tmp_path / "bench"),
+                "query_instruction": "Config query: ",
+            }
+        },
+        {},
+        SimpleNamespace(
+            run_mteb=True,
+            run_pirb=False,
+            benchmark_name="CliBenchmark",
+            pirb_scope=None,
+            benchmark_batch_size=None,
+            pirb_max_seq_length=256,
+            benchmark_output_dir=None,
+            benchmark_query_instruction=None,
+        ),
+    )
+
+    assert settings.run_mteb is True
+    assert settings.run_pirb is True
+    assert settings.benchmark_name == "CliBenchmark"
+    assert settings.pirb_scope == "small"
+    assert settings.batch_size == 16
+    assert settings.pirb_max_seq_length == 256
+    assert settings.output_dir == tmp_path / "bench"
+    assert settings.query_instruction_for_retrieval == "Config query: "
+
+
+def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path):
+    import convert_utils
+    import training.benchmarks as benchmarks
+    from training.benchmarks import BenchmarkSettings
+
+    calls = {}
+
+    def fake_run_mteb(st_dir, tasks, batch_size=64, output_folder=None):
+        calls["mteb"] = {
+            "st_dir": st_dir,
+            "tasks": tasks,
+            "batch_size": batch_size,
+            "output_folder": output_folder,
+        }
+        return {"mean_ndcg_at_10": 0.5}
+
+    def fake_run_pirb(st_dir, query_instruction_for_retrieval, max_seq_length=512, scope="tiny", output_dir=None, **kwargs):
+        calls["pirb"] = {
+            "st_dir": st_dir,
+            "query_instruction_for_retrieval": query_instruction_for_retrieval,
+            "max_seq_length": max_seq_length,
+            "scope": scope,
+            "output_dir": output_dir,
+        }
+        return {"pirb_average_ndcg@10": 0.25}
+
+    monkeypatch.setattr(benchmarks, "_load_mteb_tasks", lambda benchmark_name: [f"task:{benchmark_name}"])
+    monkeypatch.setattr(convert_utils, "run_mteb", fake_run_mteb)
+    monkeypatch.setattr(convert_utils, "run_pirb", fake_run_pirb)
+
+    metrics = benchmarks.run_benchmarks_for_model(
+        "runs/model/final",
+        BenchmarkSettings(
+            run_mteb=True,
+            run_pirb=True,
+            benchmark_name="NanoBEIR",
+            pirb_scope="small",
+            batch_size=32,
+            pirb_max_seq_length=384,
+            query_instruction_for_retrieval="Pytanie: ",
+            output_dir=tmp_path / "bench",
+            log_to_wandb=False,
+        ),
+        metric_prefix="final/",
+        label="final",
+    )
+
+    assert calls["mteb"]["batch_size"] == 32
+    assert calls["mteb"]["output_folder"] == str(tmp_path / "bench" / "final" / "mteb")
+    assert calls["pirb"]["query_instruction_for_retrieval"] == "Pytanie: "
+    assert calls["pirb"]["max_seq_length"] == 384
+    assert calls["pirb"]["scope"] == "small"
+    assert calls["pirb"]["output_dir"] == str(tmp_path / "bench" / "final" / "pirb")
+    assert metrics == {
+        "final/mean_ndcg_at_10": 0.5,
+        "final/pirb_average_ndcg@10": 0.25,
+    }
+    assert json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8")) == metrics
 
 
 def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
@@ -654,6 +804,139 @@ def test_run_training_applies_config_overrides_before_backend_call(monkeypatch, 
     assert request_config["sentence_transformers"]["train_batch_size"] == 8
     assert request_config["sentence_transformers"]["negatives_per_query"] == 2
     assert request_config["sentence_transformers"]["save_strategy"] == "no"
+
+
+def test_run_training_dry_run_prints_plan_and_config_without_backend(monkeypatch, tmp_path, capsys):
+    import yaml
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    output_dir = tmp_path / "runs"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            output_dir: {output_dir}
+            train_data: dataset-from-yaml
+            architectures:
+              - tiny-model
+            hparams:
+              - learning_rate: 2e-6
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(
+        [
+            "--config",
+            str(config),
+            "--dry-run",
+            "--print-config",
+            "--set-str",
+            "train_data=dataset-from-cli",
+        ]
+    )
+
+    def fail_load_backend_module(spec):
+        raise AssertionError("dry-run should not load the backend module")
+
+    monkeypatch.setattr(train, "load_backend_module", fail_load_backend_module)
+
+    assert train.run_training(args) == 0
+    stdout = capsys.readouterr().out
+    assert "[DRY-RUN] 1 run(s) would execute." in stdout
+    assert "train_data=dataset-from-cli" in stdout
+    printed_yaml = "\n".join(line for line in stdout.splitlines() if not line.startswith("[DRY-RUN]"))
+    printed_config = yaml.safe_load(printed_yaml)
+    assert printed_config["train_data"] == "dataset-from-cli"
+    assert printed_config["output_dir"] == str(output_dir)
+    assert not (output_dir / "resolved_config.yaml").exists()
+
+
+def test_run_training_writes_resolved_config_artifacts(monkeypatch, tmp_path):
+    import yaml
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    output_dir = tmp_path / "out"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            output_dir: {output_dir}
+            train_data: dataset-a
+
+            sentence_transformers:
+              model_name_or_path: tiny-model
+              train_batch_size: 8
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(
+        [
+            "--config",
+            str(config),
+            "--no-distributed",
+            "--set",
+            "sentence_transformers.train_batch_size=4",
+        ]
+    )
+    args._raw_argv = [
+        "--config",
+        str(config),
+        "--no-distributed",
+        "--set",
+        "sentence_transformers.train_batch_size=4",
+    ]
+    requests = []
+
+    def fake_load_backend_module(spec):
+        return SimpleNamespace(run_training=lambda request: requests.append(request) or 0)
+
+    monkeypatch.setattr(train, "load_backend_module", fake_load_backend_module)
+
+    assert train.run_training(args) == 0
+    assert len(requests) == 1
+    resolved_config = yaml.safe_load((output_dir / "resolved_config.yaml").read_text(encoding="utf-8"))
+    command_text = (output_dir / "command.txt").read_text(encoding="utf-8")
+    assert resolved_config["train_data"] == "dataset-a"
+    assert resolved_config["sentence_transformers"]["train_batch_size"] == 4
+    assert "python -m training.train" in command_text
+    assert "sentence_transformers.train_batch_size=4" in command_text
+
+
+def test_run_training_can_skip_resolved_config_artifacts(monkeypatch, tmp_path):
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    output_dir = tmp_path / "out"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            output_dir: {output_dir}
+            train_data: dataset-a
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(["--config", str(config), "--no-save-resolved-config"])
+
+    def fake_load_backend_module(spec):
+        return SimpleNamespace(run_training=lambda request: 0)
+
+    monkeypatch.setattr(train, "load_backend_module", fake_load_backend_module)
+
+    assert train.run_training(args) == 0
+    assert not (output_dir / "resolved_config.yaml").exists()
+    assert not (output_dir / "command.txt").exists()
 
 
 def test_run_training_rejects_explicit_checkpoint_for_grid(monkeypatch, tmp_path):
@@ -2725,6 +3008,128 @@ def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch
     assert callback.interval_steps == 10
     assert callback.quantization_factor == 100
     assert callback.on_epoch_begin(None, SimpleNamespace(global_step=0), "control") == "control"
+
+
+def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "dataset.jsonl").write_text(
+        json.dumps({"query": "q", "pos": ["p"], "neg": ["n1"]}) + "\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "out"
+    calls = {"trained": False, "saved": None, "benchmark": None}
+
+    class FakeDataset:
+        @classmethod
+        def from_list(cls, rows):
+            return rows
+
+    class FakeMLMTransformer:
+        def __init__(self, model_name_or_path, **kwargs):
+            pass
+
+    class FakeSpladePooling:
+        def __init__(self, pooling_strategy):
+            pass
+
+    class FakeSparseEncoder:
+        def __init__(self, modules):
+            pass
+
+        def save_pretrained(self, output_path):
+            calls["saved"] = output_path
+
+    class FakeArgs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeSparseRankingLoss:
+        def __init__(self, model, scale, gather_across_devices):
+            pass
+
+    class FakeSparseMarginMSELoss:
+        def __init__(self, model):
+            pass
+
+    class FakeSpladeLoss:
+        def __init__(self, model, loss, document_regularizer_weight, query_regularizer_weight):
+            pass
+
+    class FakeTrainer:
+        def __init__(self, model, args, train_dataset, loss):
+            pass
+
+        def train(self):
+            calls["trained"] = True
+
+    def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
+        calls["benchmark"] = {
+            "model_dir": model_dir,
+            "settings": settings,
+            "metric_prefix": metric_prefix,
+            "step": step,
+            "label": label,
+        }
+        return {"final/pirb_average_ndcg@10": 0.5}
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sparse_sentence_transformers",
+        lambda: (
+            FakeDataset,
+            FakeSparseEncoder,
+            FakeTrainer,
+            FakeArgs,
+            FakeSparseMarginMSELoss,
+            FakeSparseRankingLoss,
+            FakeSpladeLoss,
+            FakeMLMTransformer,
+            FakeSpladePooling,
+        ),
+    )
+    monkeypatch.setattr(sentence_transformers_backend, "run_benchmarks_for_model", fake_run_benchmarks_for_model)
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={
+            "train_data": str(data_dir),
+            "output_dir": str(output_dir),
+            "benchmark": {
+                "run_pirb": True,
+                "scope": "small",
+                "max_seq_length": 384,
+                "output_dir": str(tmp_path / "bench"),
+                "query_instruction": "Pytanie: ",
+            },
+            "sentence_transformers": {
+                "model_name_or_path": "tiny-mlm",
+                "max_steps": 1,
+                "train_batch_size": 1,
+                "negatives_per_query": 1,
+            },
+        },
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert calls["trained"] is True
+    assert calls["saved"] == str(output_dir / "final")
+    assert calls["benchmark"]["model_dir"] == str((output_dir / "final").resolve())
+    assert calls["benchmark"]["metric_prefix"] == "final/"
+    assert calls["benchmark"]["step"] == 0
+    assert calls["benchmark"]["label"] == "final"
+    settings = calls["benchmark"]["settings"]
+    assert settings.run_pirb is True
+    assert settings.pirb_scope == "small"
+    assert settings.pirb_max_seq_length == 384
+    assert settings.query_instruction_for_retrieval == "Pytanie: "
+    assert settings.output_dir == tmp_path / "bench"
 
 
 def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():

@@ -217,7 +217,7 @@ def flatten(results: list) -> dict[str, float]:
 
     return flat_results
 
-def run_mteb(st_dir: str, tasks, batch_size: int=64):
+def run_mteb(st_dir: str, tasks, batch_size: int = 64, output_folder: str | None = None):
     try:
         import mteb
     except ModuleNotFoundError as exc:
@@ -226,7 +226,7 @@ def run_mteb(st_dir: str, tasks, batch_size: int=64):
         ) from exc
     model = mteb.get_model(st_dir)
     evaluation = mteb.MTEB(tasks=tasks)
-    results = evaluation.run(model, output_folder=None,
+    results = evaluation.run(model, output_folder=output_folder,
                              encode_kwargs={"batch_size": batch_size})
     flat_results = flatten(results)
     return flat_results
@@ -239,11 +239,13 @@ def run_pirb(
     max_seq_length: int = 512,
     scope: str = "tiny",
     model_type: str | None = None,
+    output_dir: str | None = None,
 ) -> dict[str, float]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
 
-    tmpdir = Path(tempfile.mkdtemp(prefix="pirb_"))
+    tmpdir = Path(output_dir) if output_dir is not None else Path(tempfile.mkdtemp(prefix="pirb_"))
+    tmpdir.mkdir(parents=True, exist_ok=True)
     models_cfg = tmpdir / "models_config.json"
     results_json = tmpdir / "results.json"
 

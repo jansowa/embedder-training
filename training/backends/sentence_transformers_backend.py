@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from training.benchmarks import resolve_benchmark_settings, run_benchmarks_for_model
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import (
     build_epoch_checkpoint_callback,
@@ -504,6 +505,44 @@ def _save_final_model(trainer: Any, model: Any, final_dir: Path, *, label: str) 
         model.save_pretrained(str(final_dir))
         print(f"[INFO] Saved final {label} model to: {final_dir}", flush=True)
     barrier_if_distributed()
+
+
+def _run_post_training_benchmarks(
+    final_dir: Path,
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+    request: TrainingRequest,
+    *,
+    label: str = "final",
+) -> None:
+    default_query_instruction = str(
+        backend_config.get(
+            "query_instruction_for_retrieval",
+            backend_config.get("query_prefix", ""),
+        )
+        or ""
+    )
+    settings = resolve_benchmark_settings(
+        config,
+        backend_config,
+        request.cli_args,
+        default_query_instruction=default_query_instruction,
+    )
+    if not settings.enabled:
+        return
+
+    try:
+        if is_main_process():
+            print(f"[INFO] Running post-training benchmarks for {final_dir}.", flush=True)
+            run_benchmarks_for_model(
+                str(final_dir.resolve()),
+                settings,
+                metric_prefix=f"{label}/",
+                step=0,
+                label=label,
+            )
+    finally:
+        barrier_if_distributed()
 
 
 def _unique_texts(values: list[str]) -> list[str]:
@@ -1124,10 +1163,12 @@ def run_splade_training(request: TrainingRequest) -> int:
     )
     try:
         train_with_resume(trainer, resume_from_checkpoint)
+        final_dir = output_dir / "final"
+        _save_final_model(trainer, model, final_dir, label="SparseEncoder")
+        _run_post_training_benchmarks(final_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 
-    _save_final_model(trainer, model, output_dir / "final", label="SparseEncoder")
     return 0
 
 

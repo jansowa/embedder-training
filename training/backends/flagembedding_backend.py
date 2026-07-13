@@ -11,6 +11,7 @@ import subprocess
 from time import time
 from typing import Any
 
+from training.benchmarks import resolve_benchmark_settings, run_benchmarks_for_model
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import resolve_resume_checkpoint
 from training.dataset_filters import apply_dataset_filter_if_configured
@@ -77,7 +78,10 @@ RESERVED_CONFIG_KEYS = {
     "backend",
     "backend_config",
     "benchmark",
+    "benchmark_batch_size",
     "benchmark_name",
+    "benchmark_output_dir",
+    "benchmark_query_instruction",
     "distributed",
     "dataset_mix_strategy",
     "epoch_checkpoint_dir",
@@ -93,6 +97,7 @@ RESERVED_CONFIG_KEYS = {
     "mixed_dataset_cache_dir",
     "output_dir",
     "pylate",
+    "pirb_max_seq_length",
     "pirb_scope",
     "remove_checkpoints",
     "resume",
@@ -204,35 +209,33 @@ def _append_training_arg(cmd: list[str], key: str, value: Any) -> None:
     cmd.extend([flag, str(value)])
 
 
-def _benchmark_model(st_model_dir: str, epoch_idx: int, query_instruction: str, request: TrainingRequest, tasks) -> None:
-    from convert_utils import run_mteb, run_pirb
-
-    metrics_to_log: dict[str, float] = {}
+def _benchmark_model(
+    st_model_dir: str,
+    epoch_idx: int,
+    query_instruction: str,
+    request: TrainingRequest,
+    full_args: dict[str, Any],
+    *,
+    label: str,
+) -> None:
     prefix = f"epoch{epoch_idx}/" if epoch_idx is not None else ""
-
-    if request.cli_args.run_mteb:
-        metrics_mteb = run_mteb(st_model_dir, tasks)
-        metrics_to_log.update({f"{prefix}{key}": value for key, value in metrics_mteb.items()})
-
-    if request.cli_args.run_pirb:
-        metrics_pirb = run_pirb(
-            st_model_dir,
-            query_instruction_for_retrieval=query_instruction,
-            scope=request.cli_args.pirb_scope,
-        )
-        metrics_to_log.update({f"{prefix}{key}": value for key, value in metrics_pirb.items()})
-
-    if metrics_to_log:
-        wandb = _load_wandb()
-        wandb.log(metrics_to_log, step=epoch_idx or 0)
+    settings = resolve_benchmark_settings(
+        request.config,
+        full_args,
+        request.cli_args,
+        default_query_instruction=query_instruction,
+    )
+    run_benchmarks_for_model(
+        st_model_dir,
+        settings,
+        metric_prefix=prefix,
+        step=epoch_idx or 0,
+        label=label,
+    )
 
 
 def _benchmark_checkpoints(output_dir: Path, arch: str, full_args: dict[str, Any], request: TrainingRequest) -> None:
     from convert_utils import convert_to_sentence_transformer
-
-    tasks = None
-    if request.cli_args.run_mteb:
-        tasks = _load_mteb().get_benchmarks(names=[request.cli_args.benchmark_name])
 
     ckpt_dirs = sorted(output_dir.glob("checkpoint-*"), key=lambda path: path.stat().st_mtime)
     query_instruction = full_args.get(
@@ -244,13 +247,27 @@ def _benchmark_checkpoints(output_dir: Path, arch: str, full_args: dict[str, Any
     if not ckpt_dirs:
         st_dir = output_dir / "base-st"
         convert_to_sentence_transformer(arch, str(st_dir), pooling_method=pooling_method)
-        _benchmark_model(str(st_dir.resolve()), epoch_idx=0, query_instruction=query_instruction, request=request, tasks=tasks)
+        _benchmark_model(
+            str(st_dir.resolve()),
+            epoch_idx=0,
+            query_instruction=query_instruction,
+            request=request,
+            full_args=full_args,
+            label="base",
+        )
         return
 
     for idx, ckpt in enumerate(ckpt_dirs, start=1):
         st_dir = ckpt.with_name(f"{ckpt.name}-st")
         convert_to_sentence_transformer(str(ckpt), str(st_dir), pooling_method=pooling_method)
-        _benchmark_model(str(st_dir.resolve()), epoch_idx=idx, query_instruction=query_instruction, request=request, tasks=tasks)
+        _benchmark_model(
+            str(st_dir.resolve()),
+            epoch_idx=idx,
+            query_instruction=query_instruction,
+            request=request,
+            full_args=full_args,
+            label=f"epoch{idx}",
+        )
 
 
 def run_training(request: TrainingRequest) -> int:
@@ -394,7 +411,16 @@ def run_training(request: TrainingRequest) -> int:
                 env["CUDA_VISIBLE_DEVICES"] = distributed_config.cuda_visible_devices
             subprocess.run(cmd, check=True, env=env)
 
-            if request.cli_args.run_mteb or request.cli_args.run_pirb:
+            benchmark_settings = resolve_benchmark_settings(
+                config,
+                full_args,
+                request.cli_args,
+                default_query_instruction=str(
+                    full_args.get("query_instruction_for_retrieval", QUERY_INSTRUCTION_FOR_RETRIEVAL_DEFAULT)
+                    or ""
+                ),
+            )
+            if benchmark_settings.enabled:
                 _benchmark_checkpoints(output_dir, arch, full_args, request)
 
             if request.cli_args.remove_checkpoints:
