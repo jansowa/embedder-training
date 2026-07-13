@@ -111,6 +111,26 @@ def test_parser_accepts_distributed_gpu_flags():
     assert disabled_args.no_distributed is True
 
 
+def test_parser_accepts_config_override_flags():
+    from training.train import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "--config",
+            "configs/grid.yaml",
+            "--set",
+            "train_data=dataset-a",
+            "--set",
+            "sentence_transformers.train_batch_size=4",
+            "--set-str",
+            "sentence_transformers.save_strategy=no",
+        ]
+    )
+
+    assert args.config_overrides == ["train_data=dataset-a", "sentence_transformers.train_batch_size=4"]
+    assert args.config_string_overrides == ["sentence_transformers.save_strategy=no"]
+
+
 def test_parser_rejects_conflicting_gpu_flags():
     from training.train import build_parser
 
@@ -123,6 +143,41 @@ def test_parser_rejects_conflicting_resume_flags():
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--resume", "--resume-from-checkpoint", "runs/model/checkpoint-10"])
+
+
+def test_apply_config_overrides_updates_and_adds_nested_values():
+    import training.train as train
+
+    config = {
+        "sentence_transformers": {"train_batch_size": 8},
+        "hparams": [{"learning_rate": "2e-6"}],
+    }
+
+    train.apply_config_overrides(
+        config,
+        [
+            "train_data=dataset-a",
+            "sentence_transformers.train_batch_size=4",
+            "sentence_transformers.report_to=[wandb]",
+            "hparams.0.num_train_epochs=3",
+            "new_section.enabled=true",
+        ],
+        ["sentence_transformers.save_strategy=no"],
+    )
+
+    assert config["train_data"] == "dataset-a"
+    assert config["sentence_transformers"]["train_batch_size"] == 4
+    assert config["sentence_transformers"]["report_to"] == ["wandb"]
+    assert config["sentence_transformers"]["save_strategy"] == "no"
+    assert config["hparams"][0]["num_train_epochs"] == 3
+    assert config["new_section"]["enabled"] is True
+
+
+def test_apply_config_overrides_rejects_missing_assignment():
+    import training.train as train
+
+    with pytest.raises(train.ConfigError, match="PATH=VALUE"):
+        train.apply_config_overrides({}, ["train_data"])
 
 
 def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
@@ -545,6 +600,62 @@ def test_run_training_expands_grid_before_backend_call(monkeypatch, tmp_path):
     assert requests[0].config["output_dir"] != requests[1].config["output_dir"]
 
 
+def test_run_training_applies_config_overrides_before_backend_call(monkeypatch, tmp_path):
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    config.write_text(
+        dedent(
+            """
+            backend: sentence-transformers
+            training_type: splade
+            runs_dir: runs/test-overrides
+
+            sentence_transformers:
+              train_batch_size: 8
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(
+        [
+            "--config",
+            str(config),
+            "--no-distributed",
+            "--set",
+            "train_data=dataset-from-cli",
+            "--set",
+            "hparams.0.learning_rate=0.00002",
+            "--set",
+            "hparams.0.num_train_epochs=1",
+            "--set",
+            "sentence_transformers.negatives_per_query=2",
+            "--set-str",
+            "model_cache_dir=cache/from-cli",
+            "--set-str",
+            "sentence_transformers.save_strategy=no",
+        ]
+    )
+    requests = []
+
+    def fake_load_backend_module(spec):
+        return SimpleNamespace(run_training=lambda request: requests.append(request) or 0)
+
+    monkeypatch.setattr(train, "load_backend_module", fake_load_backend_module)
+
+    assert train.run_training(args) == 0
+    assert len(requests) == 1
+    request_config = requests[0].config
+    assert request_config["train_data"] == "dataset-from-cli"
+    assert request_config["learning_rate"] == 0.00002
+    assert request_config["num_train_epochs"] == 1
+    assert request_config["model_cache_dir"] == "cache/from-cli"
+    assert request_config["sentence_transformers"]["train_batch_size"] == 8
+    assert request_config["sentence_transformers"]["negatives_per_query"] == 2
+    assert request_config["sentence_transformers"]["save_strategy"] == "no"
+
+
 def test_run_training_rejects_explicit_checkpoint_for_grid(monkeypatch, tmp_path):
     import training.train as train
 
@@ -603,6 +714,55 @@ def test_missing_backend_dependency_has_readable_error(monkeypatch):
 
     assert "Backend 'sentence-transformers' requires the sentence-transformers dependency" in str(exc.value)
     assert "pip install -r requirements/requirements-sentence-transformers.txt" in str(exc.value)
+
+
+def test_flagembedding_backend_maps_model_cache_dir_to_cache_dir(monkeypatch, tmp_path):
+    from training.backends import flagembedding_backend
+    from training.backends.registry import TrainingRequest
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    _write_jsonl(data_dir / "dataset.jsonl", [{"query": "q", "pos": ["p"], "neg": ["n"]}])
+    calls = {"cmd": None}
+
+    class FakeRun:
+        def finish(self):
+            pass
+
+    class FakeWandb:
+        @staticmethod
+        def init(**kwargs):
+            return FakeRun()
+
+    def fake_subprocess_run(cmd, check, env):
+        calls["cmd"] = cmd
+
+    monkeypatch.setattr(flagembedding_backend, "_require_flagembedding", lambda: None)
+    monkeypatch.setattr(flagembedding_backend, "_load_wandb", lambda: FakeWandb)
+    monkeypatch.setattr(flagembedding_backend.subprocess, "run", fake_subprocess_run)
+
+    request = TrainingRequest(
+        backend="flagembedding",
+        training_type="embedder",
+        config={
+            "model_name_or_path": "tiny-model",
+            "output_dir": str(tmp_path / "runs" / "tiny-run"),
+            "run_name": "tiny-run",
+            "learning_rate": 1e-5,
+            "num_train_epochs": 1,
+            "train_data": str(data_dir),
+            "model_cache_dir": str(tmp_path / "model-cache"),
+            "knowledge_distillation": False,
+        },
+        config_path=str(tmp_path / "config.yaml"),
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False, remove_checkpoints=False),
+    )
+
+    assert flagembedding_backend.run_training(request) == 0
+    cmd = calls["cmd"]
+    assert cmd is not None
+    assert "--model-cache-dir" not in cmd
+    assert cmd[cmd.index("--cache-dir") + 1] == str(tmp_path / "model-cache")
 
 
 def test_flagembedding_backend_rewrites_train_data_with_dataset_filter(monkeypatch, tmp_path):
@@ -1614,7 +1774,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
         encoding="utf-8",
     )
     output_dir = tmp_path / "out"
-    calls = {"trained": False, "saved": None, "rows": None}
+    calls = {"trained": False, "saved": None, "rows": None, "model_kwargs": None}
 
     class FakeDataset:
         @classmethod
@@ -1626,6 +1786,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
         def __init__(self, model_name_or_path, **model_kwargs):
             self.model_name_or_path = model_name_or_path
             self.model_kwargs = model_kwargs
+            calls["model_kwargs"] = model_kwargs
             self.max_seq_length = None
 
         def save_pretrained(self, output_path):
@@ -1660,6 +1821,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
         training_type="embedder",
         config={
             "train_data": str(data_dir),
+            "model_cache_dir": str(tmp_path / "model-cache"),
             "output_dir": str(output_dir),
             "sentence_transformers": {
                 "model_name_or_path": "tiny-model",
@@ -1679,6 +1841,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
     assert calls["trained"] is True
     assert calls["saved"] == str(output_dir / "final")
     assert calls["rows"] == [{"anchor": "q", "positive": "p", "negative_1": "n1"}]
+    assert calls["model_kwargs"]["cache_folder"] == str(tmp_path / "model-cache")
 
 
 def test_sentence_transformers_embedder_resumes_from_latest_checkpoint(monkeypatch, tmp_path):
@@ -2564,6 +2727,42 @@ def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch
     assert callback.on_epoch_begin(None, SimpleNamespace(global_step=0), "control") == "control"
 
 
+def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():
+    from training.backends import sentence_transformers_backend
+
+    calls = {}
+
+    class FakeMLMTransformer:
+        def __init__(self, model_name_or_path, **kwargs):
+            calls["model_name_or_path"] = model_name_or_path
+            calls["kwargs"] = kwargs
+
+    class FakeSpladePooling:
+        def __init__(self, **kwargs):
+            calls["pooling_kwargs"] = kwargs
+
+    class FakeSparseEncoder:
+        def __init__(self, modules):
+            self.modules = modules
+
+    model = sentence_transformers_backend._build_splade_model(
+        FakeSparseEncoder,
+        FakeMLMTransformer,
+        FakeSpladePooling,
+        "tiny-mlm",
+        {
+            "model_cache_dir": "cache/models",
+            "tokenizer_name_or_path": "tiny-tokenizer",
+        },
+    )
+
+    assert isinstance(model, FakeSparseEncoder)
+    assert calls["model_name_or_path"] == "tiny-mlm"
+    assert calls["kwargs"]["model_kwargs"]["cache_dir"] == "cache/models"
+    assert calls["kwargs"]["processor_kwargs"]["cache_dir"] == "cache/models"
+    assert calls["kwargs"]["config_kwargs"]["cache_dir"] == "cache/models"
+
+
 def test_sentence_transformers_splade_processor_fallback_uses_tokenizer(monkeypatch):
     from training.backends import sentence_transformers_backend
 
@@ -2621,7 +2820,7 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
         encoding="utf-8",
     )
     output_dir = tmp_path / "out"
-    calls = {"trained": False, "saved": None, "rows": None, "collator": False}
+    calls = {"trained": False, "saved": None, "rows": None, "collator": False, "model_kwargs": None}
 
     class FakeDataset:
         @classmethod
@@ -2632,6 +2831,7 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
     class FakeColBERT:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
+            calls["model_kwargs"] = kwargs
 
         def tokenize(self, texts, **kwargs):
             return {"input_ids": texts}
@@ -2670,6 +2870,7 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
         training_type="colbert",
         config={
             "train_data": str(data_dir),
+            "model_cache_dir": str(tmp_path / "model-cache"),
             "output_dir": str(output_dir),
             "pylate": {
                 "model_name_or_path": "tiny-model",
@@ -2687,6 +2888,7 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
     assert calls["collator"] is True
     assert calls["saved"] == str(output_dir / "final")
     assert calls["rows"] == [{"anchor": "q", "positive": "p", "negative_1": "n1"}]
+    assert calls["model_kwargs"]["cache_folder"] == str(tmp_path / "model-cache")
 
 
 def test_pylate_colbert_resumes_from_checkpoint(monkeypatch, tmp_path):

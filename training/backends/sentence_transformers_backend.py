@@ -45,6 +45,9 @@ COMMON_TRAINING_KEYS = {
     "logging_steps",
     "max_seq_length",
     "max_steps",
+    "cache_dir",
+    "cache_folder",
+    "model_cache_dir",
     "model_kwargs",
     "model_name_or_path",
     "num_train_epochs",
@@ -748,6 +751,22 @@ def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     return model_kwargs
 
 
+def _model_cache_dir(backend_config: dict[str, Any]) -> str | None:
+    for key in ("model_cache_dir", "cache_dir", "cache_folder"):
+        value = backend_config.get(key)
+        if value is not None:
+            return str(value)
+    return None
+
+
+def _sentence_transformer_model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
+    model_kwargs = _model_kwargs(backend_config)
+    cache_dir = _model_cache_dir(backend_config)
+    if cache_dir is not None:
+        model_kwargs.setdefault("cache_folder", cache_dir)
+    return model_kwargs
+
+
 def _kwargs_mapping(backend_config: dict[str, Any], *keys: str) -> dict[str, Any]:
     for key in keys:
         value = backend_config.get(key)
@@ -835,7 +854,7 @@ def _load_training_rows(
 
 
 def _build_dense_model(SentenceTransformer: Any, model_name_or_path: str, backend_config: dict[str, Any]):
-    model = SentenceTransformer(str(model_name_or_path), **_model_kwargs(backend_config))
+    model = SentenceTransformer(str(model_name_or_path), **_sentence_transformer_model_kwargs(backend_config))
     max_seq_length = backend_config.get("max_seq_length")
     if max_seq_length is not None:
         model.max_seq_length = int(max_seq_length)
@@ -852,6 +871,11 @@ def _build_splade_model(
     model_kwargs = _model_kwargs(backend_config)
     processor_kwargs = _kwargs_mapping(backend_config, "processor_kwargs", "tokenizer_args")
     config_kwargs = _kwargs_mapping(backend_config, "config_kwargs", "config_args")
+    cache_dir = _model_cache_dir(backend_config)
+    if cache_dir is not None:
+        model_kwargs.setdefault("cache_dir", cache_dir)
+        processor_kwargs.setdefault("cache_dir", cache_dir)
+        config_kwargs.setdefault("cache_dir", cache_dir)
     max_seq_length = backend_config.get("max_seq_length")
     signature = inspect.signature(MLMTransformer)
     parameters = signature.parameters

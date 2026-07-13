@@ -325,4 +325,8 @@ def argv_from_args(args: Any) -> list[str]:
         argv.extend(["--num-gpus", str(args.num_gpus)])
     if getattr(args, "no_distributed", False):
         argv.append("--no-distributed")
+    for override in getattr(args, "config_overrides", None) or []:
+        argv.extend(["--set", str(override)])
+    for override in getattr(args, "config_string_overrides", None) or []:
+        argv.extend(["--set-str", str(override)])
     return argv

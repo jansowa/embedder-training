@@ -61,6 +61,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to YAML training configuration. Missing files fall back to built-in FlagEmbedding defaults.",
     )
     parser.add_argument(
+        "--set",
+        dest="config_overrides",
+        action="append",
+        default=[],
+        metavar="PATH=VALUE",
+        help=(
+            "Override or add a YAML config value after loading --config. "
+            "Use dot paths for nested values and numeric path segments for list indexes, "
+            "for example --set train_data=dataset-a "
+            "--set sentence_transformers.train_batch_size=4 "
+            "--set hparams.0.learning_rate=2e-5. Values are parsed as YAML."
+        ),
+    )
+    parser.add_argument(
+        "--set-str",
+        dest="config_string_overrides",
+        action="append",
+        default=[],
+        metavar="PATH=VALUE",
+        help=(
+            "Override or add a YAML config value as a literal string. "
+            "Use this for values that YAML would coerce, such as --set-str sentence_transformers.save_strategy=no."
+        ),
+    )
+    parser.add_argument(
         "--benchmark-name",
         default="NanoBEIR",
         help="Name of the MTEB benchmark to use when --run-mteb is enabled.",
@@ -157,6 +182,101 @@ def load_config(config_path: str) -> dict[str, Any]:
     return data
 
 
+def _split_override(raw_override: str, *, option_name: str) -> tuple[str, str]:
+    if "=" not in raw_override:
+        raise ConfigError(f"{option_name} expects PATH=VALUE, got '{raw_override}'.")
+    path, value = raw_override.split("=", 1)
+    path = path.strip()
+    if not path:
+        raise ConfigError(f"{option_name} override path cannot be empty.")
+    return path, value
+
+
+def _parse_override_path(path: str) -> list[str | int]:
+    parts: list[str | int] = []
+    for raw_part in path.split("."):
+        part = raw_part.strip()
+        if not part:
+            raise ConfigError(f"Config override path '{path}' contains an empty segment.")
+        if part.isdigit():
+            parts.append(int(part))
+        else:
+            parts.append(part)
+    return parts
+
+
+def _new_override_container(next_part: str | int) -> dict[str, Any] | list[Any]:
+    return [] if isinstance(next_part, int) else {}
+
+
+def _ensure_list_index(values: list[Any], index: int, path: str) -> None:
+    if index < 0:
+        raise ConfigError(f"Config override path '{path}' contains a negative list index.")
+    while len(values) <= index:
+        values.append(None)
+
+
+def _apply_config_override(config: dict[str, Any], path: str, value: Any) -> None:
+    parts = _parse_override_path(path)
+    current: Any = config
+
+    for index, part in enumerate(parts[:-1]):
+        next_part = parts[index + 1]
+        if isinstance(part, int):
+            if not isinstance(current, list):
+                raise ConfigError(f"Config override path '{path}' expected a list before index {part}.")
+            _ensure_list_index(current, part, path)
+            if current[part] is None:
+                current[part] = _new_override_container(next_part)
+            current = current[part]
+        else:
+            if not isinstance(current, dict):
+                raise ConfigError(f"Config override path '{path}' expected a mapping before '{part}'.")
+            if part not in current or current[part] is None:
+                current[part] = _new_override_container(next_part)
+            current = current[part]
+
+        expected_type = list if isinstance(next_part, int) else dict
+        if not isinstance(current, expected_type):
+            expected_name = "list" if expected_type is list else "mapping"
+            raise ConfigError(f"Config override path '{path}' expected a {expected_name} before '{next_part}'.")
+
+    leaf = parts[-1]
+    if isinstance(leaf, int):
+        if not isinstance(current, list):
+            raise ConfigError(f"Config override path '{path}' expected a list before index {leaf}.")
+        _ensure_list_index(current, leaf, path)
+        current[leaf] = value
+    else:
+        if not isinstance(current, dict):
+            raise ConfigError(f"Config override path '{path}' expected a mapping before '{leaf}'.")
+        current[leaf] = value
+
+
+def _parse_yaml_override_value(raw_value: str, *, path: str) -> Any:
+    yaml = _load_yaml_module()
+    try:
+        return yaml.safe_load(raw_value)
+    except Exception as exc:
+        raise ConfigError(f"Could not parse YAML value for override '{path}': {exc}") from exc
+
+
+def apply_config_overrides(
+    config: dict[str, Any],
+    yaml_overrides: Sequence[str] | None = None,
+    string_overrides: Sequence[str] | None = None,
+) -> None:
+    """Apply command-line config overrides in-place."""
+
+    for raw_override in yaml_overrides or []:
+        path, raw_value = _split_override(raw_override, option_name="--set")
+        _apply_config_override(config, path, _parse_yaml_override_value(raw_value, path=path))
+
+    for raw_override in string_overrides or []:
+        path, value = _split_override(raw_override, option_name="--set-str")
+        _apply_config_override(config, path, value)
+
+
 def resolve_backend_and_training_type(
     args: argparse.Namespace,
     config: dict[str, Any],
@@ -214,6 +334,11 @@ def _apply_resume_to_configs(configs: list[dict[str, Any]], backend: str, resume
 
 def run_training(args: argparse.Namespace) -> int:
     config = load_config(args.config)
+    apply_config_overrides(
+        config,
+        getattr(args, "config_overrides", None),
+        getattr(args, "config_string_overrides", None),
+    )
     backend, training_type = resolve_backend_and_training_type(args, config)
     spec = validate_backend_training_type(backend, training_type)
     launch_result = maybe_launch_distributed_training(

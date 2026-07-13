@@ -12,6 +12,7 @@ from training.backends.sentence_transformers_backend import (
     SentenceTransformersConfigError,
     _dict_section,
     _load_training_rows,
+    _model_cache_dir,
     _resolve_value,
     _training_args,
     _training_args_config_for_rows,
@@ -99,6 +100,9 @@ def run_colbert_training(request: TrainingRequest) -> int:
         "model_name_or_path": str(model_name_or_path),
         "model_kwargs": _model_kwargs(backend_config),
     }
+    model_cache_dir = _model_cache_dir(backend_config)
+    if model_cache_dir is not None:
+        colbert_kwargs["cache_folder"] = model_cache_dir
     for key in (
         "cache_folder",
         "trust_remote_code",

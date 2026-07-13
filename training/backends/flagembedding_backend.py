@@ -277,6 +277,9 @@ def run_training(request: TrainingRequest) -> int:
     for arch in grid["architectures"]:
         for hparams in grid["hparams"]:
             full_args = {**base_args, **hparams}
+            model_cache_dir = full_args.pop("model_cache_dir", None)
+            if model_cache_dir is not None:
+                full_args["cache_dir"] = str(model_cache_dir)
             mix_strategy = normalize_dataset_mix_strategy(
                 full_args.get(
                     "dataset_mix_strategy",
