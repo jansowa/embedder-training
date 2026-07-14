@@ -14,6 +14,7 @@ from training.distributed import is_main_process
 
 LATEST_CHECKPOINT = "latest"
 DEFAULT_EPOCH_CHECKPOINT_DIR = "epoch-checkpoints"
+DEFAULT_STEP_CHECKPOINT_DIR = "step-checkpoints"
 
 _STEP_CHECKPOINT_RE = re.compile(r"^checkpoint-(\d+)$")
 _EPOCH_CHECKPOINT_RE = re.compile(r"^epoch-(\d+)-step-(\d+)$")
@@ -80,6 +81,31 @@ def epoch_checkpoint_dir_name(config: dict[str, Any], backend_config: dict[str, 
     if value is None or str(value).strip() == "":
         return DEFAULT_EPOCH_CHECKPOINT_DIR
     return str(value)
+
+
+def step_checkpoint_dir_name(config: dict[str, Any], backend_config: dict[str, Any]) -> str:
+    value = backend_config.get("step_checkpoint_dir", config.get("step_checkpoint_dir"))
+    if value is None or str(value).strip() == "":
+        return DEFAULT_STEP_CHECKPOINT_DIR
+    return str(value)
+
+
+def _step_checkpoint_numbers(value: Any) -> tuple[int, ...]:
+    if value is None:
+        return ()
+    values = value if isinstance(value, (list, tuple, set, frozenset)) else (value,)
+    steps: set[int] = set()
+    for raw_step in values:
+        if isinstance(raw_step, bool):
+            raise CheckpointError("'keep_step_checkpoints' must contain positive integers.")
+        try:
+            step = int(raw_step)
+        except (TypeError, ValueError) as exc:
+            raise CheckpointError("'keep_step_checkpoints' must contain positive integers.") from exc
+        if step <= 0:
+            raise CheckpointError("'keep_step_checkpoints' must contain positive integers.")
+        steps.add(step)
+    return tuple(sorted(steps))
 
 
 def checkpoint_step(path: Path) -> int:
@@ -261,6 +287,55 @@ class EpochCheckpointCallback:
         return control
 
 
+class StepCheckpointCallback:
+    """Copy selected step checkpoints outside Trainer's save_total_limit rotation."""
+
+    def __init__(
+        self,
+        output_dir: Path | str,
+        steps: Any,
+        *,
+        step_checkpoint_dir: str = DEFAULT_STEP_CHECKPOINT_DIR,
+    ) -> None:
+        self.output_dir = Path(output_dir)
+        self.steps = frozenset(_step_checkpoint_numbers(steps))
+        self.step_checkpoint_dir = step_checkpoint_dir
+
+    def __getattr__(self, name: str) -> Any:
+        if not name.startswith("on_"):
+            raise AttributeError(name)
+
+        def _noop(args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+            return control
+
+        return _noop
+
+    def on_save(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        if not is_main_process():
+            return control
+        step = int(getattr(state, "global_step", 0) or 0)
+        if step not in self.steps:
+            return control
+
+        source = self.output_dir / f"checkpoint-{step}"
+        if not source.is_dir():
+            return control
+
+        target_root = self.output_dir / self.step_checkpoint_dir
+        target_root.mkdir(parents=True, exist_ok=True)
+        target = target_root / f"step-{step}"
+        if target.exists():
+            return control
+
+        tmp_target = target_root / f".{target.name}.tmp"
+        if tmp_target.exists():
+            shutil.rmtree(tmp_target)
+        shutil.copytree(source, tmp_target)
+        tmp_target.rename(target)
+        print(f"[INFO] Preserved step checkpoint: {target}", flush=True)
+        return control
+
+
 def build_epoch_checkpoint_callback(
     output_dir: Path,
     config: dict[str, Any],
@@ -271,6 +346,22 @@ def build_epoch_checkpoint_callback(
     return EpochCheckpointCallback(
         output_dir,
         epoch_checkpoint_dir=epoch_checkpoint_dir_name(config, backend_config),
+    )
+
+
+def build_step_checkpoint_callback(
+    output_dir: Path,
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+) -> StepCheckpointCallback | None:
+    configured_steps = backend_config.get("keep_step_checkpoints", config.get("keep_step_checkpoints"))
+    steps = _step_checkpoint_numbers(configured_steps)
+    if not steps:
+        return None
+    return StepCheckpointCallback(
+        output_dir,
+        steps,
+        step_checkpoint_dir=step_checkpoint_dir_name(config, backend_config),
     )
 
 

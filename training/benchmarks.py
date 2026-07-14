@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR
+
 
 DEFAULT_BENCHMARK_NAME = "NanoBEIR"
 DEFAULT_PIRB_SCOPE = "tiny"
@@ -35,6 +37,7 @@ class BenchmarkSettings:
     output_dir: Path | None = None
     log_to_wandb: bool = True
     checkpoints: tuple[Any, ...] | None = None
+    step_checkpoint_dir: str = DEFAULT_STEP_CHECKPOINT_DIR
 
     @property
     def enabled(self) -> bool:
@@ -148,6 +151,9 @@ def resolve_benchmark_settings(
             checkpoints = tuple(checkpoints)
         else:
             checkpoints = (checkpoints,)
+    step_checkpoint_dir = str(
+        backend_config.get("step_checkpoint_dir", config.get("step_checkpoint_dir")) or DEFAULT_STEP_CHECKPOINT_DIR
+    )
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -160,6 +166,7 @@ def resolve_benchmark_settings(
         output_dir=Path(str(output_dir)) if output_dir is not None else None,
         log_to_wandb=log_to_wandb,
         checkpoints=checkpoints,
+        step_checkpoint_dir=step_checkpoint_dir,
     )
 
 
@@ -218,7 +225,12 @@ def _warn_missing_target(label: str, expected: Path | str) -> None:
     LOGGER.warning("Selected benchmark checkpoint '%s' was not found at %s; skipping.", label, expected)
 
 
-def _resolve_benchmark_target(output_dir: Path, spec: Any) -> BenchmarkTarget | None:
+def _resolve_benchmark_target(
+    output_dir: Path,
+    spec: Any,
+    *,
+    step_checkpoint_dir: str = DEFAULT_STEP_CHECKPOINT_DIR,
+) -> BenchmarkTarget | None:
     if isinstance(spec, str):
         normalized = spec.strip().lower()
         if normalized == "final":
@@ -250,9 +262,11 @@ def _resolve_benchmark_target(output_dir: Path, spec: Any) -> BenchmarkTarget | 
             return BenchmarkTarget(label=label, path=path, step=_epoch_checkpoint_step(path))
 
         label = f"step-{number}"
-        path = output_dir / f"checkpoint-{number}"
+        preserved_path = output_dir / step_checkpoint_dir / label
+        regular_path = output_dir / f"checkpoint-{number}"
+        path = preserved_path if preserved_path.is_dir() else regular_path
         if not path.is_dir():
-            _warn_missing_target(label, path)
+            _warn_missing_target(label, f"{preserved_path} or {regular_path}")
             return None
         return BenchmarkTarget(label=label, path=path, step=number)
 
@@ -264,7 +278,11 @@ def resolve_benchmark_targets(output_dir: Path, settings: BenchmarkSettings) -> 
     specs = settings.checkpoints if settings.checkpoints is not None else ("final",)
     targets: list[BenchmarkTarget] = []
     for spec in specs:
-        target = _resolve_benchmark_target(output_dir, spec)
+        target = _resolve_benchmark_target(
+            output_dir,
+            spec,
+            step_checkpoint_dir=settings.step_checkpoint_dir,
+        )
         if target is not None:
             targets.append(target)
     return targets

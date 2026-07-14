@@ -12,6 +12,7 @@ from training.benchmarks import resolve_benchmark_settings, resolve_benchmark_ta
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import (
     build_epoch_checkpoint_callback,
+    build_step_checkpoint_callback,
     resolve_resume_checkpoint,
     train_with_resume,
 )
@@ -41,6 +42,7 @@ COMMON_TRAINING_KEYS = {
     "gradient_accumulation_steps",
     "gradient_checkpointing",
     "keep_epoch_checkpoints",
+    "keep_step_checkpoints",
     "learning_rate",
     "loss",
     "logging_steps",
@@ -66,6 +68,7 @@ COMMON_TRAINING_KEYS = {
     "save_total_limit",
     "seed",
     "splade_activation_stats",
+    "step_checkpoint_dir",
     "tokenizer_args",
     "tokenizer_name_or_path",
     "train_batch_size",
@@ -481,12 +484,17 @@ def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
         wandb.finish()
 
 
-def _add_epoch_checkpoint_callback(trainer: Any, output_dir: Path, config: dict[str, Any], backend_config: dict[str, Any]) -> None:
+def _add_checkpoint_callbacks(trainer: Any, output_dir: Path, config: dict[str, Any], backend_config: dict[str, Any]) -> None:
     if not is_main_process():
         return
-    callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
-    if callback is not None and hasattr(trainer, "add_callback"):
-        trainer.add_callback(callback)
+    if not hasattr(trainer, "add_callback"):
+        return
+    for callback in (
+        build_epoch_checkpoint_callback(output_dir, config, backend_config),
+        build_step_checkpoint_callback(output_dir, config, backend_config),
+    ):
+        if callback is not None:
+            trainer.add_callback(callback)
 
 
 def _trainer_is_main_process(trainer: Any) -> bool:
@@ -1017,7 +1025,7 @@ def run_embedder_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
-    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
+    _add_checkpoint_callbacks(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers embedder "
@@ -1077,7 +1085,7 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
-    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
+    _add_checkpoint_callbacks(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers matryoshka "
@@ -1155,7 +1163,7 @@ def run_splade_training(request: TrainingRequest) -> int:
     activation_stats_callback = _build_splade_activation_stats_callback(model, loaded.rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(activation_stats_callback)
-    _add_epoch_checkpoint_callback(trainer, output_dir, config, backend_config)
+    _add_checkpoint_callbacks(trainer, output_dir, config, backend_config)
 
     print(
         "[INFO] Training SentenceTransformers SPLADE "

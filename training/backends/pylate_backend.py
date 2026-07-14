@@ -19,7 +19,12 @@ from training.backends.sentence_transformers_backend import (
     _training_args,
     _training_args_config_for_rows,
 )
-from training.checkpoints import build_epoch_checkpoint_callback, resolve_resume_checkpoint, train_with_resume
+from training.checkpoints import (
+    build_epoch_checkpoint_callback,
+    build_step_checkpoint_callback,
+    resolve_resume_checkpoint,
+    train_with_resume,
+)
 from training.distributed import barrier_if_distributed, is_main_process
 
 
@@ -167,9 +172,14 @@ def run_colbert_training(request: TrainingRequest) -> int:
         loss=loss,
         data_collator=ColBERTCollator(tokenize_fn=model.tokenize),
     )
-    epoch_checkpoint_callback = build_epoch_checkpoint_callback(output_dir, config, backend_config)
-    if is_main_process() and epoch_checkpoint_callback is not None and hasattr(trainer, "add_callback"):
-        trainer.add_callback(epoch_checkpoint_callback)
+    checkpoint_callbacks = (
+        build_epoch_checkpoint_callback(output_dir, config, backend_config),
+        build_step_checkpoint_callback(output_dir, config, backend_config),
+    )
+    if is_main_process() and hasattr(trainer, "add_callback"):
+        for callback in checkpoint_callbacks:
+            if callback is not None:
+                trainer.add_callback(callback)
 
     print(
         "[INFO] Training PyLate ColBERT "

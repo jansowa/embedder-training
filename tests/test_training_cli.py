@@ -338,7 +338,7 @@ def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
     (output_dir / "epoch-checkpoints" / "epoch-0001-step-100").mkdir(parents=True)
     (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").mkdir(parents=True)
     (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").mkdir(parents=True)
-    (output_dir / "checkpoint-20000").mkdir(parents=True)
+    (output_dir / "step-checkpoints" / "step-20000").mkdir(parents=True)
 
     settings = BenchmarkSettings(
         run_mteb=False,
@@ -357,7 +357,7 @@ def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
         ("final", Path("final"), 0),
         ("epoch-0001", Path("epoch-checkpoints") / "epoch-0001-step-123", 123),
         ("epoch-0002", Path("epoch-checkpoints") / "epoch-0002-step-456", 456),
-        ("step-20000", Path("checkpoint-20000"), 20000),
+        ("step-20000", Path("step-checkpoints") / "step-20000", 20000),
     ]
 
 
@@ -730,6 +730,46 @@ def test_epoch_checkpoint_callback_ignores_unhandled_trainer_events(tmp_path):
 
     assert callback.on_train_begin(None, SimpleNamespace(global_step=0), control) is control
     assert control.should_save is False
+
+
+def test_step_checkpoint_callback_preserves_selected_steps(tmp_path):
+    from training.checkpoints import StepCheckpointCallback
+
+    output_dir = tmp_path / "out"
+    for step in (10000, 20000, 30000):
+        source = output_dir / f"checkpoint-{step}"
+        source.mkdir(parents=True)
+        (source / "trainer_state.json").write_text(json.dumps({"global_step": step}), encoding="utf-8")
+        (source / "model.safetensors").write_bytes(f"weights-{step}".encode())
+
+    callback = StepCheckpointCallback(output_dir, [10000, 20000])
+    control = SimpleNamespace()
+    for step in (10000, 20000, 30000):
+        callback.on_save(None, SimpleNamespace(global_step=step), control)
+
+    for step in (10000, 20000):
+        preserved = output_dir / "step-checkpoints" / f"step-{step}"
+        assert json.loads((preserved / "trainer_state.json").read_text(encoding="utf-8"))["global_step"] == step
+        assert (preserved / "model.safetensors").read_bytes() == f"weights-{step}".encode()
+    assert not (output_dir / "step-checkpoints" / "step-30000").exists()
+
+
+def test_step_checkpoint_builder_uses_specific_config_and_custom_directory(tmp_path):
+    from training.checkpoints import build_step_checkpoint_callback
+
+    output_dir = tmp_path / "out"
+    source = output_dir / "checkpoint-20000"
+    _write_complete_checkpoint(source)
+    callback = build_step_checkpoint_callback(
+        output_dir,
+        {"keep_step_checkpoints": [10000], "step_checkpoint_dir": "top-level-steps"},
+        {"keep_step_checkpoints": [20000, 50000], "step_checkpoint_dir": "fixed-step-checkpoints"},
+    )
+
+    assert callback is not None
+    assert callback.steps == frozenset({20000, 50000})
+    callback.on_save(None, SimpleNamespace(global_step=20000), SimpleNamespace())
+    assert (output_dir / "fixed-step-checkpoints" / "step-20000" / "model.safetensors").exists()
 
 
 def test_grid_run_names_include_distinct_hparams(monkeypatch, tmp_path):
@@ -2115,7 +2155,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
         encoding="utf-8",
     )
     output_dir = tmp_path / "out"
-    calls = {"trained": False, "saved": None, "rows": None, "model_kwargs": None}
+    calls = {"trained": False, "saved": None, "rows": None, "model_kwargs": None, "callbacks": []}
 
     class FakeDataset:
         @classmethod
@@ -2151,6 +2191,9 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
         def train(self):
             calls["trained"] = True
 
+        def add_callback(self, callback):
+            calls["callbacks"].append(callback)
+
     monkeypatch.setattr(
         sentence_transformers_backend,
         "_load_sentence_transformers",
@@ -2164,6 +2207,8 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
             "train_data": str(data_dir),
             "model_cache_dir": str(tmp_path / "model-cache"),
             "output_dir": str(output_dir),
+            "keep_step_checkpoints": [10000],
+            "backend_config": {"keep_step_checkpoints": [20000]},
             "sentence_transformers": {
                 "model_name_or_path": "tiny-model",
                 "max_steps": 1,
@@ -2172,6 +2217,7 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
                 "max_seq_length": 64,
                 "loss": "dense_only_loss",
                 "save_strategy": "no",
+                "keep_step_checkpoints": [30000],
             },
         },
         config_path="config.yaml",
@@ -2183,6 +2229,8 @@ def test_sentence_transformers_embedder_runs_training_with_mocks(monkeypatch, tm
     assert calls["saved"] == str(output_dir / "final")
     assert calls["rows"] == [{"anchor": "q", "positive": "p", "negative_1": "n1"}]
     assert calls["model_kwargs"]["cache_folder"] == str(tmp_path / "model-cache")
+    assert len(calls["callbacks"]) == 1
+    assert calls["callbacks"][0].steps == frozenset({30000})
 
 
 def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypatch, tmp_path):
@@ -3150,6 +3198,7 @@ def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch
                     "interval_steps": 10,
                     "include_negatives": True,
                 },
+                "keep_step_checkpoints": [20000],
             },
         },
         config_path="config.yaml",
@@ -3157,8 +3206,10 @@ def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch
     )
 
     assert sentence_transformers_backend.run_training(request) == 0
-    assert len(callbacks) == 1
-    callback = callbacks[0]
+    assert len(callbacks) == 2
+    callback = next(callback for callback in callbacks if hasattr(callback, "query_texts"))
+    step_callback = next(callback for callback in callbacks if hasattr(callback, "steps"))
+    assert step_callback.steps == frozenset({20000})
     assert callback.query_texts == ["q1", "q2"]
     assert callback.document_texts == ["p1", "n2"]
     assert callback.batch_size == 1
@@ -3297,7 +3348,7 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
     (output_dir / "final").mkdir(parents=True)
     (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").mkdir(parents=True)
     (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").mkdir(parents=True)
-    (output_dir / "checkpoint-20000").mkdir(parents=True)
+    (output_dir / "step-checkpoints" / "step-20000").mkdir(parents=True)
     calls = []
     barriers = []
 
@@ -3344,7 +3395,7 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
         (output_dir / "final").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").resolve(),
-        (output_dir / "checkpoint-20000").resolve(),
+        (output_dir / "step-checkpoints" / "step-20000").resolve(),
     ]
     assert barriers == [True]
 
@@ -3442,7 +3493,14 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
         encoding="utf-8",
     )
     output_dir = tmp_path / "out"
-    calls = {"trained": False, "saved": None, "rows": None, "collator": False, "model_kwargs": None}
+    calls = {
+        "trained": False,
+        "saved": None,
+        "rows": None,
+        "collator": False,
+        "model_kwargs": None,
+        "callbacks": [],
+    }
 
     class FakeDataset:
         @classmethod
@@ -3476,6 +3534,9 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
         def train(self):
             calls["trained"] = True
 
+        def add_callback(self, callback):
+            calls["callbacks"].append(callback)
+
     class FakeArgs:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
@@ -3499,6 +3560,7 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
                 "max_steps": 1,
                 "train_batch_size": 1,
                 "negatives_per_query": 1,
+                "keep_step_checkpoints": [20000],
             },
         },
         config_path="config.yaml",
@@ -3511,6 +3573,8 @@ def test_pylate_colbert_runs_training_with_mocks(monkeypatch, tmp_path):
     assert calls["saved"] == str(output_dir / "final")
     assert calls["rows"] == [{"anchor": "q", "positive": "p", "negative_1": "n1"}]
     assert calls["model_kwargs"]["cache_folder"] == str(tmp_path / "model-cache")
+    assert len(calls["callbacks"]) == 1
+    assert calls["callbacks"][0].steps == frozenset({20000})
 
 
 def test_pylate_colbert_resumes_from_checkpoint(monkeypatch, tmp_path):
