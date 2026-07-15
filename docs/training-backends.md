@@ -327,6 +327,8 @@ benchmark:
   output_dir: /scratch/$USER/benchmarks/example-run
   query_instruction: ""
   parallel_checkpoints: true
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
   # parallel_checkpoint_workers: 4
   checkpoints:
     - final
@@ -337,7 +339,9 @@ benchmark:
 
 For supported post-training backends, `benchmark.checkpoints` selects which saved model directories are evaluated after training. The shared resolver lives in `training.benchmarks` and is used by SentenceTransformers training types including `embedder`, `matryoshka`, and `splade`. `final` maps to `output_dir/final`, `epoch: 1` maps to the latest matching `output_dir/epoch-checkpoints/epoch-0001-step-*`, and `step: 20000` maps to `output_dir/checkpoint-20000`. Missing selected checkpoints log a warning and are skipped. If `benchmark.checkpoints` is omitted, existing final-only benchmark behavior continues to work. PyLate currently logs a warning when post-training benchmarks are requested because its benchmark runner is not wired yet.
 
-For PIRB-only evaluation, `benchmark.parallel_checkpoints` defaults to `true`. When multiple checkpoints and multiple CUDA devices are visible, each checkpoint is evaluated in an independent PIRB subprocess pinned to one GPU. `benchmark.parallel_checkpoint_workers` optionally limits the number of GPUs used. Dataset preparation runs once before the parallel subprocesses start. When MTEB and PIRB are both enabled, checkpoint evaluation remains sequential because MTEB runs in the parent process.
+For PIRB-only evaluation, `benchmark.parallel_checkpoints` and `benchmark.parallel_pirb_tasks` default to `true`. Dataset preparation runs once, then PIRB tasks sharing an index cache are kept together and balanced into coarse chunks. Checkpoint/chunk jobs are pulled dynamically by independent subprocesses pinned to the next available GPU, so a free GPU can continue with work from any checkpoint. `benchmark.pirb_jobs_per_worker` controls the target queue depth and defaults to `2`; larger values improve load balancing at the cost of loading each checkpoint more often. `benchmark.parallel_checkpoint_workers` optionally limits the total number of GPUs used.
+
+If `parallel_checkpoints` is disabled, checkpoints are handled sequentially but task chunks for the current checkpoint may still use multiple GPUs. If `parallel_pirb_tasks` is disabled, the scheduler falls back to one indivisible job per checkpoint. Partial PIRB outputs are stored below `<benchmark_output_dir>/<checkpoint>/pirb-parts/`, while the weighted aggregate remains at the existing `<checkpoint>/metrics.json` path. When MTEB and PIRB are both enabled, evaluation remains sequential because MTEB runs in the parent process.
 
 Distributed SentenceTransformers training releases its model and optimizer GPU allocations before these subprocesses start. Non-main ranks wait through a filesystem marker while benchmarks run, avoiding an active NCCL barrier competing with PIRB for the GPUs.
 

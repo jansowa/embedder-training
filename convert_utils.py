@@ -5,6 +5,7 @@ import tempfile
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def _load_sentence_transformers():
@@ -242,7 +243,7 @@ def run_pirb(
     model_type: str | None = None,
     output_dir: str | None = None,
     cuda_visible_device: str | None = None,
-) -> dict[str, float]:
+) -> dict[str, Any]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
 
@@ -272,12 +273,13 @@ def run_pirb(
     script_path = Path(pirb_run_benchmark_path).resolve()
     pirb_root = script_path.parent
 
+    normalized_scope = "full" if scope == "all" else scope
     cmd = [
         sys.executable,
         script_path.name,
         "--models_config", str(models_cfg),
         "--results_json", str(results_json),
-        "--scope", scope,
+        "--scope", normalized_scope,
         "--benchmark_config", "config/benchmarks/pirb-without-private.json"
     ]
 
@@ -294,13 +296,14 @@ def run_pirb(
     return metrics
 
 
-def prepare_pirb_data() -> None:
-    """Prepare PIRB datasets once before parallel benchmark subprocesses start."""
+def prepare_pirb_data(scope: str | None = None) -> list[dict[str, Any]]:
+    """Prepare PIRB datasets and optionally describe schedulable task groups."""
     repo_root = Path(__file__).resolve().parent
     pirb_root = repo_root / "third_party" / "pirb"
     prepare_script = repo_root / "training" / "pirb_prepare.py"
-    subprocess.run(
-        [
+    with tempfile.TemporaryDirectory(prefix="pirb_manifest_") as manifest_tmpdir:
+        manifest_path = Path(manifest_tmpdir) / "manifest.json"
+        cmd = [
             sys.executable,
             str(prepare_script),
             "--pirb-root",
@@ -309,7 +312,14 @@ def prepare_pirb_data() -> None:
             str(pirb_root / "config" / "benchmarks" / "pirb-without-private.json"),
             "--data-dir",
             str(pirb_root / "data"),
-        ],
-        check=True,
-        cwd=repo_root,
-    )
+        ]
+        if scope is not None:
+            cmd.extend(["--scope", scope, "--manifest-json", str(manifest_path)])
+        subprocess.run(cmd, check=True, cwd=repo_root)
+        if scope is None:
+            return []
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        groups = manifest.get("groups", [])
+        if not isinstance(groups, list):
+            raise ValueError("PIRB task manifest has an invalid 'groups' value.")
+        return groups

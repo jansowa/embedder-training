@@ -276,6 +276,8 @@ def test_benchmark_settings_resolve_from_config_and_cli(tmp_path):
     assert settings.query_instruction_for_retrieval == "Config query: "
     assert settings.parallel_checkpoints is True
     assert settings.parallel_checkpoint_workers is None
+    assert settings.parallel_pirb_tasks is True
+    assert settings.pirb_jobs_per_worker == 2
 
 
 def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path):
@@ -418,6 +420,7 @@ def test_run_benchmarks_for_targets_uses_one_worker_per_visible_gpu(monkeypatch,
         query_instruction_for_retrieval="",
         log_to_wandb=False,
         parallel_checkpoint_workers=2,
+        parallel_pirb_tasks=False,
     )
     monkeypatch.setattr(benchmarks, "visible_cuda_devices", lambda: ["4", "5", "6"])
 
@@ -449,6 +452,159 @@ def test_run_benchmarks_for_targets_uses_one_worker_per_visible_gpu(monkeypatch,
     assert {call[1] for call in calls} == {"4", "5"}
     assert all(call[2] is False for call in calls)
     assert list(results) == ["target-0", "target-1", "target-2", "target-3"]
+
+
+def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monkeypatch, tmp_path):
+    import threading
+
+    from training import benchmarks
+    from training.benchmarks import BenchmarkSettings, BenchmarkTarget
+
+    targets = []
+    for index in range(3):
+        path = tmp_path / f"checkpoint-{index}"
+        path.mkdir()
+        targets.append(BenchmarkTarget(label=f"target-{index}", path=path, step=index))
+
+    settings = BenchmarkSettings(
+        run_mteb=False,
+        run_pirb=True,
+        benchmark_name="NanoBEIR",
+        pirb_scope="small",
+        batch_size=32,
+        pirb_max_seq_length=384,
+        query_instruction_for_retrieval="",
+        output_dir=tmp_path / "benchmarks",
+        log_to_wandb=False,
+        parallel_checkpoint_workers=4,
+        parallel_pirb_tasks=True,
+        pirb_jobs_per_worker=2,
+    )
+    monkeypatch.setattr(benchmarks, "visible_cuda_devices", lambda: ["0", "1", "2", "3"])
+
+    task_scores = {
+        "poleval-dev": 1.0,
+        "poleval-test": 2.0,
+        "task-3": 3.0,
+        "task-4": 4.0,
+        "task-5": 5.0,
+        "task-6": 6.0,
+        "task-7": 7.0,
+    }
+    manifest = [
+        {"cache_name": "poleval", "task_ids": ["poleval-dev", "poleval-test"], "size_bytes": 90},
+        {"cache_name": "cache-3", "task_ids": ["task-3"], "size_bytes": 80},
+        {"cache_name": "cache-4", "task_ids": ["task-4"], "size_bytes": 70},
+        {"cache_name": "cache-5", "task_ids": ["task-5"], "size_bytes": 60},
+        {"cache_name": "cache-6", "task_ids": ["task-6"], "size_bytes": 50},
+        {"cache_name": "cache-7", "task_ids": ["task-7"], "size_bytes": 40},
+    ]
+    loaded_scopes = []
+    calls = []
+    seen_devices = set()
+    active_devices = set()
+    started_jobs = 0
+    first_wave_started = threading.Event()
+    lock = threading.Lock()
+
+    def load_groups(scope):
+        loaded_scopes.append(scope)
+        return manifest
+
+    def runner(model_dir, worker_settings, metric_prefix, step, label, pirb_cuda_visible_device):
+        nonlocal started_jobs
+        task_ids = worker_settings.pirb_scope.split(",")
+        with lock:
+            assert pirb_cuda_visible_device not in active_devices
+            active_devices.add(pirb_cuda_visible_device)
+            seen_devices.add(pirb_cuda_visible_device)
+            started_jobs += 1
+            if started_jobs == 4:
+                first_wave_started.set()
+            calls.append((metric_prefix.removesuffix("/"), tuple(task_ids), label))
+        assert first_wave_started.wait(timeout=5)
+        with lock:
+            active_devices.remove(pirb_cuda_visible_device)
+
+        ndcg_tasks = sum(task_scores[task_id] for task_id in task_ids)
+        metrics = {
+            f"{metric_prefix}pirb_{task_id}": task_scores[task_id]
+            for task_id in task_ids
+        }
+        metrics.update(
+            {
+                f"{metric_prefix}pirb_model": model_dir,
+                f"{metric_prefix}pirb_ndcg_tasks": ndcg_tasks,
+                f"{metric_prefix}pirb_average_ndcg@10": ndcg_tasks / len(task_ids),
+                f"{metric_prefix}pirb_datasets": len(task_ids),
+            }
+        )
+        return metrics
+
+    results = benchmarks.run_benchmarks_for_targets(
+        targets,
+        settings,
+        runner=runner,
+        load_pirb_task_groups=load_groups,
+    )
+
+    assert loaded_scopes == ["small"]
+    assert len(calls) == 9
+    assert seen_devices == {"0", "1", "2", "3"}
+    for target in targets:
+        target_calls = [task_ids for label, task_ids, _ in calls if label == target.label]
+        flattened_task_ids = [task_id for task_ids in target_calls for task_id in task_ids]
+        assert sorted(flattened_task_ids) == sorted(task_scores)
+        assert all(
+            ("poleval-dev" in task_ids) == ("poleval-test" in task_ids)
+            for task_ids in target_calls
+        )
+        metrics = results[target.label]
+        assert metrics[f"{target.label}/pirb_datasets"] == 7
+        assert metrics[f"{target.label}/pirb_ndcg_tasks"] == 28.0
+        assert metrics[f"{target.label}/pirb_average_ndcg@10"] == 4.0
+        metrics_path = settings.output_dir / target.label / "metrics.json"
+        assert json.loads(metrics_path.read_text(encoding="utf-8")) == metrics
+
+
+def test_pirb_prepare_keeps_shared_cache_tasks_in_one_group(tmp_path):
+    from training.pirb_prepare import _task_groups
+
+    passages_path = tmp_path / "shared-passages.jsonl"
+    first_queries_path = tmp_path / "first-queries.jsonl"
+    second_queries_path = tmp_path / "second-queries.jsonl"
+    passages_path.write_bytes(b"passages")
+    first_queries_path.write_bytes(b"first")
+    second_queries_path.write_bytes(b"second")
+
+    class FakeTask:
+        def __init__(self, task_id, queries_path):
+            self.task_id = task_id
+            self._queries_path = queries_path
+
+        def task_cache_name(self):
+            return "shared-cache"
+
+        def passages_path(self, data_dir):
+            return str(passages_path)
+
+        def queries_path(self, data_dir):
+            return str(self._queries_path)
+
+    benchmark = SimpleNamespace(
+        tasks=[
+            FakeTask("first", first_queries_path),
+            FakeTask("second", second_queries_path),
+        ]
+    )
+
+    assert _task_groups(benchmark, tmp_path) == [
+        {
+            "cache_name": "shared-cache",
+            "task_ids": ["first", "second"],
+            "size_bytes": len(b"passages") + len(b"first") + len(b"second"),
+        }
+    ]
 
 
 def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
@@ -4117,11 +4273,12 @@ def test_run_pirb_keeps_dense_config_without_sparse_marker(monkeypatch, tmp_path
 
     monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
 
-    convert_utils.run_pirb(str(model_dir), query_instruction_for_retrieval="", scope="tiny")
+    convert_utils.run_pirb(str(model_dir), query_instruction_for_retrieval="", scope="all")
 
     models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
     cfg = json.loads(models_config.read_text(encoding="utf-8"))
     assert "type" not in cfg[0]
+    assert calls["cmd"][calls["cmd"].index("--scope") + 1] == "full"
 
 
 def test_run_pirb_pins_subprocess_to_selected_gpu(monkeypatch, tmp_path):
@@ -4150,3 +4307,41 @@ def test_run_pirb_pins_subprocess_to_selected_gpu(monkeypatch, tmp_path):
     )
 
     assert calls["env"]["CUDA_VISIBLE_DEVICES"] == "GPU-abcd"
+
+
+def test_prepare_pirb_data_returns_task_group_manifest(monkeypatch):
+    import convert_utils
+
+    calls = {}
+
+    def fake_run(cmd, check, cwd):
+        calls["cmd"] = cmd
+        manifest_path = Path(cmd[cmd.index("--manifest-json") + 1])
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "scope": "small",
+                    "groups": [
+                        {
+                            "cache_name": "shared-cache",
+                            "task_ids": ["task-a", "task-b"],
+                            "size_bytes": 123,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
+
+    groups = convert_utils.prepare_pirb_data("small")
+
+    assert calls["cmd"][calls["cmd"].index("--scope") + 1] == "small"
+    assert groups == [
+        {
+            "cache_name": "shared-cache",
+            "task_ids": ["task-a", "task-b"],
+            "size_bytes": 123,
+        }
+    ]

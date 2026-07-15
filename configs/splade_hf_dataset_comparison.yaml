@@ -55,8 +55,10 @@ benchmark:
   scope: small
   max_seq_length: 512
   query_instruction: ""
-  # Run independent checkpoint evaluations on separate visible GPUs.
+  # Dynamically schedule checkpoint/task-group jobs across visible GPUs.
   parallel_checkpoints: true
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
   checkpoints:
     - final
     - epoch: 1
