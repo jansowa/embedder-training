@@ -434,7 +434,12 @@ def _prepare_run_metadata(
         return
 
     if _should_save_resolved_config(run_config, args):
-        create_run_metadata(output_dir, run_config, args)
+        create_run_metadata(
+            output_dir,
+            run_config,
+            args,
+            replace_existing=resume_spec_from_sources(run_config, backend_config, args) == AUTO_RESUME,
+        )
 
 
 def _print_run_plan(configs: list[dict[str, Any]], *, backend: str, training_type: str) -> None:

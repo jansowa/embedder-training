@@ -74,16 +74,32 @@ def _artifact_paths(output_dir: Path) -> tuple[Path, Path, Path]:
     )
 
 
-def create_run_metadata(output_dir: Path, config: dict[str, Any], cli_args: Any) -> None:
-    """Persist an immutable baseline for a newly started training run."""
+def create_run_metadata(
+    output_dir: Path,
+    config: dict[str, Any],
+    cli_args: Any,
+    *,
+    replace_existing: bool = False,
+) -> None:
+    """Persist an immutable baseline for a newly started training run.
+
+    ``replace_existing`` is used only when conditional resume found no usable
+    checkpoint.  In that case the old metadata describes an abandoned run, and
+    the fresh run needs its own configuration baseline.
+    """
     manifest_path, config_path, command_path = _artifact_paths(output_dir)
-    existing = [path.name for path in (manifest_path, config_path, command_path) if path.exists()]
+    artifact_paths = (manifest_path, config_path, command_path)
+    existing = [path.name for path in artifact_paths if path.exists()]
     if existing:
-        existing_text = ", ".join(existing)
-        raise RunMetadataError(
-            f"Output directory '{output_dir}' already contains run metadata ({existing_text}). "
-            "Refusing to overwrite it; choose a new output_dir or resume the existing run."
-        )
+        if not replace_existing:
+            existing_text = ", ".join(existing)
+            raise RunMetadataError(
+                f"Output directory '{output_dir}' already contains run metadata ({existing_text}). "
+                "Refusing to overwrite it; choose a new output_dir or resume the existing run."
+            )
+        for path in artifact_paths:
+            if path.exists():
+                path.unlink()
 
     output_dir.mkdir(parents=True, exist_ok=True)
     yaml = _yaml_module()

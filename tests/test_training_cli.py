@@ -1340,6 +1340,53 @@ def test_run_training_verifies_metadata_before_resuming(monkeypatch, tmp_path):
         train.run_training(incompatible_args)
 
 
+def test_conditional_resume_replaces_stale_metadata_when_no_checkpoint_exists(monkeypatch, tmp_path):
+    import yaml
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    output_dir = tmp_path / "out"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            output_dir: {output_dir}
+            train_data: dataset-a
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    requests = []
+    monkeypatch.setattr(
+        train,
+        "load_backend_module",
+        lambda spec: SimpleNamespace(run_training=lambda request: requests.append(request) or 0),
+    )
+
+    initial_args = train.build_parser().parse_args(["--config", str(config), "--no-distributed"])
+    initial_args._raw_argv = ["--config", str(config), "--no-distributed"]
+    assert train.run_training(initial_args) == 0
+
+    conditional_args = train.build_parser().parse_args(
+        [
+            "--config",
+            str(config),
+            "--no-distributed",
+            "--resume-if-available",
+            "--set-str",
+            "train_data=dataset-b",
+        ]
+    )
+    conditional_args._raw_argv = ["--config", str(config), "--no-distributed", "--resume-if-available"]
+    assert train.run_training(conditional_args) == 0
+
+    assert len(requests) == 2
+    resolved_config = yaml.safe_load((output_dir / "resolved_config.yaml").read_text(encoding="utf-8"))
+    assert resolved_config["train_data"] == "dataset-b"
+
+
 def test_wandb_tracking_reuses_manifest_run_id(monkeypatch, tmp_path):
     from training.run_metadata import create_run_metadata, get_or_create_wandb_run_id
     from training.wandb_tracking import wandb_run_environment
@@ -2253,6 +2300,30 @@ def test_dataset_filter_missing_policy_exclude(tmp_path):
     assert result.report["missing_counts"] == {"sample:features.ranks.teacher_score": 1}
 
 
+def test_dataset_filter_reports_numeric_type_mismatch(tmp_path):
+    from training.dataset_filters import DatasetFilterError, materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [{"query": "q", "pos": ["p"], "neg": ["n"], "features": {"score": "not-a-number"}}],
+    )
+    profile = _write_filter_profile(
+        tmp_path / "filter.yaml",
+        """
+        name: numeric_type_mismatch
+        version: 1
+        rules:
+          - field: features.score
+            op: gte
+            value: 0.75
+        """,
+    )
+
+    with pytest.raises(DatasetFilterError, match="type mismatch for field 'sample:features.score'"):
+        materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+
 def test_dataset_filter_drops_empty_passage_samples_and_writes_report(tmp_path, capsys):
     from training.dataset_filters import materialize_filtered_dataset
 
@@ -2403,6 +2474,112 @@ def test_dataset_filter_parallel_positive_scores_use_stronger_score_then_fallbac
     assert result.report["removed_by_min_positives"] == 1
     assert result.report["total"] == 4
     assert result.report["removed"] == 2
+
+
+def test_dataset_filter_conditionally_keeps_null_positive_scores_from_synthetic_passages(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {
+                "query": "q",
+                "pos": ["scored", "synthetic-without-score"],
+                "neg": ["n1"],
+                "pos_scores": [27.25, None],
+                "pos_id": ["scored-id", "synthetic-id"],
+            }
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+    record = _read_jsonl(result.output_path)[0]
+
+    assert record["pos"] == ["scored", "synthetic-without-score"]
+    assert record["pos_scores"] == [27.25, None]
+    assert record["pos_id"] == ["scored-id", "synthetic-id"]
+    assert result.report["type_mismatch_counts"] == {}
+
+
+def test_dataset_filter_null_positive_score_strategy_fail(tmp_path):
+    from training.dataset_filters import DatasetFilterError, materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(data_file, [{"query": "q", "pos": ["p"], "neg": [], "pos_scores": [None]}])
+    profile = _write_filter_profile(
+        tmp_path / "filter.yaml",
+        """
+        name: null_score_fail
+        version: 1
+        min_negatives: 0
+        null_positive_score_strategy: fail
+        positive_rules:
+          - field: parallel.pos_scores
+            op: gt
+            value: 23.50
+        """,
+    )
+
+    with pytest.raises(DatasetFilterError, match="type mismatch for field 'pos:parallel.pos_scores'"):
+        materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+
+def test_dataset_filter_null_positive_score_strategy_include(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(data_file, [{"query": "q", "pos": ["low", "null"], "neg": [], "pos_scores": [23.50, None]}])
+    profile = _write_filter_profile(
+        tmp_path / "filter.yaml",
+        """
+        name: null_score_include
+        version: 1
+        min_negatives: 0
+        null_positive_score_strategy: include
+        positive_rules:
+          - field: parallel.pos_scores
+            op: gt
+            value: 23.50
+        """,
+    )
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+    assert _read_jsonl(result.output_path)[0]["pos"] == ["null"]
+
+
+def test_dataset_filter_null_positive_score_strategy_is_conditional_on_scored_positive(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {"query": "has-scored-positive", "pos": ["scored", "null"], "neg": [], "pos_scores": [24.0, None]},
+            {"query": "only-low-score", "pos": ["low", "null"], "neg": [], "pos_scores": [23.50, None]},
+        ],
+    )
+    profile = _write_filter_profile(
+        tmp_path / "filter.yaml",
+        """
+        name: null_score_conditional
+        version: 1
+        min_negatives: 0
+        null_positive_score_strategy: include_if_any_scored_positive_kept
+        positive_rules:
+          - field: parallel.pos_scores
+            op: gt
+            value: 23.50
+        """,
+    )
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+    records = _read_jsonl(result.output_path)
+    assert [record["query"] for record in records] == ["has-scored-positive"]
+    assert records[0]["pos"] == ["scored", "null"]
 
 
 def test_dataset_filter_rejects_mismatched_stronger_positive_scores(tmp_path):

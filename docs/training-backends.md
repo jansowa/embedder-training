@@ -501,6 +501,21 @@ negative_rules:
 
 When a passage-level rule removes a positive or negative, the filter trims the corresponding text list and the aligned metadata lists. If fewer than `min_positives` or `min_negatives` remain, the full sample is removed.
 
+For score-based `positive_rules`, `null_positive_score_strategy` controls positives whose configured score fields are all `null` (or absent). It does not mask invalid non-null values such as strings.
+
+| Strategy | Behavior |
+| --- | --- |
+| `fail` (default) | A null score is evaluated normally and fails with a type-mismatch error. |
+| `include` | Always keeps a positive with null scores, irrespective of the score rule. |
+| `include_if_any_scored_positive_kept` | Keeps null-score positives only when at least one other positive in the same sample passes `positive_rules`; otherwise they are removed. |
+
+Set `null_positive_score_fields` to the top-level parallel score lists that define a usable score (default: `[pos_scores]`). For example:
+
+```yaml
+null_positive_score_strategy: include_if_any_scored_positive_kept
+null_positive_score_fields: [pos_scores_stronger_reranker, pos_scores]
+```
+
 Set `drop_samples_with_empty_passages: true` to discard an entire sample when any `pos` or `neg` item is the empty string. The filter emits a prominent warning (with up to 20 `query_id` values) and writes every affected line, ID, field, and item index to `empty_passage_report.jsonl` beside `filter_report.json`.
 
 See `configs/dataset_filters/example.yaml` for a sample-level profile, `configs/dataset_filters/passage_level_example.yaml` for a passage-level profile, and `configs/dataset_filters/splade_positive_score_gt_23_50.yaml` for a filter that removes invalid queries and prefers `pos_scores_stronger_reranker` over `pos_scores` when filtering positives.

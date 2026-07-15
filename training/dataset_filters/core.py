@@ -19,6 +19,7 @@ from training.distributed import is_main_process, is_torchrun_child, wait_for_fi
 DEFAULT_CACHE_DIR = Path("cache/filtered_datasets")
 FILTER_CONFIG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
 POLICIES = {"fail", "include", "exclude"}
+NULL_POSITIVE_SCORE_STRATEGIES = {"fail", "include", "include_if_any_scored_positive_kept"}
 AGGREGATES = {"min", "max", "mean", "sum", "count"}
 EMPTY_PASSAGE_WARNING_ID_LIMIT = 20
 MISSING = object()
@@ -63,6 +64,29 @@ def _validate_policy(policy: Any, *, key: str, profile_path: Path) -> str:
         supported = ", ".join(sorted(POLICIES))
         raise DatasetFilterError(f"Invalid {key} '{policy}' in {profile_path}. Supported values: {supported}.")
     return policy
+
+
+def _validate_null_positive_score_strategy(value: Any, *, profile_path: Path) -> str:
+    if value is None:
+        return "fail"
+    strategy = str(value)
+    if strategy not in NULL_POSITIVE_SCORE_STRATEGIES:
+        supported = ", ".join(sorted(NULL_POSITIVE_SCORE_STRATEGIES))
+        raise DatasetFilterError(
+            f"Invalid null_positive_score_strategy '{strategy}' in {profile_path}. Supported values: {supported}."
+        )
+    return strategy
+
+
+def _null_positive_score_fields(profile: dict[str, Any], *, profile_path: Path) -> tuple[str, ...]:
+    fields = profile.get("null_positive_score_fields", ["pos_scores"])
+    if not isinstance(fields, list) or not fields or any(not isinstance(field, str) or not field for field in fields):
+        raise DatasetFilterError(
+            f"Dataset filter profile '{profile_path}' must set null_positive_score_fields as a non-empty list of field names."
+        )
+    if len(set(fields)) != len(fields):
+        raise DatasetFilterError(f"Dataset filter profile '{profile_path}' must not repeat null_positive_score_fields.")
+    return tuple(fields)
 
 
 def _resolve_relative_path(path_value: str | Path, *, config_path: str | None = None) -> Path:
@@ -143,6 +167,9 @@ def _load_profile(profile_path: str | Path, *, config_path: str | None = None) -
 
     _validate_policy(profile.get("missing_policy", "fail"), key="missing_policy", profile_path=resolved_path)
     _validate_policy(profile.get("type_mismatch_policy", "fail"), key="type_mismatch_policy", profile_path=resolved_path)
+    _validate_null_positive_score_strategy(profile.get("null_positive_score_strategy"), profile_path=resolved_path)
+    if "null_positive_score_fields" in profile:
+        _null_positive_score_fields(profile, profile_path=resolved_path)
     return resolved_path, profile
 
 
@@ -257,16 +284,16 @@ def _aggregate_value(value: Any, aggregate: str, field_name: str, policy: str, c
         supported = ", ".join(sorted(AGGREGATES))
         raise DatasetFilterError(f"Unsupported aggregate '{aggregate}' for field '{field_name}'. Supported: {supported}.")
     if not isinstance(value, (list, dict)):
-        return _handle_type_mismatch(field_name, policy, f"aggregate '{aggregate}' requires a list or mapping")
+        return _handle_type_mismatch(field_name, policy, ctx, f"aggregate '{aggregate}' requires a list or mapping")
 
     values = list(value.values()) if isinstance(value, dict) else list(value)
     if aggregate == "count":
         return len(values)
 
     if any(not _is_number(item) for item in values):
-        return _handle_type_mismatch(field_name, policy, f"aggregate '{aggregate}' requires numeric values")
+        return _handle_type_mismatch(field_name, policy, ctx, f"aggregate '{aggregate}' requires numeric values")
     if not values and aggregate in {"min", "max", "mean"}:
-        return _handle_type_mismatch(field_name, policy, f"aggregate '{aggregate}' requires at least one value")
+        return _handle_type_mismatch(field_name, policy, ctx, f"aggregate '{aggregate}' requires at least one value")
 
     if aggregate == "min":
         return min(values)
@@ -309,7 +336,7 @@ def _evaluate_leaf(
     if op in {"gt", "gte", "lt", "lte"}:
         expected = _ensure_value(node, op=op)
         if not _is_number(value) or not _is_number(expected):
-            return _handle_type_mismatch(field_name, type_mismatch_policy, f"operator '{op}' requires numbers")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, f"operator '{op}' requires numbers")
         if op == "gt":
             return value > expected
         if op == "gte":
@@ -321,33 +348,33 @@ def _evaluate_leaf(
     if op == "between":
         values = _ensure_values(node, op=op)
         if len(values) != 2 or not _is_number(values[0]) or not _is_number(values[1]) or not _is_number(value):
-            return _handle_type_mismatch(field_name, type_mismatch_policy, "operator 'between' requires two numeric bounds")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, "operator 'between' requires two numeric bounds")
         low, high = values
         return low <= value <= high
 
     if op in {"eq", "neq"}:
         expected = _ensure_value(node, op=op)
         if not _compatible_types(value, expected):
-            return _handle_type_mismatch(field_name, type_mismatch_policy, f"operator '{op}' compares incompatible types")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, f"operator '{op}' compares incompatible types")
         result = value == expected
         return result if op == "eq" else not result
 
     if op in {"in", "not_in"}:
         values = _ensure_values(node, op=op)
         if isinstance(value, (list, dict)):
-            return _handle_type_mismatch(field_name, type_mismatch_policy, f"operator '{op}' requires a scalar field value")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, f"operator '{op}' requires a scalar field value")
         result = value in values
         return result if op == "in" else not result
 
     if op in {"intersects", "contains_any", "contains_all", "contains_none"}:
         values = _ensure_values(node, op=op)
         if not isinstance(value, list):
-            return _handle_type_mismatch(field_name, type_mismatch_policy, f"operator '{op}' requires a list field value")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, f"operator '{op}' requires a list field value")
         try:
             actual = set(value)
             expected = set(values)
         except TypeError:
-            return _handle_type_mismatch(field_name, type_mismatch_policy, f"operator '{op}' requires hashable list values")
+            return _handle_type_mismatch(field_name, type_mismatch_policy, ctx, f"operator '{op}' requires hashable list values")
         if op in {"intersects", "contains_any"}:
             return bool(actual & expected)
         if op == "contains_all":
@@ -518,6 +545,15 @@ def _feature_list(sample: dict[str, Any], key: str, expected_len: int, line_no: 
     return value
 
 
+def _has_only_null_score_values(
+    parallel_values: dict[str, list[Any] | None],
+    score_fields: tuple[str, ...],
+    index: int,
+) -> bool:
+    values = [parallel_values[field_name][index] for field_name in score_fields if parallel_values.get(field_name) is not None]
+    return bool(values) and all(value is None for value in values)
+
+
 def _filter_passages(
     sample: dict[str, Any],
     *,
@@ -531,6 +567,8 @@ def _filter_passages(
     profile_name: str,
     missing_counts: Counter[str],
     type_mismatch_counts: Counter[str],
+    null_positive_score_strategy: str = "fail",
+    null_positive_score_fields: tuple[str, ...] = (),
 ) -> tuple[int, int]:
     passages = _ensure_text_items(sample, passage_key, line_no)
     total = len(passages)
@@ -543,8 +581,16 @@ def _filter_passages(
     if not rules:
         return total, total
 
-    kept_indices: list[int] = []
+    null_score_indices = {
+        idx
+        for idx in range(total)
+        if null_positive_score_strategy != "fail"
+        and _has_only_null_score_values(parallel_values, null_positive_score_fields, idx)
+    }
+    scored_kept_indices: set[int] = set()
     for idx in range(total):
+        if idx in null_score_indices:
+            continue
         item_features = feature_items[idx] if feature_items is not None else MISSING
         if isinstance(item_features, dict):
             rule_item = dict(item_features)
@@ -560,7 +606,16 @@ def _filter_passages(
         missing_counts.update(ctx.missing_counts)
         type_mismatch_counts.update(ctx.type_mismatch_counts)
         if keep:
-            kept_indices.append(idx)
+            scored_kept_indices.add(idx)
+
+    include_null_scores = null_positive_score_strategy == "include" or (
+        null_positive_score_strategy == "include_if_any_scored_positive_kept" and bool(scored_kept_indices)
+    )
+    kept_indices = [
+        idx
+        for idx in range(total)
+        if idx in scored_kept_indices or (include_null_scores and idx in null_score_indices)
+    ]
 
     sample[passage_key] = [passages[idx] for idx in kept_indices]
     if feature_items is not None:
@@ -612,6 +667,10 @@ def _filter_sample(
         profile_name=profile_name,
         missing_counts=missing_counts,
         type_mismatch_counts=type_mismatch_counts,
+        null_positive_score_strategy=_validate_null_positive_score_strategy(
+            profile.get("null_positive_score_strategy"), profile_path=profile_path
+        ),
+        null_positive_score_fields=_null_positive_score_fields(profile, profile_path=profile_path),
     )
     negatives_total, negatives_kept = _filter_passages(
         sample,
