@@ -26,6 +26,7 @@ from training.checkpoints import (
     train_with_resume,
 )
 from training.distributed import barrier_if_distributed, is_main_process
+from training.wandb_tracking import wandb_run_environment
 
 
 LOGGER = logging.getLogger(__name__)
@@ -186,15 +187,21 @@ def run_colbert_training(request: TrainingRequest) -> int:
         f"with {len(loaded.rows)} examples from {loaded.source_label} and model {model_name_or_path}.",
         flush=True,
     )
-    train_with_resume(trainer, resume_from_checkpoint)
+    with wandb_run_environment(
+        output_dir,
+        report_to=backend_config.get("report_to", []),
+        resume_from_checkpoint=resume_from_checkpoint,
+        configured_run_id=backend_config.get("wandb_run_id"),
+    ):
+        train_with_resume(trainer, resume_from_checkpoint)
 
-    final_dir = output_dir / "final"
-    if _trainer_is_main_process(trainer):
-        final_dir.mkdir(parents=True, exist_ok=True)
-        model.save_pretrained(str(final_dir))
-        print(f"[INFO] Saved final PyLate ColBERT model to: {final_dir}", flush=True)
-    barrier_if_distributed()
-    _warn_if_pylate_benchmarks_requested(config, backend_config, request)
+        final_dir = output_dir / "final"
+        if _trainer_is_main_process(trainer):
+            final_dir.mkdir(parents=True, exist_ok=True)
+            model.save_pretrained(str(final_dir))
+            print(f"[INFO] Saved final PyLate ColBERT model to: {final_dir}", flush=True)
+        barrier_if_distributed()
+        _warn_if_pylate_benchmarks_requested(config, backend_config, request)
     return 0
 
 

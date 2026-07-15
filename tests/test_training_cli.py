@@ -1,6 +1,7 @@
 import builtins
 import importlib
 import json
+import os
 from pathlib import Path
 import sys
 from textwrap import dedent
@@ -739,6 +740,32 @@ def test_conditional_resume_uses_latest_checkpoint_when_available(tmp_path):
     assert checkpoint == str(output_dir / "checkpoint-200")
 
 
+def test_conditional_resume_can_expand_a_grid_without_treating_auto_as_a_path(monkeypatch, tmp_path):
+    import training.train as train
+
+    config = tmp_path / "train.yaml"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            runs_dir: {tmp_path / 'runs'}
+            train_data: dataset-a
+            architectures: [model-a, model-b]
+            hparams: [{{learning_rate: 2e-5}}]
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    args = train.build_parser().parse_args(["--config", str(config), "--resume-if-available"])
+    requests = []
+    monkeypatch.setattr(train, "load_backend_module", lambda spec: SimpleNamespace(run_training=lambda request: requests.append(request) or 0))
+
+    assert train.run_training(args) == 0
+    assert len(requests) == 2
+
+
 def test_epoch_checkpoint_callback_preserves_epoch_checkpoint(tmp_path):
     from training.checkpoints import EpochCheckpointCallback
 
@@ -1098,6 +1125,43 @@ def test_run_training_verifies_metadata_before_resuming(monkeypatch, tmp_path):
     ]
     with pytest.raises(RunMetadataError, match="does not match"):
         train.run_training(incompatible_args)
+
+
+def test_wandb_tracking_reuses_manifest_run_id(monkeypatch, tmp_path):
+    from training.run_metadata import create_run_metadata, get_or_create_wandb_run_id
+    from training.wandb_tracking import wandb_run_environment
+
+    output_dir = tmp_path / "out"
+    create_run_metadata(output_dir, {"output_dir": str(output_dir), "train_data": "dataset-a"}, SimpleNamespace())
+    monkeypatch.delenv("WANDB_RUN_ID", raising=False)
+    monkeypatch.delenv("WANDB_RESUME", raising=False)
+
+    with wandb_run_environment(output_dir, report_to=["wandb"], resume_from_checkpoint=None):
+        first_run_id = os.environ["WANDB_RUN_ID"]
+        assert os.environ["WANDB_RESUME"] == "never"
+
+    assert "WANDB_RUN_ID" not in os.environ
+    assert "WANDB_RESUME" not in os.environ
+    assert get_or_create_wandb_run_id(output_dir) == first_run_id
+
+    with wandb_run_environment(output_dir, report_to=["wandb"], resume_from_checkpoint="checkpoint-100"):
+        assert os.environ["WANDB_RUN_ID"] == first_run_id
+        assert os.environ["WANDB_RESUME"] == "must"
+
+
+def test_wandb_tracking_accepts_known_id_for_legacy_run(monkeypatch, tmp_path):
+    from training.wandb_tracking import wandb_run_environment
+
+    monkeypatch.delenv("WANDB_RUN_ID", raising=False)
+    monkeypatch.delenv("WANDB_RESUME", raising=False)
+    with wandb_run_environment(
+        tmp_path / "legacy-out",
+        report_to=["wandb"],
+        resume_from_checkpoint="checkpoint-100",
+        configured_run_id="existing123",
+    ):
+        assert os.environ["WANDB_RUN_ID"] == "existing123"
+        assert os.environ["WANDB_RESUME"] == "must"
 
 
 def test_run_training_can_skip_resolved_config_artifacts(monkeypatch, tmp_path):

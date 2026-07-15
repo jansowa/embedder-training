@@ -6,6 +6,7 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
+import secrets
 import shlex
 from typing import Any
 
@@ -16,7 +17,9 @@ MANIFEST_FILENAME = "training_manifest.json"
 RESOLVED_CONFIG_FILENAME = "resolved_config.yaml"
 COMMAND_FILENAME = "command.txt"
 _SCHEMA_VERSION = 1
-_RUNTIME_CONFIG_KEYS = frozenset({"resume", "resume_from_checkpoint", "resume_if_available", "run_timestamp"})
+_RUNTIME_CONFIG_KEYS = frozenset(
+    {"resume", "resume_from_checkpoint", "resume_if_available", "run_timestamp", "wandb_run_id"}
+)
 
 
 class RunMetadataError(TrainingCliError):
@@ -150,3 +153,39 @@ def verify_resume_metadata(output_dir: Path, config: dict[str, Any]) -> None:
             "Use the original configuration or a different output_dir/checkpoint."
         )
 
+
+def get_or_create_wandb_run_id(output_dir: Path, *, requested_id: str | None = None) -> str | None:
+    """Return the stable W&B ID associated with a manifest-backed training run.
+
+    ``None`` preserves the previous W&B behavior for legacy runs and for runs
+    started with ``--no-save-resolved-config``. Those runs have no trustworthy
+    local place in which to persist a generated W&B identifier.
+    """
+    if requested_id is not None:
+        if not isinstance(requested_id, str):
+            raise RunMetadataError("Configured W&B run ID must be a string.")
+        requested_id = requested_id.strip()
+        if not requested_id:
+            raise RunMetadataError("Configured W&B run ID cannot be empty.")
+
+    manifest_path, _, _ = _artifact_paths(output_dir)
+    if not manifest_path.exists():
+        return requested_id
+
+    manifest = _read_manifest(manifest_path)
+    run_id = manifest.get("wandb_run_id")
+    if run_id is not None:
+        if not isinstance(run_id, str) or not run_id:
+            raise RunMetadataError(f"W&B run ID in '{manifest_path}' is invalid.")
+        if requested_id is not None and requested_id != run_id:
+            raise RunMetadataError(
+                f"Configured W&B run ID does not match the ID recorded in '{manifest_path}'."
+            )
+        return run_id
+
+    # W&B accepts user-provided string IDs. Eight random hexadecimal characters
+    # match its usual short-ID shape while keeping collision risk negligible.
+    run_id = requested_id or secrets.token_hex(4)
+    manifest["wandb_run_id"] = run_id
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return run_id

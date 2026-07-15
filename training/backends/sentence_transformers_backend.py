@@ -25,6 +25,7 @@ from training.multi_dataset import (
     normalize_dataset_mix_strategy,
     resolve_dataset_sources,
 )
+from training.wandb_tracking import reports_to_wandb, wandb_run_environment
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -75,6 +76,7 @@ COMMON_TRAINING_KEYS = {
     "train_data",
     "trust_remote_code",
     "warmup_ratio",
+    "wandb_run_id",
     "weight_decay",
 }
 
@@ -450,19 +452,6 @@ def _training_args_config_for_rows(backend_config: dict[str, Any], loaded: Loade
     return updated
 
 
-def _reports_to_wandb(report_to: Any) -> bool:
-    if report_to is None:
-        return False
-    if isinstance(report_to, str):
-        values = [report_to]
-    else:
-        try:
-            values = list(report_to)
-        except TypeError:
-            values = [report_to]
-    return any(str(value).lower() in {"all", "wandb"} for value in values)
-
-
 def _as_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -474,7 +463,7 @@ def _as_bool(value: Any) -> bool:
 def _finish_wandb_run(backend_config: dict[str, Any]) -> None:
     if not is_main_process():
         return
-    if not _reports_to_wandb(backend_config.get("report_to", [])):
+    if not reports_to_wandb(backend_config.get("report_to", [])):
         return
     try:
         import wandb
@@ -1033,9 +1022,15 @@ def run_embedder_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        train_with_resume(trainer, resume_from_checkpoint)
-        _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
-        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+        with wandb_run_environment(
+            output_dir,
+            report_to=backend_config.get("report_to", []),
+            resume_from_checkpoint=resume_from_checkpoint,
+            configured_run_id=backend_config.get("wandb_run_id"),
+        ):
+            train_with_resume(trainer, resume_from_checkpoint)
+            _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
+            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -1094,9 +1089,15 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        train_with_resume(trainer, resume_from_checkpoint)
-        _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
-        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+        with wandb_run_environment(
+            output_dir,
+            report_to=backend_config.get("report_to", []),
+            resume_from_checkpoint=resume_from_checkpoint,
+            configured_run_id=backend_config.get("wandb_run_id"),
+        ):
+            train_with_resume(trainer, resume_from_checkpoint)
+            _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
+            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 
@@ -1171,10 +1172,16 @@ def run_splade_training(request: TrainingRequest) -> int:
         flush=True,
     )
     try:
-        train_with_resume(trainer, resume_from_checkpoint)
-        final_dir = output_dir / "final"
-        _save_final_model(trainer, model, final_dir, label="SparseEncoder")
-        _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+        with wandb_run_environment(
+            output_dir,
+            report_to=backend_config.get("report_to", []),
+            resume_from_checkpoint=resume_from_checkpoint,
+            configured_run_id=backend_config.get("wandb_run_id"),
+        ):
+            train_with_resume(trainer, resume_from_checkpoint)
+            final_dir = output_dir / "final"
+            _save_final_model(trainer, model, final_dir, label="SparseEncoder")
+            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
     finally:
         _finish_wandb_run(backend_config)
 

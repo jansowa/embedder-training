@@ -18,9 +18,9 @@ from training.backends.registry import (
     normalize_training_type,
     validate_backend_training_type,
 )
-from training.checkpoints import LATEST_CHECKPOINT, output_dir_from_checkpoint, resolve_resume_checkpoint, resume_spec_from_sources
+from training.checkpoints import AUTO_RESUME, LATEST_CHECKPOINT, output_dir_from_checkpoint, resolve_resume_checkpoint, resume_spec_from_sources
 from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
-from training.distributed import argv_from_args, maybe_launch_distributed_training
+from training.distributed import argv_from_args, is_main_process, maybe_launch_distributed_training
 from training.run_metadata import create_run_metadata, verify_resume_metadata
 
 
@@ -373,12 +373,13 @@ def _apply_resume_to_configs(configs: list[dict[str, Any]], backend: str, resume
     if resume_spec is None:
         return
 
-    if resume_spec != LATEST_CHECKPOINT and len(configs) > 1:
+    is_explicit_checkpoint = resume_spec not in {LATEST_CHECKPOINT, AUTO_RESUME}
+    if is_explicit_checkpoint and len(configs) > 1:
         raise ConfigError("--resume-from-checkpoint can only be used with a single expanded run. Use --resume for grids.")
 
     for run_config in configs:
         values = {"resume": True, "resume_from_checkpoint": resume_spec}
-        if resume_spec != LATEST_CHECKPOINT:
+        if is_explicit_checkpoint:
             epoch_dir = str(_resume_backend_config(run_config, backend).get("epoch_checkpoint_dir") or "epoch-checkpoints")
             output_dir = output_dir_from_checkpoint(Path(resume_spec), epoch_checkpoint_dir=epoch_dir)
             values["output_dir"] = str(output_dir)
@@ -420,6 +421,8 @@ def _prepare_run_metadata(
     backend: str,
     training_type: str,
 ) -> None:
+    if not is_main_process():
+        return
     output_dir = _resolved_output_dir(run_config, backend, training_type)
     if output_dir is None:
         return
