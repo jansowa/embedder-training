@@ -1,0 +1,30 @@
+name: splade_positive_score_gt_23_50
+version: 1
+missing_policy: fail
+type_mismatch_policy: fail
+min_positives: 1
+min_negatives: 0
+drop_samples_with_empty_passages: true
+
+sample_rules:
+  - field: query
+    op: neq
+    value: ""
+    missing_policy: exclude
+    type_mismatch_policy: exclude
+
+positive_rules:
+  - any:
+      - all:
+          - field: parallel.pos_scores_stronger_reranker
+            op: exists
+          - field: parallel.pos_scores_stronger_reranker
+            op: gt
+            value: 23.50
+      - all:
+          - field: parallel.pos_scores_stronger_reranker
+            op: missing
+          - field: parallel.pos_scores
+            op: gt
+            value: 23.50
+    missing_policy: exclude

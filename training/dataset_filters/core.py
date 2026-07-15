@@ -20,6 +20,7 @@ DEFAULT_CACHE_DIR = Path("cache/filtered_datasets")
 FILTER_CONFIG_KEYS = {"dataset_filter", "dataset_filter_cache_dir"}
 POLICIES = {"fail", "include", "exclude"}
 AGGREGATES = {"min", "max", "mean", "sum", "count"}
+EMPTY_PASSAGE_WARNING_ID_LIMIT = 20
 MISSING = object()
 
 
@@ -133,6 +134,12 @@ def _load_profile(profile_path: str | Path, *, config_path: str | None = None) -
                 raise DatasetFilterError(f"Dataset filter profile '{resolved_path}' must set {key} as an integer.") from exc
             if minimum < 0:
                 raise DatasetFilterError(f"Dataset filter profile '{resolved_path}' must set {key} to zero or greater.")
+    if "drop_samples_with_empty_passages" in profile and not isinstance(
+        profile["drop_samples_with_empty_passages"], bool
+    ):
+        raise DatasetFilterError(
+            f"Dataset filter profile '{resolved_path}' must set drop_samples_with_empty_passages to true or false."
+        )
 
     _validate_policy(profile.get("missing_policy", "fail"), key="missing_policy", profile_path=resolved_path)
     _validate_policy(profile.get("type_mismatch_policy", "fail"), key="type_mismatch_policy", profile_path=resolved_path)
@@ -448,6 +455,33 @@ def _min_count(profile: dict[str, Any], key: str, default: int) -> int:
     return int(profile.get(key, default))
 
 
+def _empty_passage_positions(sample: dict[str, Any]) -> dict[str, list[int]]:
+    """Return indexes of empty strings in the training passage lists.
+
+    Type validation remains the responsibility of the normal filter pipeline. This
+    helper deliberately identifies only literal empty strings, so whitespace-only
+    passages retain the existing behavior.
+    """
+    empty_positions: dict[str, list[int]] = {}
+    for field_name in ("pos", "neg"):
+        value = sample.get(field_name)
+        if isinstance(value, list):
+            positions = [index for index, passage in enumerate(value) if passage == ""]
+            if positions:
+                empty_positions[field_name] = positions
+    return empty_positions
+
+
+def _empty_passage_report_entry(
+    sample: dict[str, Any], line_no: int, empty_positions: dict[str, list[int]]
+) -> dict[str, Any]:
+    return {
+        "line_no": line_no,
+        "query_id": sample.get("query_id"),
+        "empty_passage_indexes": empty_positions,
+    }
+
+
 def _ensure_text_items(sample: dict[str, Any], key: str, line_no: int) -> list[Any]:
     value = sample.get(key)
     if isinstance(value, list):
@@ -489,7 +523,7 @@ def _filter_passages(
     *,
     passage_key: str,
     feature_key: str,
-    legacy_fields: tuple[str, ...],
+    parallel_fields: tuple[str, ...],
     rules: list[Any],
     profile: dict[str, Any],
     profile_path: Path,
@@ -501,9 +535,9 @@ def _filter_passages(
     passages = _ensure_text_items(sample, passage_key, line_no)
     total = len(passages)
     feature_items = _feature_list(sample, feature_key, total, line_no)
-    legacy_values = {
+    parallel_values = {
         field_name: _ensure_parallel_list(sample, field_name, total, line_no)
-        for field_name in legacy_fields
+        for field_name in parallel_fields
     }
 
     if not rules:
@@ -512,8 +546,17 @@ def _filter_passages(
     kept_indices: list[int] = []
     for idx in range(total):
         item_features = feature_items[idx] if feature_items is not None else MISSING
+        if isinstance(item_features, dict):
+            rule_item = dict(item_features)
+        else:
+            rule_item = {}
+        rule_item["parallel"] = {
+            field_name: values[idx]
+            for field_name, values in parallel_values.items()
+            if values is not None
+        }
         ctx = _EvalContext(profile_name=profile_name, line_no=line_no, scope=feature_key)
-        keep = _evaluate_rules(rules, profile, profile_path, item_features, ctx)
+        keep = _evaluate_rules(rules, profile, profile_path, rule_item, ctx)
         missing_counts.update(ctx.missing_counts)
         type_mismatch_counts.update(ctx.type_mismatch_counts)
         if keep:
@@ -524,7 +567,7 @@ def _filter_passages(
         features = sample.get("features")
         if isinstance(features, dict):
             features[feature_key] = [feature_items[idx] for idx in kept_indices]
-    for field_name, values in legacy_values.items():
+    for field_name, values in parallel_values.items():
         if values is not None:
             sample[field_name] = [values[idx] for idx in kept_indices]
 
@@ -561,7 +604,7 @@ def _filter_sample(
         sample,
         passage_key="pos",
         feature_key="pos",
-        legacy_fields=("pos_scores", "pos_id"),
+        parallel_fields=("pos_scores", "pos_scores_stronger_reranker", "pos_id"),
         rules=profile.get("positive_rules", []),
         profile=profile,
         profile_path=profile_path,
@@ -574,7 +617,7 @@ def _filter_sample(
         sample,
         passage_key="neg",
         feature_key="neg",
-        legacy_fields=("neg_scores", "neg_id"),
+        parallel_fields=("neg_scores", "neg_id"),
         rules=profile.get("negative_rules", []),
         profile=profile,
         profile_path=profile_path,
@@ -625,6 +668,34 @@ def _print_report(report: dict[str, Any], *, cache_hit: bool) -> None:
                 file=sys.stderr,
                 flush=True,
             )
+    empty_passages = report.get("empty_passages", {})
+    removed_samples = int(empty_passages.get("removed_samples", 0))
+    if removed_samples:
+        print("=" * 78, file=sys.stderr, flush=True)
+        print(
+            "[WARNING] DATASET QUALITY: skipped "
+            f"{removed_samples} samples containing an empty string in 'pos' or 'neg'.",
+            file=sys.stderr,
+            flush=True,
+        )
+        identifiers = empty_passages.get("identifiers", [])
+        if removed_samples <= EMPTY_PASSAGE_WARNING_ID_LIMIT:
+            formatted_identifiers = ", ".join(
+                f"query_id={entry['query_id']!r} (line {entry['line_no']})" for entry in identifiers
+            )
+            print(f"[WARNING] Affected samples: {formatted_identifiers}", file=sys.stderr, flush=True)
+        else:
+            print(
+                "[WARNING] Too many affected samples to list here; see the detailed report.",
+                file=sys.stderr,
+                flush=True,
+            )
+        print(
+            f"[WARNING] Detailed report: {empty_passages['detail_report_path']}",
+            file=sys.stderr,
+            flush=True,
+        )
+        print("=" * 78, file=sys.stderr, flush=True)
 
 
 def materialize_filtered_dataset(
@@ -644,9 +715,13 @@ def materialize_filtered_dataset(
     output_dir = output_root / f"{_slug(str(profile['name']))}-{key}"
     output_path = output_dir / "dataset.jsonl"
     report_path = output_dir / "filter_report.json"
+    empty_passage_report_path = output_dir / "empty_passage_report.jsonl"
+    drop_empty_passages = bool(profile.get("drop_samples_with_empty_passages", False))
 
     def cached_result(*, cache_hit: bool) -> FilteredDatasetResult | None:
         if not (output_path.exists() and report_path.exists()):
+            return None
+        if drop_empty_passages and not empty_passage_report_path.exists():
             return None
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -680,9 +755,17 @@ def materialize_filtered_dataset(
     removed_by_min_negatives = 0
     missing_counts: Counter[str] = Counter()
     type_mismatch_counts: Counter[str] = Counter()
+    empty_passage_samples = 0
+    empty_positive_samples = 0
+    empty_negative_samples = 0
+    empty_passage_identifiers: list[dict[str, Any]] = []
 
     try:
-        with input_path.open(encoding="utf-8") as in_fh, output_path.open("w", encoding="utf-8") as out_fh:
+        with (
+            input_path.open(encoding="utf-8") as in_fh,
+            output_path.open("w", encoding="utf-8") as out_fh,
+            empty_passage_report_path.open("w", encoding="utf-8") as empty_report_fh,
+        ):
             for line_no, raw_line in enumerate(in_fh, start=1):
                 stripped = raw_line.strip()
                 if not stripped:
@@ -694,6 +777,17 @@ def materialize_filtered_dataset(
                     raise DatasetFilterError(f"Line {line_no} in '{input_path}' is invalid JSON: {exc}") from exc
                 if not isinstance(sample, dict):
                     raise DatasetFilterError(f"Line {line_no} in '{input_path}' must be a JSON object.")
+
+                empty_positions = _empty_passage_positions(sample)
+                if drop_empty_passages and empty_positions:
+                    entry = _empty_passage_report_entry(sample, line_no, empty_positions)
+                    empty_report_fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                    empty_passage_samples += 1
+                    empty_positive_samples += int("pos" in empty_positions)
+                    empty_negative_samples += int("neg" in empty_positions)
+                    if len(empty_passage_identifiers) < EMPTY_PASSAGE_WARNING_ID_LIMIT:
+                        empty_passage_identifiers.append(entry)
+                    continue
 
                 keep, sample_stats, sample_missing_counts, sample_type_mismatch_counts = _filter_sample(
                     sample,
@@ -716,6 +810,8 @@ def materialize_filtered_dataset(
     except Exception:
         if output_path.exists():
             output_path.unlink()
+        if empty_passage_report_path.exists():
+            empty_passage_report_path.unlink()
         raise
 
     report = {
@@ -736,6 +832,14 @@ def materialize_filtered_dataset(
         "removed_by_min_negatives": removed_by_min_negatives,
         "missing_counts": dict(sorted(missing_counts.items())),
         "type_mismatch_counts": dict(sorted(type_mismatch_counts.items())),
+        "empty_passages": {
+            "enabled": drop_empty_passages,
+            "removed_samples": empty_passage_samples,
+            "samples_with_empty_pos": empty_positive_samples,
+            "samples_with_empty_neg": empty_negative_samples,
+            "detail_report_path": str(empty_passage_report_path),
+            "identifiers": empty_passage_identifiers,
+        },
     }
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _print_report(report, cache_hit=False)

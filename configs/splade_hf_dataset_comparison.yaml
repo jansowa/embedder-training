@@ -1,0 +1,62 @@
+backend: sentence-transformers
+training_type: splade
+
+runs_dir: runs/splade-hf-dataset-comparison
+timestamp_output_dir: false
+save_resolved_config: true
+
+# Apply this filter to every dataset before it reaches the training backend.
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - jhu-clsp/ettin-encoder-32m
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  train_batch_size: 4
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 32
+  negatives_per_query: 10
+
+  # Keep regular step checkpoints. Exact "keep only step 20000" still needs
+  # a dedicated implementation task.
+  save_strategy: steps
+  save_steps: 100
+  save_total_limit: 8
+
+  # Preserve full epoch checkpoints outside the normal checkpoint rotation.
+  keep_epoch_checkpoints: true
+
+  report_to:
+    - wandb
+
+  query_regularizer_weight: 0.00005
+
+  splade_activation_stats:
+    enabled: true
+    sample_size: 128
+    batch_size: 16
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: false
+  scope: small
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
+    - epoch: 1
+    - epoch: 2
+    - step: 20000

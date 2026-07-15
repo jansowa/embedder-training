@@ -415,7 +415,7 @@ For dataset filtering, the recommended metadata layout keeps the training fields
 }
 ```
 
-`features.pos[i]` describes `pos[i]`, and `features.neg[i]` describes `neg[i]`. If present, these metadata lists must have the same length as their passage lists. Legacy parallel fields such as `pos_scores`, `neg_scores`, `pos_id`, and `neg_id` are also kept aligned when filters remove passages.
+`features.pos[i]` describes `pos[i]`, and `features.neg[i]` describes `neg[i]`. If present, these metadata lists must have the same length as their passage lists. Top-level parallel fields such as `pos_scores`, `pos_scores_stronger_reranker`, `neg_scores`, `pos_id`, and `neg_id` are also kept aligned when filters remove passages.
 
 Each positive passage creates a separate `anchor`/`positive` example. Offline negatives are forwarded as `negative_1`, `negative_2`, and so on. Dense SentenceTransformers training uses `MultipleNegativesRankingLoss`, so the model sees both in-batch negatives and offline negatives. `matryoshka` wraps the same loss with `MatryoshkaLoss`.
 
@@ -487,11 +487,13 @@ negative_rules:
     value: 0.6
 ```
 
-`rules` is a backward-compatible alias for `sample_rules`. `positive_rules` are evaluated against one `features.pos[i]` object at a time, so their paths are relative to that object. `negative_rules` work the same way for `features.neg[i]`.
+`rules` is a backward-compatible alias for `sample_rules`. `positive_rules` are evaluated against one `features.pos[i]` object at a time, so their paths are relative to that object. Top-level metadata aligned with `pos[i]` is available under `parallel`, for example `parallel.pos_scores` and `parallel.pos_scores_stronger_reranker`. `negative_rules` work the same way for `features.neg[i]`, with fields such as `parallel.neg_scores`.
 
 When a passage-level rule removes a positive or negative, the filter trims the corresponding text list and the aligned metadata lists. If fewer than `min_positives` or `min_negatives` remain, the full sample is removed.
 
-See `configs/dataset_filters/example.yaml` for a sample-level profile and `configs/dataset_filters/passage_level_example.yaml` for a passage-level profile.
+Set `drop_samples_with_empty_passages: true` to discard an entire sample when any `pos` or `neg` item is the empty string. The filter emits a prominent warning (with up to 20 `query_id` values) and writes every affected line, ID, field, and item index to `empty_passage_report.jsonl` beside `filter_report.json`.
+
+See `configs/dataset_filters/example.yaml` for a sample-level profile, `configs/dataset_filters/passage_level_example.yaml` for a passage-level profile, and `configs/dataset_filters/splade_positive_score_gt_23_50.yaml` for a filter that removes invalid queries and prefers `pos_scores_stronger_reranker` over `pos_scores` when filtering positives.
 
 Supported operators:
 

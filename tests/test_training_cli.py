@@ -1884,6 +1884,51 @@ def test_dataset_filter_missing_policy_exclude(tmp_path):
     assert result.report["missing_counts"] == {"sample:features.ranks.teacher_score": 1}
 
 
+def test_dataset_filter_drops_empty_passage_samples_and_writes_report(tmp_path, capsys):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {"query_id": "keep", "query": "keep", "pos": ["p"], "neg": ["n"]},
+            {"query_id": "empty-pos", "query": "drop", "pos": ["p", ""], "neg": ["n"]},
+            {"query_id": "empty-neg", "query": "drop", "pos": ["p"], "neg": ["", "n"]},
+            {"query_id": "both", "query": "drop", "pos": [""], "neg": ["", "n"]},
+        ],
+    )
+    profile = _write_filter_profile(
+        tmp_path / "filter.yaml",
+        """
+        name: empty_passages
+        version: 1
+        drop_samples_with_empty_passages: true
+        sample_rules:
+          - field: query
+            op: neq
+            value: ""
+        """,
+    )
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+    assert _filtered_queries(result.output_path) == ["keep"]
+    assert result.report["empty_passages"] == {
+        "enabled": True,
+        "removed_samples": 3,
+        "samples_with_empty_pos": 2,
+        "samples_with_empty_neg": 2,
+        "detail_report_path": str(result.output_dir / "empty_passage_report.jsonl"),
+        "identifiers": [
+            {"line_no": 2, "query_id": "empty-pos", "empty_passage_indexes": {"pos": [1]}},
+            {"line_no": 3, "query_id": "empty-neg", "empty_passage_indexes": {"neg": [0]}},
+            {"line_no": 4, "query_id": "both", "empty_passage_indexes": {"pos": [0], "neg": [0]}},
+        ],
+    }
+    assert _read_jsonl(result.output_dir / "empty_passage_report.jsonl") == result.report["empty_passages"]["identifiers"]
+    assert "[WARNING] DATASET QUALITY: skipped 3 samples" in capsys.readouterr().err
+
+
 def test_dataset_filter_positive_rules_trim_passages_and_parallel_metadata(tmp_path):
     from training.dataset_filters import materialize_filtered_dataset
 
@@ -1933,6 +1978,86 @@ def test_dataset_filter_positive_rules_trim_passages_and_parallel_metadata(tmp_p
     assert result.report["positives_total"] == 3
     assert result.report["positives_kept"] == 2
     assert result.report["positives_removed"] == 1
+
+
+def test_dataset_filter_parallel_positive_scores_use_stronger_score_then_fallback(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {
+                "query": "stronger",
+                "pos": ["p1", "p2", "p3"],
+                "neg": ["n1"],
+                "pos_scores": [0.0, 99.0, 24.0],
+                "pos_scores_stronger_reranker": [23.5001, 23.50, 30.0],
+                "pos_id": ["p1-id", "p2-id", "p3-id"],
+            },
+            {
+                "query": "fallback",
+                "pos": ["p4", "p5"],
+                "neg": [],
+                "pos_scores": [23.50, 23.5001],
+            },
+            {
+                "query": "remove-query",
+                "pos": ["p6"],
+                "neg": ["n2"],
+                "pos_scores": [23.50],
+            },
+            {
+                "query": "",
+                "pos": ["p7"],
+                "neg": ["n3"],
+                "pos_scores_stronger_reranker": [30.0],
+            },
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+    records = _read_jsonl(result.output_path)
+
+    assert [record["query"] for record in records] == ["stronger", "fallback"]
+    assert records[0]["pos"] == ["p1", "p3"]
+    assert records[0]["pos_scores"] == [0.0, 24.0]
+    assert records[0]["pos_scores_stronger_reranker"] == [23.5001, 30.0]
+    assert records[0]["pos_id"] == ["p1-id", "p3-id"]
+    assert records[0]["neg"] == ["n1"]
+    assert records[1]["pos"] == ["p5"]
+    assert records[1]["pos_scores"] == [23.5001]
+    assert records[1]["neg"] == []
+    assert result.report["positives_total"] == 6
+    assert result.report["positives_kept"] == 3
+    assert result.report["removed_by_min_positives"] == 1
+    assert result.report["total"] == 4
+    assert result.report["removed"] == 2
+
+
+def test_dataset_filter_rejects_mismatched_stronger_positive_scores(tmp_path):
+    from training.dataset_filters import DatasetFilterError, materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {
+                "query": "q",
+                "pos": ["p1", "p2"],
+                "neg": ["n1"],
+                "pos_scores": [24.0, 25.0],
+                "pos_scores_stronger_reranker": [24.0],
+            }
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    with pytest.raises(DatasetFilterError) as exc:
+        materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+
+    assert "field 'pos_scores_stronger_reranker' has 1 items but expected 2" in str(exc.value)
 
 
 def test_dataset_filter_negative_rules_trim_passages_and_parallel_metadata(tmp_path):
