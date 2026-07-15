@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import shlex
 import sys
 from typing import Any, Sequence
 
@@ -19,9 +18,10 @@ from training.backends.registry import (
     normalize_training_type,
     validate_backend_training_type,
 )
-from training.checkpoints import LATEST_CHECKPOINT, output_dir_from_checkpoint, resume_spec_from_sources
+from training.checkpoints import LATEST_CHECKPOINT, output_dir_from_checkpoint, resolve_resume_checkpoint, resume_spec_from_sources
 from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
 from training.distributed import argv_from_args, maybe_launch_distributed_training
+from training.run_metadata import create_run_metadata, verify_resume_metadata
 
 
 class ConfigError(TrainingCliError):
@@ -193,6 +193,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--resume",
         action="store_true",
         help="Resume each run from its latest checkpoint under the resolved output directory.",
+    )
+    resume_group.add_argument(
+        "--resume-if-available",
+        dest="resume_if_available",
+        action="store_true",
+        help="Resume each run from its latest checkpoint when present; otherwise start a new run.",
     )
     resume_group.add_argument(
         "--resume-from-checkpoint",
@@ -407,12 +413,7 @@ def _resolved_output_dir(config: dict[str, Any], backend: str, training_type: st
     return None
 
 
-def _command_text(args: argparse.Namespace) -> str:
-    raw_argv = list(getattr(args, "_raw_argv", None) or [])
-    return shlex.join(["python", "-m", "training.train", *raw_argv])
-
-
-def _write_resolved_config_artifacts(
+def _prepare_run_metadata(
     run_config: dict[str, Any],
     args: argparse.Namespace,
     *,
@@ -423,13 +424,14 @@ def _write_resolved_config_artifacts(
     if output_dir is None:
         return
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    yaml = _load_yaml_module()
-    (output_dir / "resolved_config.yaml").write_text(
-        yaml.safe_dump(run_config, sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
-    (output_dir / "command.txt").write_text(_command_text(args) + "\n", encoding="utf-8")
+    backend_config = _resume_backend_config(run_config, backend)
+    checkpoint = resolve_resume_checkpoint(output_dir, run_config, backend_config, args)
+    if checkpoint is not None:
+        verify_resume_metadata(output_dir, run_config)
+        return
+
+    if _should_save_resolved_config(run_config, args):
+        create_run_metadata(output_dir, run_config, args)
 
 
 def _print_run_plan(configs: list[dict[str, Any]], *, backend: str, training_type: str) -> None:
@@ -489,15 +491,8 @@ def run_training(args: argparse.Namespace) -> int:
         return 0
 
     backend_module = load_backend_module(spec)
-    should_save_resolved_config = _should_save_resolved_config(config, args)
     for run_config in configs:
-        if should_save_resolved_config:
-            _write_resolved_config_artifacts(
-                run_config,
-                args,
-                backend=backend,
-                training_type=training_type,
-            )
+        _prepare_run_metadata(run_config, args, backend=backend, training_type=training_type)
         request = TrainingRequest(
             backend=backend,
             training_type=training_type,

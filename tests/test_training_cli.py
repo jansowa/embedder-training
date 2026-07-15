@@ -87,12 +87,15 @@ def test_parser_accepts_resume_flags():
     from training.train import build_parser
 
     resume_args = build_parser().parse_args(["--config", "configs/grid.yaml", "--resume"])
+    conditional_resume_args = build_parser().parse_args(["--config", "configs/grid.yaml", "--resume-if-available"])
     checkpoint_args = build_parser().parse_args(
         ["--config", "configs/grid.yaml", "--resume-from-checkpoint", "runs/model/checkpoint-10"]
     )
 
     assert resume_args.resume is True
     assert resume_args.resume_from_checkpoint is None
+    assert conditional_resume_args.resume is False
+    assert conditional_resume_args.resume_if_available is True
     assert checkpoint_args.resume is False
     assert checkpoint_args.resume_from_checkpoint == "runs/model/checkpoint-10"
 
@@ -195,6 +198,8 @@ def test_parser_rejects_conflicting_resume_flags():
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--resume", "--resume-from-checkpoint", "runs/model/checkpoint-10"])
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--resume", "--resume-if-available"])
 
 
 def test_apply_config_overrides_updates_and_adds_nested_values():
@@ -704,6 +709,36 @@ def test_explicit_resume_rejects_incomplete_checkpoint(tmp_path):
     assert "trainer_state.json" in str(exc.value)
 
 
+def test_conditional_resume_starts_when_no_checkpoint_exists(tmp_path):
+    from training.checkpoints import resolve_resume_checkpoint
+
+    checkpoint = resolve_resume_checkpoint(
+        tmp_path / "out",
+        {},
+        {},
+        SimpleNamespace(resume=False, resume_if_available=True, resume_from_checkpoint=None),
+    )
+
+    assert checkpoint is None
+
+
+def test_conditional_resume_uses_latest_checkpoint_when_available(tmp_path):
+    from training.checkpoints import resolve_resume_checkpoint
+
+    output_dir = tmp_path / "out"
+    _write_complete_checkpoint(output_dir / "checkpoint-100")
+    _write_complete_checkpoint(output_dir / "checkpoint-200")
+
+    checkpoint = resolve_resume_checkpoint(
+        output_dir,
+        {},
+        {},
+        SimpleNamespace(resume=False, resume_if_available=True, resume_from_checkpoint=None),
+    )
+
+    assert checkpoint == str(output_dir / "checkpoint-200")
+
+
 def test_epoch_checkpoint_callback_preserves_epoch_checkpoint(tmp_path):
     from training.checkpoints import EpochCheckpointCallback
 
@@ -819,10 +854,10 @@ def test_run_training_expands_grid_before_backend_call(monkeypatch, tmp_path):
     config = tmp_path / "train.yaml"
     config.write_text(
         dedent(
-            """
+            f"""
             backend: sentence-transformers
             training_type: splade
-            runs_dir: runs/test-grid
+            runs_dir: {tmp_path / 'runs' / 'test-grid'}
             train_data: dataset-small-no_in_batch_neg
             architectures:
               - model-a
@@ -854,10 +889,10 @@ def test_run_training_applies_config_overrides_before_backend_call(monkeypatch, 
     config = tmp_path / "train.yaml"
     config.write_text(
         dedent(
-            """
+            f"""
             backend: sentence-transformers
             training_type: splade
-            runs_dir: runs/test-overrides
+            runs_dir: {tmp_path / 'runs' / 'test-overrides'}
 
             sentence_transformers:
               train_batch_size: 8
@@ -1006,6 +1041,63 @@ def test_run_training_writes_resolved_config_artifacts(monkeypatch, tmp_path):
     assert resolved_config["sentence_transformers"]["train_batch_size"] == 4
     assert "python -m training.train" in command_text
     assert "sentence_transformers.train_batch_size=4" in command_text
+    assert (output_dir / "training_manifest.json").exists()
+
+
+def test_run_training_verifies_metadata_before_resuming(monkeypatch, tmp_path):
+    import training.train as train
+    from training.run_metadata import RunMetadataError
+
+    config = tmp_path / "train.yaml"
+    output_dir = tmp_path / "out"
+    config.write_text(
+        dedent(
+            f"""
+            backend: sentence-transformers
+            training_type: splade
+            output_dir: {output_dir}
+            train_data: dataset-a
+
+            sentence_transformers:
+              model_name_or_path: tiny-model
+              train_batch_size: 8
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    requests = []
+    monkeypatch.setattr(
+        train,
+        "load_backend_module",
+        lambda spec: SimpleNamespace(run_training=lambda request: requests.append(request) or 0),
+    )
+
+    initial_args = train.build_parser().parse_args(["--config", str(config), "--no-distributed"])
+    initial_args._raw_argv = ["--config", str(config), "--no-distributed"]
+    assert train.run_training(initial_args) == 0
+    initial_command = (output_dir / "command.txt").read_text(encoding="utf-8")
+    _write_complete_checkpoint(output_dir / "checkpoint-100")
+
+    resume_args = train.build_parser().parse_args(["--config", str(config), "--no-distributed", "--resume"])
+    resume_args._raw_argv = ["--config", str(config), "--no-distributed", "--resume"]
+    assert train.run_training(resume_args) == 0
+    assert len(requests) == 2
+    assert (output_dir / "command.txt").read_text(encoding="utf-8") == initial_command
+
+    incompatible_args = train.build_parser().parse_args(
+        ["--config", str(config), "--no-distributed", "--resume", "--set", "sentence_transformers.train_batch_size=4"]
+    )
+    incompatible_args._raw_argv = [
+        "--config",
+        str(config),
+        "--no-distributed",
+        "--resume",
+        "--set",
+        "sentence_transformers.train_batch_size=4",
+    ]
+    with pytest.raises(RunMetadataError, match="does not match"):
+        train.run_training(incompatible_args)
 
 
 def test_run_training_can_skip_resolved_config_artifacts(monkeypatch, tmp_path):

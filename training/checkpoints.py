@@ -13,6 +13,7 @@ from training.distributed import is_main_process
 
 
 LATEST_CHECKPOINT = "latest"
+AUTO_RESUME = "auto"
 DEFAULT_EPOCH_CHECKPOINT_DIR = "epoch-checkpoints"
 DEFAULT_STEP_CHECKPOINT_DIR = "step-checkpoints"
 
@@ -66,6 +67,8 @@ def resume_spec_from_sources(
         return str(cli_checkpoint)
     if as_bool(getattr(cli_args, "resume", False)):
         return LATEST_CHECKPOINT
+    if as_bool(getattr(cli_args, "resume_if_available", False)):
+        return AUTO_RESUME
 
     for source in (backend_config, config):
         resume_from_checkpoint = normalize_resume_value(source.get("resume_from_checkpoint"))
@@ -214,6 +217,10 @@ def resolve_resume_checkpoint(
                 f"Resume requested, but no checkpoint-* or {epoch_dir} checkpoint was found under '{output_dir}'."
             )
         return str(checkpoint)
+
+    if resume_spec == AUTO_RESUME:
+        checkpoint = find_latest_checkpoint(output_dir, epoch_checkpoint_dir=epoch_dir)
+        return str(checkpoint) if checkpoint is not None else None
 
     return str(ensure_checkpoint_path(Path(resume_spec)))
 

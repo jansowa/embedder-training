@@ -325,6 +325,8 @@ def argv_from_args(args: Any) -> list[str]:
         argv.append("--remove-checkpoints")
     if getattr(args, "resume", False):
         argv.append("--resume")
+    if getattr(args, "resume_if_available", False):
+        argv.append("--resume-if-available")
     if getattr(args, "resume_from_checkpoint", None):
         argv.extend(["--resume-from-checkpoint", str(args.resume_from_checkpoint)])
     if getattr(args, "gpus", None) is not None:
