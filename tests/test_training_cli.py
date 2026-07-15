@@ -274,6 +274,8 @@ def test_benchmark_settings_resolve_from_config_and_cli(tmp_path):
     assert settings.pirb_max_seq_length == 256
     assert settings.output_dir == tmp_path / "bench"
     assert settings.query_instruction_for_retrieval == "Config query: "
+    assert settings.parallel_checkpoints is True
+    assert settings.parallel_checkpoint_workers is None
 
 
 def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path):
@@ -392,6 +394,61 @@ def test_resolve_benchmark_targets_warns_and_skips_missing_checkpoints(caplog, t
     assert [target.label for target in targets] == ["final"]
     assert "Selected benchmark checkpoint 'epoch-0002' was not found" in caplog.text
     assert "Selected benchmark checkpoint 'step-20000' was not found" in caplog.text
+
+
+def test_run_benchmarks_for_targets_uses_one_worker_per_visible_gpu(monkeypatch, tmp_path):
+    import threading
+
+    from training import benchmarks
+    from training.benchmarks import BenchmarkSettings, BenchmarkTarget
+
+    targets = []
+    for index in range(4):
+        path = tmp_path / f"checkpoint-{index}"
+        path.mkdir()
+        targets.append(BenchmarkTarget(label=f"target-{index}", path=path, step=index))
+
+    settings = BenchmarkSettings(
+        run_mteb=False,
+        run_pirb=True,
+        benchmark_name="NanoBEIR",
+        pirb_scope="small",
+        batch_size=32,
+        pirb_max_seq_length=384,
+        query_instruction_for_retrieval="",
+        log_to_wandb=False,
+        parallel_checkpoint_workers=2,
+    )
+    monkeypatch.setattr(benchmarks, "visible_cuda_devices", lambda: ["4", "5", "6"])
+
+    rendezvous = threading.Barrier(2)
+    lock = threading.Lock()
+    active_devices = set()
+    calls = []
+    prepared = []
+
+    def runner(model_dir, worker_settings, metric_prefix, step, label, pirb_cuda_visible_device):
+        with lock:
+            assert pirb_cuda_visible_device not in active_devices
+            active_devices.add(pirb_cuda_visible_device)
+            calls.append((label, pirb_cuda_visible_device, worker_settings.log_to_wandb))
+        rendezvous.wait(timeout=5)
+        with lock:
+            active_devices.remove(pirb_cuda_visible_device)
+        return {f"{metric_prefix}pirb_average_ndcg@10": float(step)}
+
+    results = benchmarks.run_benchmarks_for_targets(
+        targets,
+        settings,
+        runner=runner,
+        prepare_pirb=lambda: prepared.append(True),
+    )
+
+    assert prepared == [True]
+    assert sorted(call[0] for call in calls) == ["target-0", "target-1", "target-2", "target-3"]
+    assert {call[1] for call in calls} == {"4", "5"}
+    assert all(call[2] is False for call in calls)
+    assert list(results) == ["target-0", "target-1", "target-2", "target-3"]
 
 
 def test_distributed_config_selects_specific_gpu_ids(monkeypatch):
@@ -2585,6 +2642,7 @@ def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypa
                 "run_pirb": True,
                 "scope": "small",
                 "output_dir": str(tmp_path / "bench"),
+                "parallel_checkpoints": False,
                 "checkpoints": ["final", {"epoch": 1}, {"step": 20000}],
             },
             "sentence_transformers": {
@@ -3646,6 +3704,7 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
         return {f"{metric_prefix}pirb_average_ndcg@10": 0.5}
 
     monkeypatch.setattr(sentence_transformers_backend, "is_main_process", lambda: True)
+    monkeypatch.setattr(sentence_transformers_backend, "is_torchrun_child", lambda: True)
     monkeypatch.setattr(sentence_transformers_backend, "barrier_if_distributed", lambda: barriers.append(True))
     monkeypatch.setattr(sentence_transformers_backend, "run_benchmarks_for_model", fake_run_benchmarks_for_model)
 
@@ -3657,6 +3716,7 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
                 "run_pirb": True,
                 "scope": "small",
                 "output_dir": str(tmp_path / "bench"),
+                "parallel_checkpoints": False,
                 "checkpoints": ["final", {"epoch": 1}, {"epoch": 2}, {"step": 20000}],
             }
         },
@@ -3678,7 +3738,7 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
         (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").resolve(),
         (output_dir / "step-checkpoints" / "step-20000").resolve(),
     ]
-    assert barriers == [True]
+    assert barriers == [True, True]
 
 
 def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():
@@ -4062,3 +4122,31 @@ def test_run_pirb_keeps_dense_config_without_sparse_marker(monkeypatch, tmp_path
     models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
     cfg = json.loads(models_config.read_text(encoding="utf-8"))
     assert "type" not in cfg[0]
+
+
+def test_run_pirb_pins_subprocess_to_selected_gpu(monkeypatch, tmp_path):
+    import convert_utils
+
+    model_dir = tmp_path / "splade-model"
+    model_dir.mkdir()
+    (model_dir / "config_sentence_transformers.json").write_text(
+        json.dumps({"model_type": "SparseEncoder"}),
+        encoding="utf-8",
+    )
+    calls = {}
+
+    def fake_run(cmd, check, cwd, env):
+        calls["env"] = env
+        results_path = Path(cmd[cmd.index("--results_json") + 1])
+        results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 1.0}]}), encoding="utf-8")
+
+    monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
+
+    convert_utils.run_pirb(
+        str(model_dir),
+        query_instruction_for_retrieval="",
+        scope="tiny",
+        cuda_visible_device="GPU-abcd",
+    )
+
+    assert calls["env"]["CUDA_VISIBLE_DEVICES"] == "GPU-abcd"

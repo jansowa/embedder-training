@@ -92,6 +92,14 @@ def cuda_device_count() -> int:
         return 0
 
 
+def visible_cuda_devices() -> list[str]:
+    """Return device identifiers that child processes can use in CUDA_VISIBLE_DEVICES."""
+    configured_devices = _visible_cuda_devices_from_env()
+    if configured_devices is not None:
+        return configured_devices
+    return [str(index) for index in range(cuda_device_count())]
+
+
 def _first_visible_devices(count: int) -> list[str]:
     if count < 0:
         raise DistributedConfigError("'distributed.num_gpus' must be greater than or equal to zero.")

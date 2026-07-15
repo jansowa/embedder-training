@@ -326,6 +326,8 @@ benchmark:
   scope: small
   output_dir: /scratch/$USER/benchmarks/example-run
   query_instruction: ""
+  parallel_checkpoints: true
+  # parallel_checkpoint_workers: 4
   checkpoints:
     - final
     - epoch: 1
@@ -334,6 +336,10 @@ benchmark:
 ```
 
 For supported post-training backends, `benchmark.checkpoints` selects which saved model directories are evaluated after training. The shared resolver lives in `training.benchmarks` and is used by SentenceTransformers training types including `embedder`, `matryoshka`, and `splade`. `final` maps to `output_dir/final`, `epoch: 1` maps to the latest matching `output_dir/epoch-checkpoints/epoch-0001-step-*`, and `step: 20000` maps to `output_dir/checkpoint-20000`. Missing selected checkpoints log a warning and are skipped. If `benchmark.checkpoints` is omitted, existing final-only benchmark behavior continues to work. PyLate currently logs a warning when post-training benchmarks are requested because its benchmark runner is not wired yet.
+
+For PIRB-only evaluation, `benchmark.parallel_checkpoints` defaults to `true`. When multiple checkpoints and multiple CUDA devices are visible, each checkpoint is evaluated in an independent PIRB subprocess pinned to one GPU. `benchmark.parallel_checkpoint_workers` optionally limits the number of GPUs used. Dataset preparation runs once before the parallel subprocesses start. When MTEB and PIRB are both enabled, checkpoint evaluation remains sequential because MTEB runs in the parent process.
+
+Distributed SentenceTransformers training releases its model and optimizer GPU allocations before these subprocesses start. Non-main ranks wait through a filesystem marker while benchmarks run, avoiding an active NCCL barrier competing with PIRB for the GPUs.
 
 Benchmark outputs and W&B metric prefixes use the target label:
 

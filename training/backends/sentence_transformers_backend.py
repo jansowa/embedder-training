@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import gc
 import importlib.util
 import inspect
 import json
 from pathlib import Path
 from typing import Any
 
-from training.benchmarks import resolve_benchmark_settings, resolve_benchmark_targets, run_benchmarks_for_model
+from training.benchmarks import (
+    resolve_benchmark_settings,
+    resolve_benchmark_targets,
+    run_benchmarks_for_model,
+    run_benchmarks_for_targets,
+)
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import (
     build_epoch_checkpoint_callback,
@@ -16,7 +22,7 @@ from training.checkpoints import (
     resolve_resume_checkpoint,
     train_with_resume,
 )
-from training.distributed import barrier_if_distributed, is_main_process
+from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, wait_for_files
 from training.multi_dataset import (
     LoadedTrainingRows,
     PROPORTIONAL_BATCH_BEST_EFFORT,
@@ -509,6 +515,9 @@ def _run_sentence_transformers_post_training_benchmarks(
     config: dict[str, Any],
     backend_config: dict[str, Any],
     request: TrainingRequest,
+    *,
+    trainer: Any = None,
+    model: Any = None,
 ) -> None:
     default_query_instruction = str(
         backend_config.get(
@@ -526,19 +535,68 @@ def _run_sentence_transformers_post_training_benchmarks(
     if not settings.enabled:
         return
 
-    try:
-        if is_main_process():
-            for target in resolve_benchmark_targets(output_dir, settings):
-                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
-                run_benchmarks_for_model(
-                    str(target.path.resolve()),
-                    settings,
-                    metric_prefix=f"{target.label}/",
-                    step=target.step,
-                    label=target.label,
-                )
-    finally:
+    _release_training_gpu_memory(trainer, model)
+    targets = resolve_benchmark_targets(output_dir, settings)
+    distributed = is_torchrun_child()
+    marker = output_dir / ".post-training-benchmarks.complete"
+    main_process = is_main_process()
+    if distributed:
+        if main_process:
+            marker.unlink(missing_ok=True)
         barrier_if_distributed()
+
+    benchmark_error: BaseException | None = None
+    try:
+        if main_process:
+            for target in targets:
+                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
+            run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
+        elif distributed:
+            wait_for_files([marker])
+    except BaseException as exc:
+        benchmark_error = exc
+    finally:
+        if distributed:
+            if main_process:
+                marker.touch()
+            barrier_if_distributed()
+            if main_process:
+                marker.unlink(missing_ok=True)
+    if benchmark_error is not None:
+        raise benchmark_error
+
+
+def _release_training_gpu_memory(trainer: Any, model: Any) -> None:
+    """Release training allocations before PIRB subprocesses claim the GPUs."""
+    if trainer is not None:
+        accelerator = getattr(trainer, "accelerator", None)
+        free_memory = getattr(accelerator, "free_memory", None)
+        if callable(free_memory):
+            try:
+                free_memory()
+            except Exception:
+                pass
+        for attr in ("optimizer", "lr_scheduler"):
+            if hasattr(trainer, attr):
+                try:
+                    setattr(trainer, attr, None)
+                except Exception:
+                    pass
+
+    move_to = getattr(model, "to", None)
+    if callable(move_to):
+        try:
+            move_to("cpu")
+        except Exception:
+            pass
+
+    gc.collect()
+    try:
+        import torch
+    except ModuleNotFoundError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _unique_texts(values: list[str]) -> list[str]:
@@ -1030,7 +1088,14 @@ def run_embedder_training(request: TrainingRequest) -> int:
         ):
             train_with_resume(trainer, resume_from_checkpoint)
             _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
-            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+            _run_sentence_transformers_post_training_benchmarks(
+                output_dir,
+                config,
+                backend_config,
+                request,
+                trainer=trainer,
+                model=model,
+            )
     finally:
         _finish_wandb_run(backend_config)
 
@@ -1097,7 +1162,14 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
         ):
             train_with_resume(trainer, resume_from_checkpoint)
             _save_final_model(trainer, model, output_dir / "final", label="SentenceTransformer")
-            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+            _run_sentence_transformers_post_training_benchmarks(
+                output_dir,
+                config,
+                backend_config,
+                request,
+                trainer=trainer,
+                model=model,
+            )
     finally:
         _finish_wandb_run(backend_config)
 
@@ -1181,7 +1253,14 @@ def run_splade_training(request: TrainingRequest) -> int:
             train_with_resume(trainer, resume_from_checkpoint)
             final_dir = output_dir / "final"
             _save_final_model(trainer, model, final_dir, label="SparseEncoder")
-            _run_sentence_transformers_post_training_benchmarks(output_dir, config, backend_config, request)
+            _run_sentence_transformers_post_training_benchmarks(
+                output_dir,
+                config,
+                backend_config,
+                request,
+                trainer=trainer,
+                model=model,
+            )
     finally:
         _finish_wandb_run(backend_config)
 

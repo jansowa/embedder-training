@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, replace
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from queue import Queue
+from typing import Any, Callable, Sequence
 
 from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR
+from training.distributed import visible_cuda_devices
 
 
 DEFAULT_BENCHMARK_NAME = "NanoBEIR"
@@ -38,6 +41,8 @@ class BenchmarkSettings:
     log_to_wandb: bool = True
     checkpoints: tuple[Any, ...] | None = None
     step_checkpoint_dir: str = DEFAULT_STEP_CHECKPOINT_DIR
+    parallel_checkpoints: bool = True
+    parallel_checkpoint_workers: int | None = None
 
     @property
     def enabled(self) -> bool:
@@ -154,6 +159,21 @@ def resolve_benchmark_settings(
     step_checkpoint_dir = str(
         backend_config.get("step_checkpoint_dir", config.get("step_checkpoint_dir")) or DEFAULT_STEP_CHECKPOINT_DIR
     )
+    parallel_checkpoints = _as_bool(
+        _config_value(config, backend_config, "parallel_checkpoints", default=True),
+        default=True,
+    )
+    parallel_checkpoint_workers_value = _config_value(
+        config,
+        backend_config,
+        "parallel_checkpoint_workers",
+        "checkpoint_workers",
+    )
+    parallel_checkpoint_workers = None
+    if parallel_checkpoint_workers_value is not None:
+        parallel_checkpoint_workers = int(parallel_checkpoint_workers_value)
+        if parallel_checkpoint_workers <= 0:
+            raise ValueError("'benchmark.parallel_checkpoint_workers' must be greater than zero.")
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -167,6 +187,8 @@ def resolve_benchmark_settings(
         log_to_wandb=log_to_wandb,
         checkpoints=checkpoints,
         step_checkpoint_dir=step_checkpoint_dir,
+        parallel_checkpoints=parallel_checkpoints,
+        parallel_checkpoint_workers=parallel_checkpoint_workers,
     )
 
 
@@ -315,6 +337,7 @@ def run_benchmarks_for_model(
     metric_prefix: str = "",
     step: int | None = None,
     label: str = "final",
+    pirb_cuda_visible_device: str | None = None,
 ) -> dict[str, float]:
     if not settings.enabled:
         return {}
@@ -347,6 +370,7 @@ def run_benchmarks_for_model(
             max_seq_length=settings.pirb_max_seq_length,
             scope=settings.pirb_scope,
             output_dir=str(pirb_output) if pirb_output is not None else None,
+            cuda_visible_device=pirb_cuda_visible_device,
         )
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -357,3 +381,88 @@ def run_benchmarks_for_model(
         _log_to_wandb(metrics, step=step)
 
     return metrics
+
+
+BenchmarkRunner = Callable[..., dict[str, float]]
+
+
+def _parallel_checkpoint_devices(settings: BenchmarkSettings, target_count: int) -> list[str]:
+    if not settings.parallel_checkpoints or target_count <= 1:
+        return []
+    if not settings.run_pirb or settings.run_mteb:
+        return []
+
+    devices = visible_cuda_devices()
+    worker_limit = settings.parallel_checkpoint_workers
+    if worker_limit is not None:
+        devices = devices[:worker_limit]
+    return devices[:target_count] if len(devices) > 1 else []
+
+
+def run_benchmarks_for_targets(
+    targets: Sequence[BenchmarkTarget],
+    settings: BenchmarkSettings,
+    *,
+    runner: BenchmarkRunner = run_benchmarks_for_model,
+    prepare_pirb: Callable[[], None] | None = None,
+) -> dict[str, dict[str, float]]:
+    """Evaluate checkpoint targets, using one independent PIRB process per GPU."""
+    selected_targets = list(targets)
+    if not selected_targets:
+        return {}
+
+    devices = _parallel_checkpoint_devices(settings, len(selected_targets))
+    if not devices:
+        return {
+            target.label: runner(
+                str(target.path.resolve()),
+                settings,
+                metric_prefix=f"{target.label}/",
+                step=target.step,
+                label=target.label,
+            )
+            for target in selected_targets
+        }
+
+    if prepare_pirb is None:
+        from convert_utils import prepare_pirb_data
+
+        prepare_pirb = prepare_pirb_data
+    prepare_pirb()
+
+    print(
+        "[INFO] Running checkpoint benchmarks in parallel: "
+        f"targets={len(selected_targets)} workers={len(devices)} GPUs={','.join(devices)}.",
+        flush=True,
+    )
+    available_devices: Queue[str] = Queue()
+    for device in devices:
+        available_devices.put(device)
+
+    worker_settings = replace(settings, log_to_wandb=False)
+
+    def run_target(target: BenchmarkTarget) -> dict[str, float]:
+        device = available_devices.get()
+        try:
+            print(f"[INFO] Running benchmark for {target.label} on GPU {device}.", flush=True)
+            return runner(
+                str(target.path.resolve()),
+                worker_settings,
+                metric_prefix=f"{target.label}/",
+                step=target.step,
+                label=target.label,
+                pirb_cuda_visible_device=device,
+            )
+        finally:
+            available_devices.put(device)
+
+    with ThreadPoolExecutor(max_workers=len(devices), thread_name_prefix="pirb-checkpoint") as executor:
+        futures = [executor.submit(run_target, target) for target in selected_targets]
+        ordered_metrics = [future.result() for future in futures]
+
+    results = {target.label: metrics for target, metrics in zip(selected_targets, ordered_metrics)}
+    if settings.log_to_wandb:
+        for target, metrics in zip(selected_targets, ordered_metrics):
+            if metrics:
+                _log_to_wandb(metrics, step=target.step)
+    return results

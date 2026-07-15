@@ -55,6 +55,8 @@ benchmark:
   scope: small
   max_seq_length: 512
   query_instruction: ""
+  # Run independent checkpoint evaluations on separate visible GPUs.
+  parallel_checkpoints: true
   checkpoints:
     - final
     - epoch: 1

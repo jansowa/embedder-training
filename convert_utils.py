@@ -1,4 +1,5 @@
 import gc
+import os
 import subprocess
 import tempfile
 import json
@@ -240,6 +241,7 @@ def run_pirb(
     scope: str = "tiny",
     model_type: str | None = None,
     output_dir: str | None = None,
+    cuda_visible_device: str | None = None,
 ) -> dict[str, float]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
@@ -279,9 +281,35 @@ def run_pirb(
         "--benchmark_config", "config/benchmarks/pirb-without-private.json"
     ]
 
-    subprocess.run(cmd, check=True, cwd=pirb_root)
+    run_kwargs = {"check": True, "cwd": pirb_root}
+    if cuda_visible_device is not None:
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_device)
+        run_kwargs["env"] = env
+    subprocess.run(cmd, **run_kwargs)
 
     data = json.loads(results_json.read_text(encoding="utf-8"))
     metrics = data["results"][0]
     metrics = {f"pirb_{key}": value for key, value in metrics.items()}
     return metrics
+
+
+def prepare_pirb_data() -> None:
+    """Prepare PIRB datasets once before parallel benchmark subprocesses start."""
+    repo_root = Path(__file__).resolve().parent
+    pirb_root = repo_root / "third_party" / "pirb"
+    prepare_script = repo_root / "training" / "pirb_prepare.py"
+    subprocess.run(
+        [
+            sys.executable,
+            str(prepare_script),
+            "--pirb-root",
+            str(pirb_root),
+            "--benchmark-config",
+            str(pirb_root / "config" / "benchmarks" / "pirb-without-private.json"),
+            "--data-dir",
+            str(pirb_root / "data"),
+        ],
+        check=True,
+        cwd=repo_root,
+    )
