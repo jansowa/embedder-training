@@ -2515,7 +2515,7 @@ def test_dataset_filter_removes_high_pos_metricx_and_keeps_missing_values(tmp_pa
                 "pos": ["at-threshold", "too-high", "missing-metric"],
                 "neg": [],
                 "pos_scores": [24.0, 25.0, 26.0],
-                "pos_metricx": [20.0, 20.0001, None],
+                "pos_metricx": [9.79, 9.7901, None],
                 "pos_id": ["p1", "p2", "p3"],
             },
             {
@@ -2533,7 +2533,7 @@ def test_dataset_filter_removes_high_pos_metricx_and_keeps_missing_values(tmp_pa
     records = _read_jsonl(result.output_path)
 
     assert records[0]["pos"] == ["at-threshold", "missing-metric"]
-    assert records[0]["pos_metricx"] == [20.0, None]
+    assert records[0]["pos_metricx"] == [9.79, None]
     assert records[0]["pos_scores"] == [24.0, 26.0]
     assert records[0]["pos_id"] == ["p1", "p3"]
     assert records[1]["pos"] == ["no-metricx-field"]
@@ -2548,8 +2548,8 @@ def test_dataset_filter_removes_high_query_metricx_and_keeps_missing_values(tmp_
     _write_jsonl(
         data_file,
         [
-            {"query": "at-threshold", "query_metricx": 20.0, "pos": ["p1"], "neg": [], "pos_scores": [24.0]},
-            {"query": "too-high", "query_metricx": 20.0001, "pos": ["p2"], "neg": [], "pos_scores": [24.0]},
+            {"query": "at-threshold", "query_metricx": 9.79, "pos": ["p1"], "neg": [], "pos_scores": [24.0]},
+            {"query": "too-high", "query_metricx": 9.7901, "pos": ["p2"], "neg": [], "pos_scores": [24.0]},
             {"query": "null-metric", "query_metricx": None, "pos": ["p3"], "neg": [], "pos_scores": [24.0]},
             {"query": "missing-metric", "pos": ["p4"], "neg": [], "pos_scores": [24.0]},
         ],
@@ -2576,7 +2576,7 @@ def test_dataset_filter_applies_pos_metricx_to_positive_without_score(tmp_path):
                 "pos": ["scored", "synthetic-bad-translation"],
                 "neg": [],
                 "pos_scores": [27.0, None],
-                "pos_metricx": [1.0, 21.0],
+                "pos_metricx": [1.0, 10.0],
             }
         ],
     )
