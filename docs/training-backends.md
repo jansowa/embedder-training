@@ -425,7 +425,7 @@ For dataset filtering, the recommended metadata layout keeps the training fields
 }
 ```
 
-`features.pos[i]` describes `pos[i]`, and `features.neg[i]` describes `neg[i]`. If present, these metadata lists must have the same length as their passage lists. Top-level parallel fields such as `pos_scores`, `pos_scores_stronger_reranker`, `neg_scores`, `pos_id`, and `neg_id` are also kept aligned when filters remove passages.
+`features.pos[i]` describes `pos[i]`, and `features.neg[i]` describes `neg[i]`. If present, these metadata lists must have the same length as their passage lists. Top-level parallel fields such as `pos_scores`, `pos_scores_stronger_reranker`, `pos_metricx`, `neg_scores`, `pos_id`, and `neg_id` are also kept aligned when filters remove passages.
 
 Each positive passage creates a separate `anchor`/`positive` example. Offline negatives are forwarded as `negative_1`, `negative_2`, and so on. Dense SentenceTransformers training uses `MultipleNegativesRankingLoss`, so the model sees both in-batch negatives and offline negatives. `matryoshka` wraps the same loss with `MatryoshkaLoss`.
 

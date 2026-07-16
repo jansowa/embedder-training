@@ -18,6 +18,13 @@ sample_rules:
     value: ""
     missing_policy: exclude
     type_mismatch_policy: exclude
+  # Lower MetricX values indicate better translations. If the query metric is
+  # absent or null, this condition alone does not remove the sample.
+  - field: query_metricx
+    op: lte
+    value: 20
+    missing_policy: include
+    type_mismatch_policy: include
 
 positive_rules:
   - any:
@@ -34,3 +41,10 @@ positive_rules:
             op: gt
             value: 23.50
     missing_policy: exclude
+  # Lower MetricX values indicate better translations. If the aligned value is
+  # absent or null, this condition alone does not remove the positive.
+  - field: parallel.pos_metricx
+    op: lte
+    value: 20
+    missing_policy: include
+    type_mismatch_policy: include

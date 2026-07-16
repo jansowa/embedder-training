@@ -2503,6 +2503,93 @@ def test_dataset_filter_conditionally_keeps_null_positive_scores_from_synthetic_
     assert result.report["type_mismatch_counts"] == {}
 
 
+def test_dataset_filter_removes_high_pos_metricx_and_keeps_missing_values(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {
+                "query": "with-metrics",
+                "pos": ["at-threshold", "too-high", "missing-metric"],
+                "neg": [],
+                "pos_scores": [24.0, 25.0, 26.0],
+                "pos_metricx": [20.0, 20.0001, None],
+                "pos_id": ["p1", "p2", "p3"],
+            },
+            {
+                "query": "without-metrics",
+                "pos": ["no-metricx-field"],
+                "neg": [],
+                "pos_scores": [27.0],
+                "pos_id": ["p4"],
+            },
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+    records = _read_jsonl(result.output_path)
+
+    assert records[0]["pos"] == ["at-threshold", "missing-metric"]
+    assert records[0]["pos_metricx"] == [20.0, None]
+    assert records[0]["pos_scores"] == [24.0, 26.0]
+    assert records[0]["pos_id"] == ["p1", "p3"]
+    assert records[1]["pos"] == ["no-metricx-field"]
+    assert "pos_metricx" not in records[1]
+    assert result.report["positives_removed"] == 1
+
+
+def test_dataset_filter_removes_high_query_metricx_and_keeps_missing_values(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {"query": "at-threshold", "query_metricx": 20.0, "pos": ["p1"], "neg": [], "pos_scores": [24.0]},
+            {"query": "too-high", "query_metricx": 20.0001, "pos": ["p2"], "neg": [], "pos_scores": [24.0]},
+            {"query": "null-metric", "query_metricx": None, "pos": ["p3"], "neg": [], "pos_scores": [24.0]},
+            {"query": "missing-metric", "pos": ["p4"], "neg": [], "pos_scores": [24.0]},
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+    records = _read_jsonl(result.output_path)
+
+    assert [record["query"] for record in records] == ["at-threshold", "null-metric", "missing-metric"]
+    assert result.report["total"] == 4
+    assert result.report["removed"] == 1
+
+
+def test_dataset_filter_applies_pos_metricx_to_positive_without_score(tmp_path):
+    from training.dataset_filters import materialize_filtered_dataset
+
+    data_file = tmp_path / "dataset.jsonl"
+    _write_jsonl(
+        data_file,
+        [
+            {
+                "query": "q",
+                "pos": ["scored", "synthetic-bad-translation"],
+                "neg": [],
+                "pos_scores": [27.0, None],
+                "pos_metricx": [1.0, 21.0],
+            }
+        ],
+    )
+    profile = REPO_ROOT / "configs" / "dataset_filters" / "splade_positive_score_gt_23_50.yaml"
+
+    result = materialize_filtered_dataset(data_file, profile, cache_dir=tmp_path / "cache")
+    record = _read_jsonl(result.output_path)[0]
+
+    assert record["pos"] == ["scored"]
+    assert record["pos_scores"] == [27.0]
+    assert record["pos_metricx"] == [1.0]
+
+
 def test_dataset_filter_null_positive_score_strategy_fail(tmp_path):
     from training.dataset_filters import DatasetFilterError, materialize_filtered_dataset
 

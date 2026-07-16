@@ -554,6 +554,40 @@ def _has_only_null_score_values(
     return bool(values) and all(value is None for value in values)
 
 
+def _rule_references_parallel_fields(rule: Any, field_names: tuple[str, ...]) -> bool:
+    """Return whether a rule reads one of the named top-level parallel fields."""
+    if not isinstance(rule, dict):
+        return False
+    field_name = rule.get("field")
+    if isinstance(field_name, str):
+        return field_name in {f"parallel.{name}" for name in field_names}
+    return any(
+        _rule_references_parallel_fields(child, field_names)
+        for logical_key in ("all", "any", "not")
+        for child in (
+            rule.get(logical_key, [])
+            if isinstance(rule.get(logical_key), list)
+            else [rule.get(logical_key)]
+        )
+        if child is not None
+    )
+
+
+def _passage_rule_item(
+    feature_items: list[Any] | None,
+    parallel_values: dict[str, list[Any] | None],
+    index: int,
+) -> dict[str, Any]:
+    item_features = feature_items[index] if feature_items is not None else MISSING
+    rule_item = dict(item_features) if isinstance(item_features, dict) else {}
+    rule_item["parallel"] = {
+        field_name: values[index]
+        for field_name, values in parallel_values.items()
+        if values is not None
+    }
+    return rule_item
+
+
 def _filter_passages(
     sample: dict[str, Any],
     *,
@@ -587,26 +621,25 @@ def _filter_passages(
         if null_positive_score_strategy != "fail"
         and _has_only_null_score_values(parallel_values, null_positive_score_fields, idx)
     }
+    non_score_rules = [
+        rule
+        for rule in rules
+        if not _rule_references_parallel_fields(rule, null_positive_score_fields)
+    ]
+    eligible_null_score_indices: set[int] = set()
     scored_kept_indices: set[int] = set()
     for idx in range(total):
-        if idx in null_score_indices:
-            continue
-        item_features = feature_items[idx] if feature_items is not None else MISSING
-        if isinstance(item_features, dict):
-            rule_item = dict(item_features)
-        else:
-            rule_item = {}
-        rule_item["parallel"] = {
-            field_name: values[idx]
-            for field_name, values in parallel_values.items()
-            if values is not None
-        }
+        rules_to_evaluate = non_score_rules if idx in null_score_indices else rules
+        rule_item = _passage_rule_item(feature_items, parallel_values, idx)
         ctx = _EvalContext(profile_name=profile_name, line_no=line_no, scope=feature_key)
-        keep = _evaluate_rules(rules, profile, profile_path, rule_item, ctx)
+        keep = _evaluate_rules(rules_to_evaluate, profile, profile_path, rule_item, ctx)
         missing_counts.update(ctx.missing_counts)
         type_mismatch_counts.update(ctx.type_mismatch_counts)
         if keep:
-            scored_kept_indices.add(idx)
+            if idx in null_score_indices:
+                eligible_null_score_indices.add(idx)
+            else:
+                scored_kept_indices.add(idx)
 
     include_null_scores = null_positive_score_strategy == "include" or (
         null_positive_score_strategy == "include_if_any_scored_positive_kept" and bool(scored_kept_indices)
@@ -614,7 +647,7 @@ def _filter_passages(
     kept_indices = [
         idx
         for idx in range(total)
-        if idx in scored_kept_indices or (include_null_scores and idx in null_score_indices)
+        if idx in scored_kept_indices or (include_null_scores and idx in eligible_null_score_indices)
     ]
 
     sample[passage_key] = [passages[idx] for idx in kept_indices]
@@ -659,7 +692,7 @@ def _filter_sample(
         sample,
         passage_key="pos",
         feature_key="pos",
-        parallel_fields=("pos_scores", "pos_scores_stronger_reranker", "pos_id"),
+        parallel_fields=("pos_scores", "pos_scores_stronger_reranker", "pos_metricx", "pos_id"),
         rules=profile.get("positive_rules", []),
         profile=profile,
         profile_path=profile_path,
