@@ -6,11 +6,11 @@ timestamp_output_dir: false
 save_resolved_config: true
 
 # Apply this filter to every dataset before it reaches the training backend.
-dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50.yaml
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
 dataset_filter_cache_dir: cache/filtered_datasets
 
 architectures:
-  - jhu-clsp/ettin-encoder-32m
+  - sdadas/polish-splade
 
 hparams:
   - learning_rate: 5e-5
@@ -32,10 +32,13 @@ sentence_transformers:
   # a dedicated implementation task.
   save_strategy: steps
   save_steps: 100
-  save_total_limit: 8
+  save_total_limit: 3
 
   # Preserve full epoch checkpoints outside the normal checkpoint rotation.
   keep_epoch_checkpoints: true
+
+  keep_step_checkpoints:
+    - 1500
 
   report_to:
     - wandb
@@ -63,4 +66,4 @@ benchmark:
     - final
     - epoch: 1
     - epoch: 2
-    - step: 20000
+    - step: 1500
