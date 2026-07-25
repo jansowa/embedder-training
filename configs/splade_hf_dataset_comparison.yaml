@@ -54,8 +54,8 @@ sentence_transformers:
     include_negatives: true
 
 benchmark:
-  run_pirb: false
-  scope: small
+  run_pirb: true
+  scope: tiny
   max_seq_length: 512
   query_instruction: ""
   # Dynamically schedule checkpoint/task-group jobs across visible GPUs.
