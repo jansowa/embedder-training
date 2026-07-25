@@ -3529,9 +3529,15 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
                 "run_name": "tiny-grid-run",
                 "max_steps": 1,
                 "train_batch_size": 1,
-                "batch_sampler": "no_duplicates",
+                "batch_sampler": "no_duplicates_hashed",
                 "gradient_accumulation_steps": 4,
                 "gradient_checkpointing": True,
+                "gradient_checkpointing_kwargs": {"use_reentrant": False},
+                "dataloader_num_workers": 4,
+                "dataloader_persistent_workers": True,
+                "dataloader_prefetch_factor": 4,
+                "optim": "adamw_torch_fused",
+                "tf32": True,
                 "report_to": ["wandb"],
                 "document_regularizer_weight": 0.1,
                 "query_regularizer_weight": 0.2,
@@ -3552,9 +3558,15 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
     assert calls["args"].kwargs["run_name"] == "tiny-grid-run"
     assert calls["args"].kwargs["report_to"] == ["wandb"]
     assert calls["args"].kwargs["per_device_train_batch_size"] == 1
-    assert calls["args"].kwargs["batch_sampler"] == "no_duplicates"
+    assert calls["args"].kwargs["batch_sampler"] == "no_duplicates_hashed"
     assert calls["args"].kwargs["gradient_accumulation_steps"] == 4
     assert calls["args"].kwargs["gradient_checkpointing"] is True
+    assert calls["args"].kwargs["gradient_checkpointing_kwargs"] == {"use_reentrant": False}
+    assert calls["args"].kwargs["dataloader_num_workers"] == 4
+    assert calls["args"].kwargs["dataloader_persistent_workers"] is True
+    assert calls["args"].kwargs["dataloader_prefetch_factor"] == 4
+    assert calls["args"].kwargs["optim"] == "adamw_torch_fused"
+    assert calls["args"].kwargs["tf32"] is True
     assert calls["wandb_finished"] is True
 
 
@@ -3975,6 +3987,78 @@ def test_sentence_transformers_splade_adds_activation_stats_callback(monkeypatch
     assert callback.interval_steps == 10
     assert callback.quantization_factor == 100
     assert callback.on_epoch_begin(None, SimpleNamespace(global_step=0), "control") == "control"
+
+
+def test_splade_activation_stats_counts_on_encoder_device(monkeypatch):
+    from training.backends.sentence_transformers_backend import SpladeActivationStatsCallback
+
+    calls = []
+
+    class FakeTensor:
+        is_sparse = False
+
+        def __init__(self, values):
+            self.values = values
+
+        def float(self):
+            return self
+
+        def __mul__(self, factor):
+            return FakeTensor([[value * factor for value in row] for row in self.values])
+
+        def __gt__(self, threshold):
+            return FakeTensor([[value > threshold for value in row] for row in self.values])
+
+        def sum(self, dim):
+            assert dim == -1
+            return FakeTensor([sum(row) for row in self.values])
+
+        def round(self):
+            return FakeTensor([[round(value) for value in row] for row in self.values])
+
+        def cpu(self):
+            return self
+
+        def tolist(self):
+            return self.values
+
+    fake_torch = SimpleNamespace(
+        Tensor=FakeTensor,
+        round=lambda tensor: tensor.round(),
+        as_tensor=lambda value: FakeTensor(value),
+    )
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+
+    class FakeModel:
+        training = True
+
+        def eval(self):
+            self.training = False
+
+        def train(self):
+            self.training = True
+
+        def encode_query(self, batch, **kwargs):
+            calls.append(kwargs)
+            values = [[0.0049, 0.0051, 0.02], [0.0, -0.1, 0.01]]
+            return FakeTensor(values[: len(batch)])
+
+    model = FakeModel()
+    callback = SpladeActivationStatsCallback(
+        model=model,
+        query_texts=["q1", "q2"],
+        document_texts=[],
+        batch_size=2,
+        interval_steps=10,
+        quantization_factor=100,
+        log_on_train_begin=False,
+        log_on_train_end=False,
+        prefix="stats",
+    )
+
+    assert callback._count_active_dims(callback.query_texts, "encode_query") == [2, 1]
+    assert calls[0]["save_to_cpu"] is False
+    assert model.training is True
 
 
 def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, tmp_path):
@@ -4511,11 +4595,20 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
 
     monkeypatch.setattr(convert_utils.subprocess, "run", fake_run)
 
-    metrics = convert_utils.run_pirb(str(model_dir), query_instruction_for_retrieval="Pytanie: ", scope="tiny")
+    relative_output_dir = os.path.relpath(tmp_path / "relative-pirb-output", Path.cwd())
+    metrics = convert_utils.run_pirb(
+        str(model_dir),
+        query_instruction_for_retrieval="Pytanie: ",
+        scope="tiny",
+        output_dir=relative_output_dir,
+    )
 
     models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
+    results_path = Path(calls["cmd"][calls["cmd"].index("--results_json") + 1])
     cfg = json.loads(models_config.read_text(encoding="utf-8"))
     assert calls["check"] is True
+    assert models_config.is_absolute()
+    assert results_path.is_absolute()
     assert cfg[0]["type"] == "splade"
     assert cfg[0]["q_prefix"] == "Pytanie: "
     assert metrics == {"pirb_average_ndcg@10": 1.0}

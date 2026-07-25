@@ -43,11 +43,15 @@ COMMON_TRAINING_KEYS = {
     "bf16",
     "dataloader_drop_last",
     "dataloader_num_workers",
+    "dataloader_persistent_workers",
+    "dataloader_pin_memory",
+    "dataloader_prefetch_factor",
     "dataset_mix_strategy",
     "epoch_checkpoint_dir",
     "fp16",
     "gradient_accumulation_steps",
     "gradient_checkpointing",
+    "gradient_checkpointing_kwargs",
     "keep_epoch_checkpoints",
     "keep_step_checkpoints",
     "learning_rate",
@@ -61,6 +65,7 @@ COMMON_TRAINING_KEYS = {
     "model_kwargs",
     "model_name_or_path",
     "num_train_epochs",
+    "optim",
     "output_dir",
     "overwrite_output_dir",
     "per_device_train_batch_size",
@@ -78,6 +83,10 @@ COMMON_TRAINING_KEYS = {
     "step_checkpoint_dir",
     "tokenizer_args",
     "tokenizer_name_or_path",
+    "tf32",
+    "torch_compile",
+    "torch_compile_backend",
+    "torch_compile_mode",
     "train_batch_size",
     "train_data",
     "trust_remote_code",
@@ -95,6 +104,8 @@ BATCH_SAMPLER_ALIASES = {
     "no-duplicate": "no_duplicates",
     "no_duplicates": "no_duplicates",
     "no-duplicates": "no_duplicates",
+    "no_duplicates_hashed": "no_duplicates_hashed",
+    "no-duplicates-hashed": "no_duplicates_hashed",
 }
 
 
@@ -211,7 +222,8 @@ def _normalize_batch_sampler(value: Any) -> str:
     batch_sampler = BATCH_SAMPLER_ALIASES.get(normalized)
     if batch_sampler is None:
         raise SentenceTransformersConfigError(
-            "'sentence_transformers.batch_sampler' must be one of: batch_sampler, no_duplicates, group_by_label."
+            "'sentence_transformers.batch_sampler' must be one of: batch_sampler, no_duplicates, "
+            "no_duplicates_hashed, group_by_label."
         )
     return batch_sampler
 
@@ -426,6 +438,31 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
         "dataloader_num_workers": int(backend_config.get("dataloader_num_workers", 0)),
         "report_to": backend_config.get("report_to", []),
     }
+    optional_training_args: dict[str, Any] = {
+        "dataloader_persistent_workers": _as_bool,
+        "dataloader_pin_memory": _as_bool,
+        "dataloader_prefetch_factor": int,
+        "gradient_checkpointing_kwargs": dict,
+        "optim": str,
+        "tf32": _as_bool,
+        "torch_compile": _as_bool,
+        "torch_compile_backend": str,
+        "torch_compile_mode": str,
+    }
+    for key, converter in optional_training_args.items():
+        if key not in backend_config:
+            continue
+        if not _accepts_kwarg(training_arguments_cls, key):
+            raise SentenceTransformersConfigError(
+                f"'sentence_transformers.{key}' requires a SentenceTransformers/Transformers version "
+                f"whose training arguments support {key}."
+            )
+        value = backend_config[key]
+        if key == "gradient_checkpointing_kwargs" and not isinstance(value, dict):
+            raise SentenceTransformersConfigError(
+                "'sentence_transformers.gradient_checkpointing_kwargs' must be a mapping."
+            )
+        kwargs[key] = converter(value)
     if backend_config.get("batch_sampler") is not None:
         if not _accepts_kwarg(training_arguments_cls, "batch_sampler"):
             raise SentenceTransformersConfigError(
@@ -737,9 +774,12 @@ class SpladeActivationStatsCallback:
                     show_progress_bar=False,
                     convert_to_tensor=True,
                     convert_to_sparse_tensor=False,
-                    save_to_cpu=True,
+                    save_to_cpu=False,
                 )
                 tensor = _as_dense_tensor(embeddings, torch)
+                # Keep the dense vocabulary-sized embeddings on the accelerator. Moving only
+                # the final per-example counts avoids transferring and quantizing roughly
+                # sample_size * vocab_size floats on the CPU for every stats interval.
                 quantized = torch.round(tensor.float() * self.quantization_factor)
                 counts.extend((quantized > 0).sum(dim=-1).cpu().tolist())
                 del embeddings, tensor, quantized

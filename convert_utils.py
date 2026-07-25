@@ -247,7 +247,10 @@ def run_pirb(
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
 
-    tmpdir = Path(output_dir) if output_dir is not None else Path(tempfile.mkdtemp(prefix="pirb_"))
+    # PIRB runs with ``cwd=third_party/pirb`` below, so paths derived from a
+    # repository-relative benchmark output directory must be made absolute
+    # before they are passed to the subprocess.
+    tmpdir = Path(output_dir).resolve() if output_dir is not None else Path(tempfile.mkdtemp(prefix="pirb_"))
     tmpdir.mkdir(parents=True, exist_ok=True)
     models_cfg = tmpdir / "models_config.json"
     results_json = tmpdir / "results.json"

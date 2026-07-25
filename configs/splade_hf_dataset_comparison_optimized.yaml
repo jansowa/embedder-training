@@ -1,0 +1,81 @@
+backend: sentence-transformers
+training_type: splade
+
+# Keep this run separate so the previous checkpoints remain resumable.
+runs_dir: runs/msmarco-missing-metricx-optimized
+timestamp_output_dir: false
+save_resolved_config: true
+
+train_data: https://huggingface.co/datasets/mining-negatives/msmarco-missing/resolve/main/train_pl.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  run_name: msmarco-missing-metricx-optimized
+  max_seq_length: 512
+
+  # Do not increase this: batches containing long passages need the current limit.
+  train_batch_size: 4
+  gradient_accumulation_steps: 8
+  negatives_per_query: 10
+
+  # Preserve no-duplicate semantics while avoiding repeated full-string comparisons.
+  batch_sampler: no_duplicates_hashed
+  dataloader_num_workers: 4
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 4
+  dataloader_pin_memory: true
+
+  gradient_checkpointing: true
+
+  # Measured faster than BF16 + non-reentrant checkpointing on the RTX 5070 Ti.
+  fp16: true
+  bf16: false
+  tf32: false
+  optim: adamw_torch_fused
+
+  # A larger chunk reduces pooling kernel/graph overhead without changing train batch size.
+  splade_pooling_chunk_size: 64
+
+  # Reduce large checkpoint writes while retaining useful restart granularity.
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 2
+  keep_epoch_checkpoints: false
+
+  report_to:
+    - wandb
+
+  query_regularizer_weight: 0.00005
+
+  # Keep the same sample size, interval, quantization, and negative inclusion.
+  # This is an inference-only batch size and does not affect training batches.
+  splade_activation_stats:
+    enabled: true
+    sample_size: 128
+    batch_size: 32
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: true
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  parallel_checkpoints: false
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
+  # With two training epochs, final has the same trained weights as epoch 2 and
+  # avoids preserving another full checkpoint solely for benchmarking.
+  checkpoints:
+    - final
