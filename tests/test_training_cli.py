@@ -953,6 +953,26 @@ def test_conditional_resume_uses_latest_checkpoint_when_available(tmp_path):
     assert checkpoint == str(output_dir / "checkpoint-200")
 
 
+def test_conditional_resume_skips_training_when_final_model_exists(tmp_path):
+    from training.checkpoints import should_skip_training_for_final
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+
+    assert should_skip_training_for_final(
+        output_dir,
+        {},
+        {},
+        SimpleNamespace(resume=False, resume_if_available=True, resume_from_checkpoint=None),
+    )
+    assert not should_skip_training_for_final(
+        output_dir,
+        {},
+        {},
+        SimpleNamespace(resume=True, resume_if_available=False, resume_from_checkpoint=None),
+    )
+
+
 def test_conditional_resume_can_expand_a_grid_without_treating_auto_as_a_path(monkeypatch, tmp_path):
     import training.train as train
 
@@ -3765,6 +3785,44 @@ def test_sentence_transformers_splade_resumes_from_epoch_checkpoint(monkeypatch,
 
     assert sentence_transformers_backend.run_training(request) == 0
     assert calls["resume"] == str(checkpoint)
+
+
+def test_sentence_transformers_splade_auto_resume_skips_completed_training_and_runs_benchmarks(
+    monkeypatch,
+    tmp_path,
+):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    calls = []
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sparse_sentence_transformers",
+        lambda: pytest.fail("the training stack must not be loaded for a completed run"),
+    )
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_run_sentence_transformers_post_training_benchmarks",
+        lambda resolved_output_dir, config, backend_config, request: calls.append(resolved_output_dir),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={"output_dir": str(output_dir)},
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(
+            resume=False,
+            resume_if_available=True,
+            resume_from_checkpoint=None,
+        ),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert calls == [output_dir]
 
 
 def test_sentence_transformers_splade_can_use_margin_mse_scores(monkeypatch, tmp_path):

@@ -18,7 +18,14 @@ from training.backends.registry import (
     normalize_training_type,
     validate_backend_training_type,
 )
-from training.checkpoints import AUTO_RESUME, LATEST_CHECKPOINT, output_dir_from_checkpoint, resolve_resume_checkpoint, resume_spec_from_sources
+from training.checkpoints import (
+    AUTO_RESUME,
+    LATEST_CHECKPOINT,
+    output_dir_from_checkpoint,
+    resolve_resume_checkpoint,
+    resume_spec_from_sources,
+    should_skip_training_for_final,
+)
 from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
 from training.distributed import argv_from_args, is_main_process, maybe_launch_distributed_training
 from training.run_metadata import create_run_metadata, verify_resume_metadata
@@ -198,7 +205,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--resume-if-available",
         dest="resume_if_available",
         action="store_true",
-        help="Resume each run from its latest checkpoint when present; otherwise start a new run.",
+        help=(
+            "Skip training when a final model already exists; otherwise resume each run from its latest "
+            "checkpoint when present or start a new run. Post-training benchmarks still run."
+        ),
     )
     resume_group.add_argument(
         "--resume-from-checkpoint",
@@ -428,6 +438,9 @@ def _prepare_run_metadata(
         return
 
     backend_config = _resume_backend_config(run_config, backend)
+    if should_skip_training_for_final(output_dir, run_config, backend_config, args):
+        verify_resume_metadata(output_dir, run_config)
+        return
     checkpoint = resolve_resume_checkpoint(output_dir, run_config, backend_config, args)
     if checkpoint is not None:
         verify_resume_metadata(output_dir, run_config)

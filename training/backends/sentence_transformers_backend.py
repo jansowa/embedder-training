@@ -20,6 +20,7 @@ from training.checkpoints import (
     build_epoch_checkpoint_callback,
     build_step_checkpoint_callback,
     resolve_resume_checkpoint,
+    should_skip_training_for_final,
     train_with_resume,
 )
 from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, wait_for_files
@@ -603,6 +604,31 @@ def _run_sentence_transformers_post_training_benchmarks(
         raise benchmark_error
 
 
+def _skip_completed_training(
+    request: TrainingRequest,
+    *,
+    default_output_dir: str,
+) -> bool:
+    config = request.config
+    backend_config = _backend_config(config)
+    output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", default_output_dir)))
+    if not should_skip_training_for_final(output_dir, config, backend_config, request.cli_args):
+        return False
+
+    if is_main_process():
+        print(
+            f"[INFO] Final model already exists at {output_dir / 'final'}; skipping completed training.",
+            flush=True,
+        )
+    _run_sentence_transformers_post_training_benchmarks(
+        output_dir,
+        config,
+        backend_config,
+        request,
+    )
+    return True
+
+
 def _release_training_gpu_memory(trainer: Any, model: Any) -> None:
     """Release training allocations before PIRB subprocesses claim the GPUs."""
     if trainer is not None:
@@ -1079,6 +1105,9 @@ def _resolve_matryoshka_dims(backend_config: dict[str, Any], model: Any) -> list
 
 
 def run_embedder_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers"):
+        return 0
+
     (
         Dataset,
         SentenceTransformer,
@@ -1143,6 +1172,9 @@ def run_embedder_training(request: TrainingRequest) -> int:
 
 
 def run_matryoshka_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers-matryoshka"):
+        return 0
+
     (
         Dataset,
         SentenceTransformer,
@@ -1217,6 +1249,9 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
 
 
 def run_splade_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers-splade"):
+        return 0
+
     (
         Dataset,
         SparseEncoder,
