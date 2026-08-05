@@ -303,6 +303,7 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
             "max_seq_length": max_seq_length,
             "scope": scope,
             "output_dir": output_dir,
+            "benchmark_label": kwargs.get("benchmark_label"),
         }
         return {"pirb_average_ndcg@10": 0.25}
 
@@ -333,6 +334,7 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
     assert calls["pirb"]["max_seq_length"] == 384
     assert calls["pirb"]["scope"] == "small"
     assert calls["pirb"]["output_dir"] == str(tmp_path / "bench" / "final" / "pirb")
+    assert calls["pirb"]["benchmark_label"] == "final"
     assert metrics == {
         "final/mean_ndcg_at_10": 0.5,
         "final/pirb_average_ndcg@10": 0.25,
@@ -454,7 +456,7 @@ def test_run_benchmarks_for_targets_uses_one_worker_per_visible_gpu(monkeypatch,
     assert list(results) == ["target-0", "target-1", "target-2", "target-3"]
 
 
-def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monkeypatch, tmp_path):
+def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monkeypatch, tmp_path, capsys):
     import threading
 
     from training import benchmarks
@@ -565,6 +567,10 @@ def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monke
         assert metrics[f"{target.label}/pirb_average_ndcg@10"] == 4.0
         metrics_path = settings.output_dir / target.label / "metrics.json"
         assert json.loads(metrics_path.read_text(encoding="utf-8")) == metrics
+
+    output = capsys.readouterr().out
+    for target in targets:
+        assert f"[checkpoint: {target.label}] Average NDCG@10 for 7 tasks: 4.00" in output
 
 
 def test_pirb_prepare_keeps_shared_cache_tasks_in_one_group(tmp_path):
@@ -4659,6 +4665,7 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
         query_instruction_for_retrieval="Pytanie: ",
         scope="tiny",
         output_dir=relative_output_dir,
+        benchmark_label="epoch-0002",
     )
 
     models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
@@ -4669,6 +4676,7 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
     assert results_path.is_absolute()
     assert cfg[0]["type"] == "splade"
     assert cfg[0]["q_prefix"] == "Pytanie: "
+    assert calls["cmd"][calls["cmd"].index("--benchmark_label") + 1] == "epoch-0002"
     assert metrics == {"pirb_average_ndcg@10": 1.0}
 
 

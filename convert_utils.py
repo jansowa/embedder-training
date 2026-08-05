@@ -243,6 +243,7 @@ def run_pirb(
     model_type: str | None = None,
     output_dir: str | None = None,
     cuda_visible_device: str | None = None,
+    benchmark_label: str | None = None,
 ) -> dict[str, Any]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
@@ -285,6 +286,8 @@ def run_pirb(
         "--scope", normalized_scope,
         "--benchmark_config", "config/benchmarks/pirb-without-private.json"
     ]
+    if benchmark_label:
+        cmd.extend(["--benchmark_label", benchmark_label])
 
     run_kwargs = {"check": True, "cwd": pirb_root}
     if cuda_visible_device is not None:

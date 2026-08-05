@@ -417,6 +417,7 @@ def run_benchmarks_for_model(
             scope=settings.pirb_scope,
             output_dir=str(pirb_output) if pirb_output is not None else None,
             cuda_visible_device=pirb_cuda_visible_device,
+            benchmark_label=metric_prefix.removesuffix("/") or label,
         )
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -705,6 +706,16 @@ def _run_parallel_pirb_chunks(
             ordered_parts,
             metric_prefix=f"{target.label}/",
         )
+        datasets_key = f"{target.label}/pirb_datasets"
+        average_prefix = f"{target.label}/pirb_average_ndcg@"
+        for key, value in sorted(metrics.items()):
+            if key.startswith(average_prefix):
+                ndcg_k = key.removeprefix(average_prefix)
+                print(
+                    f"[checkpoint: {target.label}] Average NDCG@{ndcg_k} "
+                    f"for {metrics[datasets_key]} tasks: {float(value):.2f}",
+                    flush=True,
+                )
         results[target.label] = metrics
         _write_target_metrics(settings, target, metrics)
         if metrics and settings.log_to_wandb:
