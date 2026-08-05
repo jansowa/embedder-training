@@ -342,6 +342,36 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
     assert json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8")) == metrics
 
 
+def test_benchmark_wandb_logging_uses_checkpoint_metadata_without_rewinding_step(monkeypatch):
+    from training import benchmarks
+
+    calls = []
+    fake_wandb = SimpleNamespace(
+        run=SimpleNamespace(step=34501),
+        log=lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+
+    benchmarks._log_to_wandb(
+        {"step-1500/pirb_average_ndcg@10": 54.48},
+        step=1500,
+        label="step-1500",
+    )
+
+    assert calls == [
+        (
+            (
+                {
+                    "step-1500/pirb_average_ndcg@10": 54.48,
+                    "benchmark/checkpoint_label": "step-1500",
+                    "benchmark/checkpoint_step": 1500,
+                },
+            ),
+            {},
+        )
+    ]
+
+
 def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
     from training.benchmarks import BenchmarkSettings, resolve_benchmark_targets
 
@@ -366,10 +396,10 @@ def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
     targets = resolve_benchmark_targets(output_dir, settings)
 
     assert [(target.label, target.path.relative_to(output_dir), target.step) for target in targets] == [
-        ("final", Path("final"), 0),
         ("epoch-0001", Path("epoch-checkpoints") / "epoch-0001-step-123", 123),
         ("epoch-0002", Path("epoch-checkpoints") / "epoch-0002-step-456", 456),
         ("step-20000", Path("step-checkpoints") / "step-20000", 20000),
+        ("final", Path("final"), 20000),
     ]
 
 
@@ -3054,10 +3084,11 @@ def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypa
 
     class FakeTrainer:
         def __init__(self, model, args, train_dataset, loss):
-            pass
+            self.state = SimpleNamespace(global_step=0)
 
         def train(self):
             calls["trained"] = True
+            self.state.global_step = 1
 
     def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
         calls["benchmarks"].append(
@@ -3106,7 +3137,7 @@ def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypa
     assert calls["trained"] is True
     assert calls["saved"] == str(output_dir / "final")
     assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls["benchmarks"]] == [
-        ("final", "final/", 0),
+        ("final", "final/", 1),
         ("epoch-0001", "epoch-0001/", 123),
         ("step-20000", "step-20000/", 20000),
     ]
@@ -4176,10 +4207,11 @@ def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, 
 
     class FakeTrainer:
         def __init__(self, model, args, train_dataset, loss):
-            pass
+            self.state = SimpleNamespace(global_step=0)
 
         def train(self):
             calls["trained"] = True
+            self.state.global_step = 1
 
     def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
         calls["benchmark"] = {
@@ -4237,7 +4269,7 @@ def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, 
     assert calls["saved"] == str(output_dir / "final")
     assert calls["benchmark"]["model_dir"] == str((output_dir / "final").resolve())
     assert calls["benchmark"]["metric_prefix"] == "final/"
-    assert calls["benchmark"]["step"] == 0
+    assert calls["benchmark"]["step"] == 1
     assert calls["benchmark"]["label"] == "final"
     settings = calls["benchmark"]["settings"]
     assert settings.run_pirb is True
@@ -4295,16 +4327,16 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
     sentence_transformers_backend._run_sentence_transformers_post_training_benchmarks(output_dir, request.config, {}, request)
 
     assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls] == [
-        ("final", "final/", 0),
         ("epoch-0001", "epoch-0001/", 123),
         ("epoch-0002", "epoch-0002/", 456),
         ("step-20000", "step-20000/", 20000),
+        ("final", "final/", 20000),
     ]
     assert [Path(call["model_dir"]) for call in calls] == [
-        (output_dir / "final").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").resolve(),
         (output_dir / "step-checkpoints" / "step-20000").resolve(),
+        (output_dir / "final").resolve(),
     ]
     assert barriers == [True, True]
 

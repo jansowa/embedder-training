@@ -574,7 +574,13 @@ def _run_sentence_transformers_post_training_benchmarks(
         return
 
     _release_training_gpu_memory(trainer, model)
-    targets = resolve_benchmark_targets(output_dir, settings)
+    trainer_state = getattr(trainer, "state", None)
+    raw_final_step = getattr(trainer_state, "global_step", None)
+    try:
+        final_step = int(raw_final_step) if raw_final_step is not None else None
+    except (TypeError, ValueError):
+        final_step = None
+    targets = resolve_benchmark_targets(output_dir, settings, final_step=final_step)
     distributed = is_torchrun_child()
     marker = output_dir / ".post-training-benchmarks.complete"
     main_process = is_main_process()
