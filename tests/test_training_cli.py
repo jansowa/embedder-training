@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import sys
 from textwrap import dedent
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -4338,7 +4338,88 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
         (output_dir / "step-checkpoints" / "step-20000").resolve(),
         (output_dir / "final").resolve(),
     ]
-    assert barriers == [True, True]
+    assert barriers == [True]
+
+
+def test_sentence_transformers_post_training_benchmarks_non_main_rank_exits(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    calls = []
+    barriers = []
+    left_group = []
+
+    monkeypatch.setattr(sentence_transformers_backend, "is_main_process", lambda: False)
+    monkeypatch.setattr(sentence_transformers_backend, "is_torchrun_child", lambda: True)
+    monkeypatch.setattr(sentence_transformers_backend, "process_rank", lambda: 2)
+    monkeypatch.setattr(sentence_transformers_backend, "barrier_if_distributed", lambda: barriers.append(True))
+    monkeypatch.setattr(sentence_transformers_backend, "_leave_process_group", lambda: left_group.append(True))
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "run_benchmarks_for_targets",
+        lambda *args, **kwargs: calls.append(True),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={"benchmark": {"run_pirb": True, "scope": "small", "checkpoints": ["final"]}},
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False),
+    )
+
+    sentence_transformers_backend._run_sentence_transformers_post_training_benchmarks(
+        output_dir, request.config, {}, request
+    )
+
+    assert calls == []
+    assert barriers == [True]
+    assert left_group == [True]
+
+
+@pytest.mark.parametrize(
+    ("available", "initialized"),
+    [(False, False), (True, False), (True, True)],
+)
+def test_sentence_transformers_leave_process_group_only_destroys_initialized_group(
+    monkeypatch, available, initialized
+):
+    from training.backends import sentence_transformers_backend
+
+    calls = []
+    fake_dist = ModuleType("torch.distributed")
+    fake_dist.is_available = lambda: available
+    fake_dist.is_initialized = lambda: initialized
+    fake_dist.destroy_process_group = lambda: calls.append(True)
+    fake_torch = ModuleType("torch")
+    fake_torch.distributed = fake_dist
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "torch.distributed", fake_dist)
+
+    sentence_transformers_backend._leave_process_group()
+
+    assert calls == ([True] if available and initialized else [])
+
+
+def test_sentence_transformers_leave_process_group_ignores_destroy_error(monkeypatch):
+    from training.backends import sentence_transformers_backend
+
+    fake_dist = ModuleType("torch.distributed")
+    fake_dist.is_available = lambda: True
+    fake_dist.is_initialized = lambda: True
+
+    def fail_destroy():
+        raise RuntimeError("NCCL teardown failed")
+
+    fake_dist.destroy_process_group = fail_destroy
+    fake_torch = ModuleType("torch")
+    fake_torch.distributed = fake_dist
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "torch.distributed", fake_dist)
+
+    sentence_transformers_backend._leave_process_group()
 
 
 def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():

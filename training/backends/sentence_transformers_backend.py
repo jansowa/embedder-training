@@ -23,7 +23,7 @@ from training.checkpoints import (
     should_skip_training_for_final,
     train_with_resume,
 )
-from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, wait_for_files
+from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, process_rank
 from training.multi_dataset import (
     LoadedTrainingRows,
     PROPORTIONAL_BATCH_BEST_EFFORT,
@@ -548,6 +548,21 @@ def _save_final_model(trainer: Any, model: Any, final_dir: Path, *, label: str) 
     barrier_if_distributed()
 
 
+# If a distributed phase is ever added after post-training benchmarks, its process
+# group must be initialized again after non-main ranks leave it here.
+def _leave_process_group() -> None:
+    """Tear down the NCCL process group so a non-main rank can exit cleanly."""
+    try:
+        import torch.distributed as dist
+    except Exception:
+        return
+    if dist.is_available() and dist.is_initialized():
+        try:
+            dist.destroy_process_group()
+        except Exception:
+            pass
+
+
 def _run_sentence_transformers_post_training_benchmarks(
     output_dir: Path,
     config: dict[str, Any],
@@ -582,32 +597,20 @@ def _run_sentence_transformers_post_training_benchmarks(
         final_step = None
     targets = resolve_benchmark_targets(output_dir, settings, final_step=final_step)
     distributed = is_torchrun_child()
-    marker = output_dir / ".post-training-benchmarks.complete"
     main_process = is_main_process()
-    if distributed:
-        if main_process:
-            marker.unlink(missing_ok=True)
-        barrier_if_distributed()
 
-    benchmark_error: BaseException | None = None
-    try:
-        if main_process:
-            for target in targets:
-                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
-            run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
-        elif distributed:
-            wait_for_files([marker])
-    except BaseException as exc:
-        benchmark_error = exc
-    finally:
-        if distributed:
-            if main_process:
-                marker.touch()
-            barrier_if_distributed()
-            if main_process:
-                marker.unlink(missing_ok=True)
-    if benchmark_error is not None:
-        raise benchmark_error
+    # All ranks must call the barrier, otherwise the collective deadlocks.
+    barrier_if_distributed()
+
+    if distributed and not main_process:
+        # Only rank 0 runs benchmarks; the remaining ranks have no work here.
+        _leave_process_group()
+        print(f"[INFO] Rank {process_rank()} exiting before post-training benchmarks.", flush=True)
+        return
+
+    for target in targets:
+        print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
+    run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
 
 
 def _skip_completed_training(
