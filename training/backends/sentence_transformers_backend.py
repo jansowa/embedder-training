@@ -582,32 +582,23 @@ def _run_sentence_transformers_post_training_benchmarks(
         final_step = None
     targets = resolve_benchmark_targets(output_dir, settings, final_step=final_step)
     distributed = is_torchrun_child()
-    marker = output_dir / ".post-training-benchmarks.complete"
     main_process = is_main_process()
-    if distributed:
-        if main_process:
-            marker.unlink(missing_ok=True)
-        barrier_if_distributed()
 
-    benchmark_error: BaseException | None = None
-    try:
-        if main_process:
-            for target in targets:
-                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
-            run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
-        elif distributed:
-            wait_for_files([marker])
-    except BaseException as exc:
-        benchmark_error = exc
-    finally:
-        if distributed:
-            if main_process:
-                marker.touch()
-            barrier_if_distributed()
-            if main_process:
-                marker.unlink(missing_ok=True)
-    if benchmark_error is not None:
-        raise benchmark_error
+    if distributed and not main_process:
+        # benchmarki robi wyłącznie rank 0; nie ma sensu blokować pozostałych rank-ów
+        try:
+            import torch.distributed as dist
+            if dist.is_available() and dist.is_initialized():
+                dist.barrier()
+                dist.destroy_process_group()
+        except Exception:
+            pass
+        print(f"[INFO] Rank {process_rank()} exiting before post-training benchmarks.", flush=True)
+        return
+
+    for target in targets:
+        print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
+    run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
 
 
 def _skip_completed_training(
