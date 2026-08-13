@@ -60,6 +60,29 @@ python -m training.train \
 not reused for PIRB: PIRB corpora are encoded at `pirb_max_seq_length`, so the
 two knobs have different memory profiles.
 
+## Overlapped index builds
+
+A SPLADE task is evaluated in two phases: the corpus is encoded on the GPU into
+`passages.jsonl`, then Anserini builds a Lucene index from it on the CPU. The
+second phase does not need the GPU, so it runs on a background thread while the
+next task is being encoded, and the evaluation of a task blocks until its own
+index is ready.
+
+The number of Lucene builds allowed to run at the same time is
+`index_build_workers` in the PIRB model config, default 1. Setting it to 0
+restores the fully sequential behavior:
+
+```json
+[{"name": "/path/to/model", "type": "splade", "index_build_workers": 0}]
+```
+
+How much this saves depends on the task order: a build is hidden only up to the
+length of the next task's encoding. A 30-minute index build followed by a small
+dataset still leaves most of that half hour on the critical path.
+
+Memory: two indexes are alive at once, so two copies of the encoder sit in VRAM
+(a few hundred MB for a base-sized model) and two corpora sit on disk.
+
 ## Recommended sbatch fragment
 
 The snippet below is documentation only — this repository does not ship or edit
