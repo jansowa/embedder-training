@@ -66,6 +66,11 @@ class BenchmarkSettings:
     parallel_checkpoint_workers: int | None = None
     parallel_pirb_tasks: bool = True
     pirb_jobs_per_worker: int = 2
+    pirb_threads: int | None = None
+    pirb_batch_size: int | None = None
+    # Number of PIRB subprocesses sharing the node; used to split the CPU
+    # budget when 'pirb_threads' is not set explicitly.
+    pirb_parallel_workers: int = 1
 
     @property
     def enabled(self) -> bool:
@@ -218,6 +223,24 @@ def resolve_benchmark_settings(
     )
     if pirb_jobs_per_worker <= 0:
         raise ValueError("'benchmark.pirb_jobs_per_worker' must be greater than zero.")
+    pirb_threads_value = _first_value(
+        getattr(cli_args, "pirb_threads", None),
+        _config_value(config, backend_config, "pirb_threads"),
+    )
+    pirb_threads = None
+    if pirb_threads_value is not None:
+        pirb_threads = int(pirb_threads_value)
+        if pirb_threads <= 0:
+            raise ValueError("'benchmark.pirb_threads' must be greater than zero.")
+    pirb_batch_size_value = _first_value(
+        getattr(cli_args, "pirb_batch_size", None),
+        _config_value(config, backend_config, "pirb_batch_size"),
+    )
+    pirb_batch_size = None
+    if pirb_batch_size_value is not None:
+        pirb_batch_size = int(pirb_batch_size_value)
+        if pirb_batch_size <= 0:
+            raise ValueError("'benchmark.pirb_batch_size' must be greater than zero.")
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -235,6 +258,8 @@ def resolve_benchmark_settings(
         parallel_checkpoint_workers=parallel_checkpoint_workers,
         parallel_pirb_tasks=parallel_pirb_tasks,
         pirb_jobs_per_worker=pirb_jobs_per_worker,
+        pirb_threads=pirb_threads,
+        pirb_batch_size=pirb_batch_size,
     )
 
 
@@ -465,6 +490,9 @@ def run_benchmarks_for_model(
             output_dir=str(pirb_output) if pirb_output is not None else None,
             cuda_visible_device=pirb_cuda_visible_device,
             benchmark_label=metric_prefix.removesuffix("/") or label,
+            threads=settings.pirb_threads,
+            batch_size=settings.pirb_batch_size,
+            parallel_workers=settings.pirb_parallel_workers,
         )
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -660,7 +688,11 @@ def _run_parallel_checkpoint_targets(
     available_devices: Queue[str] = Queue()
     for device in selected_devices:
         available_devices.put(device)
-    worker_settings = replace(settings, log_to_wandb=False)
+    worker_settings = replace(
+        settings,
+        log_to_wandb=False,
+        pirb_parallel_workers=len(selected_devices),
+    )
 
     def run_target(target: BenchmarkTarget) -> dict[str, Any]:
         device = available_devices.get()
@@ -708,7 +740,11 @@ def _run_parallel_pirb_chunks(
     available_devices: Queue[str] = Queue()
     for device in selected_devices:
         available_devices.put(device)
-    worker_settings = replace(settings, log_to_wandb=False)
+    worker_settings = replace(
+        settings,
+        log_to_wandb=False,
+        pirb_parallel_workers=len(selected_devices),
+    )
 
     def run_job(target: BenchmarkTarget, chunk: PirbTaskChunk) -> dict[str, Any]:
         device = available_devices.get()

@@ -167,6 +167,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum sequence length used by PIRB evaluation.",
     )
     parser.add_argument(
+        "--pirb-threads",
+        "--pirb_threads",
+        dest="pirb_threads",
+        type=int,
+        default=None,
+        help=(
+            "Lucene/Anserini threads used by a single PIRB worker. "
+            "Defaults to the detected CPU budget divided by the number of parallel workers."
+        ),
+    )
+    parser.add_argument(
+        "--pirb-batch-size",
+        "--pirb_batch_size",
+        dest="pirb_batch_size",
+        type=int,
+        default=None,
+        help="Encoding batch size used by PIRB evaluation.",
+    )
+    parser.add_argument(
         "--remove-checkpoints",
         "--remove_checkpoints",
         dest="remove_checkpoints",
