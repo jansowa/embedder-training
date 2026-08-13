@@ -129,6 +129,53 @@ def test_run_pirb_keeps_backend_defaults_when_budget_is_unknown(monkeypatch, tmp
     assert "batch_size" not in cfg_entry
 
 
+def test_run_pirb_limits_subprocess_thread_pools(monkeypatch, tmp_path):
+    monkeypatch.setenv("SLURM_CPUS_PER_TASK", "8")
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.delenv("MKL_NUM_THREADS", raising=False)
+    monkeypatch.delenv("TOKENIZERS_PARALLELISM", raising=False)
+
+    _, env = _run_pirb_config(monkeypatch, tmp_path, parallel_workers=4)
+
+    assert env["OMP_NUM_THREADS"] == "2"
+    assert env["MKL_NUM_THREADS"] == "2"
+    assert env["TOKENIZERS_PARALLELISM"] == "false"
+
+
+def test_run_pirb_keeps_explicit_thread_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("SLURM_CPUS_PER_TASK", "8")
+    monkeypatch.setenv("OMP_NUM_THREADS", "6")
+    monkeypatch.setenv("TOKENIZERS_PARALLELISM", "true")
+
+    _, env = _run_pirb_config(monkeypatch, tmp_path, parallel_workers=4)
+
+    assert env["OMP_NUM_THREADS"] == "6"
+    assert env["TOKENIZERS_PARALLELISM"] == "true"
+    assert env["MKL_NUM_THREADS"] == "2"
+
+
+def test_run_pirb_leaves_thread_environment_alone_when_budget_is_unknown(monkeypatch, tmp_path):
+    monkeypatch.delenv("SLURM_CPUS_PER_TASK", raising=False)
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+
+    def unavailable(_pid):
+        raise OSError("no affinity mask")
+
+    monkeypatch.setattr("os.sched_getaffinity", unavailable)
+    monkeypatch.setattr("os.cpu_count", lambda: None)
+
+    _, env = _run_pirb_config(monkeypatch, tmp_path)
+
+    assert "OMP_NUM_THREADS" not in env
+    assert "MKL_NUM_THREADS" not in env
+
+
+def test_run_pirb_keeps_cuda_visible_device(monkeypatch, tmp_path):
+    _, env = _run_pirb_config(monkeypatch, tmp_path, cuda_visible_device="3")
+
+    assert env["CUDA_VISIBLE_DEVICES"] == "3"
+
+
 def test_benchmark_settings_read_pirb_threads_and_batch_size_from_config():
     from training.benchmarks import resolve_benchmark_settings
 

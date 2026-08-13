@@ -331,12 +331,17 @@ def run_pirb(
     if benchmark_label:
         cmd.extend(["--benchmark_label", benchmark_label])
 
-    run_kwargs = {"check": True, "cwd": pirb_root}
+    env = os.environ.copy()
     if cuda_visible_device is not None:
-        env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_device)
-        run_kwargs["env"] = env
-    subprocess.run(cmd, **run_kwargs)
+    # Torch/OpenMP and the fast tokenizers size their pools from the whole
+    # node, which oversubscribes the cores when several PIRB workers share it.
+    # Values already exported by the caller are left untouched.
+    if resolved_threads is not None:
+        for variable in ("OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+            env.setdefault(variable, str(int(resolved_threads)))
+    env.setdefault("TOKENIZERS_PARALLELISM", "false")
+    subprocess.run(cmd, check=True, cwd=pirb_root, env=env)
 
     data = json.loads(results_json.read_text(encoding="utf-8"))
     metrics = data["results"][0]

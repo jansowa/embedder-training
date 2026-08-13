@@ -54,6 +54,10 @@ Main parameters:
 - `--resume`: resume each run from its latest `checkpoint-*` or preserved epoch checkpoint.
 - `--resume-from-checkpoint PATH`: resume a single run from a specific checkpoint directory.
 
+Running the benchmarks on a Slurm cluster, including how the CPU budget is split
+between parallel PIRB workers and a recommended sbatch fragment, is documented in
+`docs/hpc-benchmarks.md`.
+
 Available backends, installation variants, lazy-import behavior, SentenceTransformers dense/Matryoshka/SPLADE training, PyLate ColBERT training, extension-point training types, and smoke tests are documented in `docs/training-backends.md`.
 Declarative pre-training dataset filters can be configured with `dataset_filter`; the profile format, cache behavior, and filtered smoke test are also documented there.
 
