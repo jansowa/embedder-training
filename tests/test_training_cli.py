@@ -4763,10 +4763,11 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
 
     calls = {}
 
-    def fake_run(cmd, check, cwd):
+    def fake_run(cmd, check, cwd, env=None):
         calls["cmd"] = cmd
         calls["check"] = check
         calls["cwd"] = cwd
+        calls["env"] = env
         results_path = Path(cmd[cmd.index("--results_json") + 1])
         results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 1.0}]}), encoding="utf-8")
 
@@ -4802,7 +4803,7 @@ def test_run_pirb_keeps_dense_config_without_sparse_marker(monkeypatch, tmp_path
 
     calls = {}
 
-    def fake_run(cmd, check, cwd):
+    def fake_run(cmd, check, cwd, env=None):
         calls["cmd"] = cmd
         results_path = Path(cmd[cmd.index("--results_json") + 1])
         results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 2.0}]}), encoding="utf-8")
