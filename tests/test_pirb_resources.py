@@ -295,3 +295,50 @@ def test_parallel_runners_split_the_cpu_budget_across_workers(monkeypatch, tmp_p
     run_benchmarks_for_targets(targets, settings, runner=fake_runner, prepare_pirb=lambda: None)
 
     assert captured == [2, 2]
+
+
+def _training_config(**benchmark_overrides):
+    benchmark = {"run_pirb": True, "pirb_scope": "all"}
+    benchmark.update(benchmark_overrides)
+    return {
+        "benchmark": benchmark,
+        "sentence_transformers": {"train_batch_size": 8, "run_name": "nq"},
+        "train_data": "https://example.invalid/train_pl.jsonl",
+    }
+
+
+def test_a_benchmark_batch_size_on_the_cli_keeps_the_resume_fingerprint():
+    """Raising the benchmark batch size must not invalidate a finished training.
+
+    verify_resume_metadata refuses to skip training when the resolved config
+    fingerprint moved, and the fingerprint covers the whole config including its
+    benchmark section - so the batch size has to arrive as a CLI argument.
+    """
+    from training.benchmarks import resolve_benchmark_settings
+    from training.run_metadata import config_fingerprint
+
+    config = _training_config()
+    fingerprint = config_fingerprint(config)
+    cli_args = SimpleNamespace(pirb_batch_size=128, run_pirb=True)
+
+    settings = resolve_benchmark_settings(config, {}, cli_args)
+
+    assert settings.pirb_batch_size == 128
+    assert config_fingerprint(config) == fingerprint, "a CLI argument must not touch the fingerprint"
+
+
+def test_the_same_batch_size_in_the_config_does_change_the_fingerprint():
+    """The counterpart: editing the YAML is what would break the resume."""
+    from training.run_metadata import config_fingerprint
+
+    assert config_fingerprint(_training_config()) != config_fingerprint(_training_config(pirb_batch_size=128))
+
+
+def test_the_cli_batch_size_wins_over_the_config():
+    from training.benchmarks import resolve_benchmark_settings
+
+    settings = resolve_benchmark_settings(
+        _training_config(pirb_batch_size=32), {}, SimpleNamespace(pirb_batch_size=128, run_pirb=True)
+    )
+
+    assert settings.pirb_batch_size == 128
