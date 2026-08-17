@@ -46,10 +46,42 @@ JDK_URL = ("https://github.com/adoptium/temurin21-binaries/releases/download/"
 JDK_DIR_NAME = "jdk-21.0.5+11"
 PYTHON_VERSION = "3.10.4"
 
-# NanoBEIR corpora are a few thousand documents each: real datasets, minutes to
-# encode, megabytes on disk. Three tasks give one that finishes before the first
-# kill and two that get interrupted.
-TASKS = ["NanoNFCorpus", "NanoSciFact", "NanoFiQA2018"]
+# Real PIRB tasks, chosen for being the smallest of their kind. NanoBEIR corpora
+# are a few thousand documents each and carry the kills. The two PolEval splits are
+# the smallest PIRB-native task there is (allegro-faq: 921 passages, 352 KB) and
+# they cover what the BEIR-shaped tasks cannot: a corpus outside
+# data/<task_id>/passages/ and, between the two of them, a cache directory shared
+# by several tasks over one corpus - which is how all seven PolEval tasks are laid
+# out in pirb-without-private.json.
+TASKS = [
+    {"config": {"task_id": "NanoNFCorpus", "type": "beir", "lang": "en"},
+     "task_id": "NanoNFCorpus", "cache": "NanoNFCorpus",
+     "corpus": "NanoNFCorpus/passages/passages.jsonl"},
+    {"config": {"task_id": "NanoSciFact", "type": "beir", "lang": "en"},
+     "task_id": "NanoSciFact", "cache": "NanoSciFact",
+     "corpus": "NanoSciFact/passages/passages.jsonl"},
+    {"config": {"task_id": "NanoFiQA2018", "type": "beir", "lang": "en"},
+     "task_id": "NanoFiQA2018", "cache": "NanoFiQA2018",
+     "corpus": "NanoFiQA2018/passages/passages.jsonl"},
+    {"config": {"split": "test-A", "domain": "allegro-faq", "type": "poleval"},
+     "task_id": "poleval-2022-test-A-allegro-faq", "cache": "poleval-2022-allegro-faq",
+     "corpus": "poleval-2022/allegro-faq/passages/passages.jsonl"},
+    {"config": {"split": "test-B", "domain": "allegro-faq", "type": "poleval"},
+     "task_id": "poleval-2022-test-B-allegro-faq", "cache": "poleval-2022-allegro-faq",
+     "corpus": "poleval-2022/allegro-faq/passages/passages.jsonl"},
+]
+TASK_IDS = [task["task_id"] for task in TASKS]
+
+
+def task_entry(task_id: str) -> Dict:
+    for task in TASKS:
+        if task["task_id"] == task_id:
+            return task
+    raise KeyError(task_id)
+KILL_TASKS = ["NanoSciFact", "NanoFiQA2018"]
+# Tasks whose cache directory is shared with another task, and how many of them
+# may encode the corpus: exactly one.
+SHARED_CACHE = "poleval-2022-allegro-faq"
 
 # Versions come from the repository's own requirements.lock, which is the only
 # resolution that satisfies both halves of the pipeline: SPLADE training needs the
@@ -151,16 +183,24 @@ class Sandbox:
         env.update(extra)
         return env
 
-    def task_paths(self, task_id: str) -> Dict[str, Path]:
+    def task_paths(self, task_id: str, cache_dir: Optional[Path] = None) -> Dict[str, Path]:
+        """Where a task's artifacts live.
+
+        Neither the cache directory nor the corpus can be derived from the task id:
+        PolEval keeps its corpus under poleval-2022/<domain>/ and shares one cache
+        directory between its splits.
+        """
+        entry = task_entry(task_id)
         model_name = str(self.final_model).replace("/", "_").replace(".", "_")
-        base = self.cache_dir / task_id / model_name
+        cache_root = (cache_dir or self.cache_dir) / entry["cache"]
+        base = cache_root / model_name
         return {
-            "corpus": self.data_dir / task_id / "passages" / "passages.jsonl",
+            "corpus": self.data_dir / entry["corpus"],
             "base": base,
             "passages": base / "docs" / "passages.jsonl",
             "manifest": base / "passages_manifest.json",
             "index": base / "lucene_index",
-            "results": self.cache_dir / task_id / "results",
+            "results": cache_root / "results",
         }
 
 
@@ -202,7 +242,7 @@ def phase_env(box: Sandbox) -> None:
 def phase_data(box: Sandbox) -> None:
     """Write the one-off benchmark config and download only its tasks."""
     box.benchmark_config.write_text(
-        json.dumps([{"task_id": task, "type": "beir", "lang": "en"} for task in TASKS], indent=2),
+        json.dumps([task["config"] for task in TASKS], indent=2),
         encoding="utf-8",
     )
     log(f"benchmark config with {len(TASKS)} task(s): {box.benchmark_config}")
@@ -217,9 +257,10 @@ def phase_data(box: Sandbox) -> None:
         "benchmark.prepare(%r)\n"
     ) % (str(PIRB_ROOT), str(box.benchmark_config), str(box.data_dir))
     run([str(box.python), "-c", prepare], env=box.env(), cwd=PIRB_ROOT)
-    for task in TASKS:
-        corpus = box.task_paths(task)["corpus"]
-        log(f"{task}: {count_lines(corpus)} passages, {corpus.stat().st_size / 1e6:.1f} MB")
+    for task_id in TASK_IDS:
+        corpus = box.task_paths(task_id)["corpus"]
+        log(f"{task_id}: {count_lines(corpus)} passages in {corpus.name}, "
+            f"{corpus.stat().st_size / 1e6:.1f} MB")
 
 
 def write_train_config(box: Sandbox) -> Path:
@@ -351,17 +392,17 @@ def encoded_but_not_indexed(box: Sandbox, task: str) -> bool:
     return bool(manifest) and manifest["complete"] and not box.task_paths(task)["index"].is_dir()
 
 
-def results_exist(box: Sandbox, task: str, cache_dir: Optional[Path] = None) -> bool:
-    directory = (cache_dir or box.cache_dir) / task / "results"
-    return bool(glob.glob(str(directory / "*.jsonl.gz")))
+def results_exist(box: Sandbox, task_id: str, cache_dir: Optional[Path] = None) -> bool:
+    directory = box.task_paths(task_id, cache_dir)["results"]
+    return bool(glob.glob(str(directory / f"{task_id}_k*.jsonl.gz")))
 
 
 def describe_state(box: Sandbox, heading: str) -> Dict[str, Dict]:
     """What is on disk for each task, as the next run will see it."""
     state = {}
     log(f"--- {heading} ---")
-    for task in TASKS:
-        paths = box.task_paths(task)
+    for task_id in TASK_IDS:
+        paths = box.task_paths(task_id)
         manifest = read_manifest(paths["manifest"])
         corpus_documents = count_lines(paths["corpus"])
         encoded = manifest["written_doc_count"] if manifest else (
@@ -374,28 +415,34 @@ def describe_state(box: Sandbox, heading: str) -> Dict[str, Dict]:
             "has_manifest": manifest is not None,
             "index_present": paths["index"].is_dir(),
             "index_manifest": read_manifest(paths["index"] / ".index_manifest.json") is not None,
-            "results_cached": results_exist(box, task),
+            "results_cached": results_exist(box, task_id),
         }
-        state[task] = entry
-        log(f"{task:16} encoded {entry['encoded_documents']:>5}/{entry['corpus_documents']:<5} "
+        state[task_id] = entry
+        log(f"{task_id:32} encoded {entry['encoded_documents']:>5}/{entry['corpus_documents']:<5} "
             f"complete={str(entry['encoding_complete']):5} index={str(entry['index_present']):5} "
             f"results={str(entry['results_cached']):5}")
     return state
 
 
-def encoded_document_counts(box: Sandbox, log_name: str) -> Dict[str, str]:
-    """The phase A decision each task took, straight from the run's log."""
-    decisions = {}
+def phase_a_decisions(box: Sandbox, log_name: str) -> List[Dict[str, str]]:
+    """Every phase A decision in a run's log, in order.
+
+    Keyed by cache directory rather than task: the PolEval splits share one, and
+    the point of that pairing is that only the first of them encodes anything.
+    """
+    decisions = []
     log_path = box.logs / f"{log_name}.log"
     if not log_path.exists():
         return decisions
     for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        if "Splade encoding for" in line:
-            _, _, tail = line.partition("Splade encoding for ")
-            directory, _, verdict = tail.partition(": ")
-            for task in TASKS:
-                if f"/{task}/" in directory:
-                    decisions[task] = verdict.strip()
+        if "Splade encoding for" not in line:
+            continue
+        _, _, tail = line.partition("Splade encoding for ")
+        directory, _, verdict = tail.partition(": ")
+        for task in TASKS:
+            if f"/{task['cache']}/" in directory:
+                decisions.append({"cache": task["cache"], "verdict": verdict.strip()})
+                break
     return decisions
 
 
@@ -408,7 +455,7 @@ def phase_run(box: Sandbox, keep_cache: bool) -> Dict:
         box.results_resumed.unlink(missing_ok=True)
         box.results_control.unlink(missing_ok=True)
 
-    first_task, second_task, third_task = TASKS
+    second_task, third_task = KILL_TASKS
     documents = count_lines(box.task_paths(second_task)["corpus"])
 
     # Kill 1: the first task is behind us, the second is halfway through the GPU
@@ -442,7 +489,7 @@ def phase_run(box: Sandbox, keep_cache: bool) -> Dict:
         "after_first_kill": after_first_kill,
         "after_second_kill": after_second_kill,
         "final_state": final_state,
-        "decisions": {name: encoded_document_counts(box, name)
+        "decisions": {name: phase_a_decisions(box, name)
                       for name in ("run1-kill-in-encoding", "run2-kill-in-indexing", "run3-finish")},
     }
 
@@ -496,11 +543,26 @@ def phase_verify(box: Sandbox, observations: Optional[Dict]) -> None:
         for task, state in observations["final_state"].items():
             if not state["encoding_complete"] or not state["index_present"]:
                 failures.append(f"{task} is still incomplete after the finishing run")
-        resumed_tasks = [task for task, verdict in observations["decisions"]["run3-finish"].items()
-                         if verdict.startswith(("RESUME", "REUSE"))]
-        log(f"phase A decisions in the finishing run: {observations['decisions']['run3-finish']}")
-        if not resumed_tasks:
-            failures.append("the finishing run re-encoded everything instead of resuming")
+
+        every_decision = [decision for run in observations["decisions"].values() for decision in run]
+        for run_name, decisions in observations["decisions"].items():
+            for decision in decisions:
+                log(f"{run_name:22} {decision['cache']:26} {decision['verdict']}")
+        if not any(decision["verdict"].startswith("RESUME") for decision in every_decision):
+            failures.append("no task resumed a partial corpus; the kills did not land in phase A")
+        if not any(decision["verdict"].startswith("REUSE") for decision in every_decision):
+            failures.append("no task reused a finished corpus; the kills did not land in phase B")
+
+        # Several PIRB tasks share one cache directory over one corpus - all seven
+        # PolEval tasks do. Only the first of them may encode it.
+        shared = [decision for decision in every_decision if decision["cache"] == SHARED_CACHE]
+        log(f"phase A executions for the shared cache {SHARED_CACHE}: {len(shared)} "
+            f"({[decision['verdict'].split(' ')[0] for decision in shared]})")
+        encodings = [decision for decision in shared if decision["verdict"].startswith("REBUILD")]
+        if len(encodings) > 1:
+            failures.append(
+                f"the corpus of {SHARED_CACHE} was encoded {len(encodings)} times, once per split"
+            )
 
     if failures:
         log("FAILED:")
