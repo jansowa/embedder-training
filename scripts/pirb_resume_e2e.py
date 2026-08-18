@@ -101,6 +101,8 @@ PACKAGES = [
     # pyserini.encode builds an OpenAI client at import time with an empty key,
     # which openai 3.x rejects outright; the lock pins the 1.x that tolerates it.
     "openai==1.102.0",
+    # Needed to exercise the benchmark logging path for real, in offline mode.
+    "wandb",
     "tqdm",
     "pyyaml",
     # The HerBERT tokenizer is a slow XLM tokenizer, hence sentencepiece and
@@ -572,7 +574,110 @@ def phase_verify(box: Sandbox, observations: Optional[Dict]) -> None:
     log("PASSED: interrupted and uninterrupted runs agree, and the work was resumed, not redone")
 
 
-PHASES = ("env", "data", "train", "skip", "run", "verify")
+WANDB_CHECK = r"""
+import json, os, sys, glob
+sys.path.insert(0, {repo!r})
+import convert_utils
+import training.backends.sentence_transformers_backend as backend
+
+# Everything about W&B here is real: a genuine wandb.init in offline mode, the real
+# _log_to_wandb, the real manifest lookup. Only the benchmark subprocess is stubbed,
+# because its metrics are what the logging carries and the run phase already covers
+# how they are computed.
+convert_utils.run_pirb = lambda *args, **kwargs: {{"pirb_average_ndcg@10": 47.15, "pirb_datasets": 5}}
+
+config = {{
+    "sentence_transformers": {{
+        "output_dir": {output_dir!r},
+        "report_to": ["wandb"],
+        "run_name": "resume-e2e",
+    }},
+    "benchmark": {{
+        "run_pirb": True,
+        "run_mteb": False,
+        "parallel_pirb_tasks": False,
+        "parallel_checkpoints": False,
+        "log_to_wandb": True,
+    }},
+}}
+request = backend.TrainingRequest(
+    backend="sentence-transformers", training_type="splade", config=config,
+    config_path="<memory>", cli_args=type("Args", (), {{
+        "resume_if_available": True, "run_pirb": True, "pirb_scope": "tiny",
+    }})(),
+)
+
+skipped = backend._skip_completed_training(request, default_output_dir={output_dir!r})
+run_id = json.load(open(os.path.join({output_dir!r}, "training_manifest.json"),
+                        encoding="utf-8")).get("wandb_run_id")
+print("skipped_training:", skipped)
+print("run_id_of_record:", run_id)
+
+# Offline runs keep their data in a transaction log; no summary file is written
+# until a sync, so the log itself is what has to be inspected.
+runs = glob.glob(os.path.join({output_dir!r}, "wandb", "offline-run-*"))
+print("offline_runs:", len(runs))
+print("run_dir_carries_run_id:", all(run_id in os.path.basename(run) for run in runs) and bool(runs))
+logged = set()
+for run in runs:
+    for path in glob.glob(os.path.join(run, "*.wandb")):
+        blob = open(path, "rb").read()
+        for key in ("final/pirb_average_ndcg@10", "final/pirb_datasets", "benchmark/checkpoint_label"):
+            if key.encode() in blob:
+                logged.add(key)
+print("logged_keys:", sorted(logged))
+"""
+
+
+def phase_wandb(box: Sandbox) -> None:
+    """Check that a skipped training still logs its benchmark metrics to W&B.
+
+    Offline mode gives a real wandb run without credentials or network: the run
+    lands in a local directory whose summary file is then read back.
+    """
+    if not box.final_model.is_dir():
+        raise SystemExit("run the train phase first: the check needs a manifest to attach to")
+    manifest_path = box.model_dir / "training_manifest.json"
+    if not manifest_path.exists():
+        raise SystemExit(f"no training manifest at {manifest_path}")
+    shutil.rmtree(box.model_dir / "wandb", ignore_errors=True)
+
+    script = WANDB_CHECK.format(repo=str(REPO_ROOT), output_dir=str(box.model_dir))
+    result = subprocess.run(
+        [str(box.python), "-c", script], cwd=str(box.model_dir), capture_output=True, text=True,
+        env=box.env(WANDB_MODE="offline", WANDB_DIR=str(box.model_dir), WANDB_SILENT="true"),
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"the W&B check failed:\n{result.stdout[-3000:]}\n{result.stderr[-3000:]}")
+    observed = dict(
+        line.split(": ", 1) for line in result.stdout.splitlines() if ": " in line and not line.startswith(" ")
+    )
+    reported = ("skipped_training", "run_id_of_record", "offline_runs",
+                "run_dir_carries_run_id", "logged_keys")
+    for key in reported:
+        log(f"{key}: {observed.get(key)}")
+    failures = []
+    if observed.get("skipped_training") != "True":
+        failures.append("the training was not treated as complete")
+    if observed.get("offline_runs") in (None, "0"):
+        failures.append("no W&B run was created for the benchmarks")
+    if observed.get("run_dir_carries_run_id") != "True":
+        failures.append("the benchmarks logged to a new run instead of the run of record")
+    if observed.get("run_id_of_record") in (None, "None"):
+        failures.append("no run id was recorded in the training manifest")
+    for key in ("final/pirb_average_ndcg@10", "benchmark/checkpoint_label"):
+        if key not in (observed.get("logged_keys") or ""):
+            failures.append(f"{key} never reached the W&B run")
+    if failures:
+        log("FAILED:")
+        for failure in failures:
+            log(f"  - {failure}")
+        log(result.stdout[-2000:])
+        raise SystemExit(1)
+    log("PASSED: a skipped training logs its benchmark metrics into the run of record")
+
+
+PHASES = ("env", "data", "train", "skip", "wandb", "run", "verify")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -604,6 +709,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         phase_train(box)
     if "skip" in phases:
         phase_skip(box)
+    if "wandb" in phases:
+        phase_wandb(box)
     if "run" in phases:
         observations = phase_run(box, keep_cache=args.keep_cache)
         observations_path.write_text(json.dumps(observations, indent=2), encoding="utf-8")
