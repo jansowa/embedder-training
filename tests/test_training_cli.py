@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import sys
 from textwrap import dedent
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -303,6 +303,7 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
             "max_seq_length": max_seq_length,
             "scope": scope,
             "output_dir": output_dir,
+            "benchmark_label": kwargs.get("benchmark_label"),
         }
         return {"pirb_average_ndcg@10": 0.25}
 
@@ -333,11 +334,42 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
     assert calls["pirb"]["max_seq_length"] == 384
     assert calls["pirb"]["scope"] == "small"
     assert calls["pirb"]["output_dir"] == str(tmp_path / "bench" / "final" / "pirb")
+    assert calls["pirb"]["benchmark_label"] == "final"
     assert metrics == {
         "final/mean_ndcg_at_10": 0.5,
         "final/pirb_average_ndcg@10": 0.25,
     }
     assert json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8")) == metrics
+
+
+def test_benchmark_wandb_logging_uses_checkpoint_metadata_without_rewinding_step(monkeypatch):
+    from training import benchmarks
+
+    calls = []
+    fake_wandb = SimpleNamespace(
+        run=SimpleNamespace(step=34501),
+        log=lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+
+    benchmarks._log_to_wandb(
+        {"step-1500/pirb_average_ndcg@10": 54.48},
+        step=1500,
+        label="step-1500",
+    )
+
+    assert calls == [
+        (
+            (
+                {
+                    "step-1500/pirb_average_ndcg@10": 54.48,
+                    "benchmark/checkpoint_label": "step-1500",
+                    "benchmark/checkpoint_step": 1500,
+                },
+            ),
+            {},
+        )
+    ]
 
 
 def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
@@ -364,10 +396,10 @@ def test_resolve_benchmark_targets_selects_configured_checkpoints(tmp_path):
     targets = resolve_benchmark_targets(output_dir, settings)
 
     assert [(target.label, target.path.relative_to(output_dir), target.step) for target in targets] == [
-        ("final", Path("final"), 0),
         ("epoch-0001", Path("epoch-checkpoints") / "epoch-0001-step-123", 123),
         ("epoch-0002", Path("epoch-checkpoints") / "epoch-0002-step-456", 456),
         ("step-20000", Path("step-checkpoints") / "step-20000", 20000),
+        ("final", Path("final"), 20000),
     ]
 
 
@@ -454,7 +486,7 @@ def test_run_benchmarks_for_targets_uses_one_worker_per_visible_gpu(monkeypatch,
     assert list(results) == ["target-0", "target-1", "target-2", "target-3"]
 
 
-def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monkeypatch, tmp_path):
+def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monkeypatch, tmp_path, capsys):
     import threading
 
     from training import benchmarks
@@ -565,6 +597,10 @@ def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monke
         assert metrics[f"{target.label}/pirb_average_ndcg@10"] == 4.0
         metrics_path = settings.output_dir / target.label / "metrics.json"
         assert json.loads(metrics_path.read_text(encoding="utf-8")) == metrics
+
+    output = capsys.readouterr().out
+    for target in targets:
+        assert f"[checkpoint: {target.label}] Average NDCG@10 for 7 tasks: 4.00" in output
 
 
 def test_pirb_prepare_keeps_shared_cache_tasks_in_one_group(tmp_path):
@@ -951,6 +987,26 @@ def test_conditional_resume_uses_latest_checkpoint_when_available(tmp_path):
     )
 
     assert checkpoint == str(output_dir / "checkpoint-200")
+
+
+def test_conditional_resume_skips_training_when_final_model_exists(tmp_path):
+    from training.checkpoints import should_skip_training_for_final
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+
+    assert should_skip_training_for_final(
+        output_dir,
+        {},
+        {},
+        SimpleNamespace(resume=False, resume_if_available=True, resume_from_checkpoint=None),
+    )
+    assert not should_skip_training_for_final(
+        output_dir,
+        {},
+        {},
+        SimpleNamespace(resume=True, resume_if_available=False, resume_from_checkpoint=None),
+    )
 
 
 def test_conditional_resume_can_expand_a_grid_without_treating_auto_as_a_path(monkeypatch, tmp_path):
@@ -3028,10 +3084,11 @@ def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypa
 
     class FakeTrainer:
         def __init__(self, model, args, train_dataset, loss):
-            pass
+            self.state = SimpleNamespace(global_step=0)
 
         def train(self):
             calls["trained"] = True
+            self.state.global_step = 1
 
     def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
         calls["benchmarks"].append(
@@ -3080,7 +3137,7 @@ def test_sentence_transformers_embedder_benchmarks_selected_checkpoints(monkeypa
     assert calls["trained"] is True
     assert calls["saved"] == str(output_dir / "final")
     assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls["benchmarks"]] == [
-        ("final", "final/", 0),
+        ("final", "final/", 1),
         ("epoch-0001", "epoch-0001/", 123),
         ("step-20000", "step-20000/", 20000),
     ]
@@ -3767,6 +3824,44 @@ def test_sentence_transformers_splade_resumes_from_epoch_checkpoint(monkeypatch,
     assert calls["resume"] == str(checkpoint)
 
 
+def test_sentence_transformers_splade_auto_resume_skips_completed_training_and_runs_benchmarks(
+    monkeypatch,
+    tmp_path,
+):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    calls = []
+
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_load_sparse_sentence_transformers",
+        lambda: pytest.fail("the training stack must not be loaded for a completed run"),
+    )
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_run_sentence_transformers_post_training_benchmarks",
+        lambda resolved_output_dir, config, backend_config, request: calls.append(resolved_output_dir),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={"output_dir": str(output_dir)},
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(
+            resume=False,
+            resume_if_available=True,
+            resume_from_checkpoint=None,
+        ),
+    )
+
+    assert sentence_transformers_backend.run_training(request) == 0
+    assert calls == [output_dir]
+
+
 def test_sentence_transformers_splade_can_use_margin_mse_scores(monkeypatch, tmp_path):
     from training.backends import sentence_transformers_backend
     from training.backends.registry import TrainingRequest
@@ -4112,10 +4207,11 @@ def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, 
 
     class FakeTrainer:
         def __init__(self, model, args, train_dataset, loss):
-            pass
+            self.state = SimpleNamespace(global_step=0)
 
         def train(self):
             calls["trained"] = True
+            self.state.global_step = 1
 
     def fake_run_benchmarks_for_model(model_dir, settings, metric_prefix, step, label):
         calls["benchmark"] = {
@@ -4173,7 +4269,7 @@ def test_sentence_transformers_splade_runs_post_training_benchmark(monkeypatch, 
     assert calls["saved"] == str(output_dir / "final")
     assert calls["benchmark"]["model_dir"] == str((output_dir / "final").resolve())
     assert calls["benchmark"]["metric_prefix"] == "final/"
-    assert calls["benchmark"]["step"] == 0
+    assert calls["benchmark"]["step"] == 1
     assert calls["benchmark"]["label"] == "final"
     settings = calls["benchmark"]["settings"]
     assert settings.run_pirb is True
@@ -4231,18 +4327,99 @@ def test_sentence_transformers_post_training_benchmarks_selected_checkpoints(mon
     sentence_transformers_backend._run_sentence_transformers_post_training_benchmarks(output_dir, request.config, {}, request)
 
     assert [(call["label"], call["metric_prefix"], call["step"]) for call in calls] == [
-        ("final", "final/", 0),
         ("epoch-0001", "epoch-0001/", 123),
         ("epoch-0002", "epoch-0002/", 456),
         ("step-20000", "step-20000/", 20000),
+        ("final", "final/", 20000),
     ]
     assert [Path(call["model_dir"]) for call in calls] == [
-        (output_dir / "final").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0001-step-123").resolve(),
         (output_dir / "epoch-checkpoints" / "epoch-0002-step-456").resolve(),
         (output_dir / "step-checkpoints" / "step-20000").resolve(),
+        (output_dir / "final").resolve(),
     ]
-    assert barriers == [True, True]
+    assert barriers == [True]
+
+
+def test_sentence_transformers_post_training_benchmarks_non_main_rank_exits(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend
+    from training.backends.registry import TrainingRequest
+
+    output_dir = tmp_path / "out"
+    (output_dir / "final").mkdir(parents=True)
+    calls = []
+    barriers = []
+    left_group = []
+
+    monkeypatch.setattr(sentence_transformers_backend, "is_main_process", lambda: False)
+    monkeypatch.setattr(sentence_transformers_backend, "is_torchrun_child", lambda: True)
+    monkeypatch.setattr(sentence_transformers_backend, "process_rank", lambda: 2)
+    monkeypatch.setattr(sentence_transformers_backend, "barrier_if_distributed", lambda: barriers.append(True))
+    monkeypatch.setattr(sentence_transformers_backend, "_leave_process_group", lambda: left_group.append(True))
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "run_benchmarks_for_targets",
+        lambda *args, **kwargs: calls.append(True),
+    )
+
+    request = TrainingRequest(
+        backend="sentence-transformers",
+        training_type="splade",
+        config={"benchmark": {"run_pirb": True, "scope": "small", "checkpoints": ["final"]}},
+        config_path="config.yaml",
+        cli_args=SimpleNamespace(run_mteb=False, run_pirb=False),
+    )
+
+    sentence_transformers_backend._run_sentence_transformers_post_training_benchmarks(
+        output_dir, request.config, {}, request
+    )
+
+    assert calls == []
+    assert barriers == [True]
+    assert left_group == [True]
+
+
+@pytest.mark.parametrize(
+    ("available", "initialized"),
+    [(False, False), (True, False), (True, True)],
+)
+def test_sentence_transformers_leave_process_group_only_destroys_initialized_group(
+    monkeypatch, available, initialized
+):
+    from training.backends import sentence_transformers_backend
+
+    calls = []
+    fake_dist = ModuleType("torch.distributed")
+    fake_dist.is_available = lambda: available
+    fake_dist.is_initialized = lambda: initialized
+    fake_dist.destroy_process_group = lambda: calls.append(True)
+    fake_torch = ModuleType("torch")
+    fake_torch.distributed = fake_dist
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "torch.distributed", fake_dist)
+
+    sentence_transformers_backend._leave_process_group()
+
+    assert calls == ([True] if available and initialized else [])
+
+
+def test_sentence_transformers_leave_process_group_ignores_destroy_error(monkeypatch):
+    from training.backends import sentence_transformers_backend
+
+    fake_dist = ModuleType("torch.distributed")
+    fake_dist.is_available = lambda: True
+    fake_dist.is_initialized = lambda: True
+
+    def fail_destroy():
+        raise RuntimeError("NCCL teardown failed")
+
+    fake_dist.destroy_process_group = fail_destroy
+    fake_torch = ModuleType("torch")
+    fake_torch.distributed = fake_dist
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "torch.distributed", fake_dist)
+
+    sentence_transformers_backend._leave_process_group()
 
 
 def test_sentence_transformers_splade_maps_model_cache_dir_to_hf_kwargs():
@@ -4586,10 +4763,11 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
 
     calls = {}
 
-    def fake_run(cmd, check, cwd):
+    def fake_run(cmd, check, cwd, env=None):
         calls["cmd"] = cmd
         calls["check"] = check
         calls["cwd"] = cwd
+        calls["env"] = env
         results_path = Path(cmd[cmd.index("--results_json") + 1])
         results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 1.0}]}), encoding="utf-8")
 
@@ -4601,6 +4779,7 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
         query_instruction_for_retrieval="Pytanie: ",
         scope="tiny",
         output_dir=relative_output_dir,
+        benchmark_label="epoch-0002",
     )
 
     models_config = Path(calls["cmd"][calls["cmd"].index("--models_config") + 1])
@@ -4611,6 +4790,7 @@ def test_run_pirb_marks_sparse_encoder_as_splade(monkeypatch, tmp_path):
     assert results_path.is_absolute()
     assert cfg[0]["type"] == "splade"
     assert cfg[0]["q_prefix"] == "Pytanie: "
+    assert calls["cmd"][calls["cmd"].index("--benchmark_label") + 1] == "epoch-0002"
     assert metrics == {"pirb_average_ndcg@10": 1.0}
 
 
@@ -4623,7 +4803,7 @@ def test_run_pirb_keeps_dense_config_without_sparse_marker(monkeypatch, tmp_path
 
     calls = {}
 
-    def fake_run(cmd, check, cwd):
+    def fake_run(cmd, check, cwd, env=None):
         calls["cmd"] = cmd
         results_path = Path(cmd[cmd.index("--results_json") + 1])
         results_path.write_text(json.dumps({"results": [{"average_ndcg@10": 2.0}]}), encoding="utf-8")

@@ -59,7 +59,7 @@ BACKENDS: dict[str, BackendSpec] = {
     ),
     "sentence-transformers": BackendSpec(
         name="sentence-transformers",
-        module="training.backends.sentence_transformers_backend",
+        module="training.backends.sentence_transformers_ddp_backend",
         supported_training_types=(
             "embedder",
             "matryoshka",
@@ -124,4 +124,3 @@ def validate_backend_training_type(backend: str, training_type: str) -> BackendS
 
 def load_backend_module(spec: BackendSpec) -> ModuleType:
     return importlib.import_module(spec.module)
-

@@ -20,9 +20,10 @@ from training.checkpoints import (
     build_epoch_checkpoint_callback,
     build_step_checkpoint_callback,
     resolve_resume_checkpoint,
+    should_skip_training_for_final,
     train_with_resume,
 )
-from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, wait_for_files
+from training.distributed import barrier_if_distributed, is_main_process, is_torchrun_child, process_rank
 from training.multi_dataset import (
     LoadedTrainingRows,
     PROPORTIONAL_BATCH_BEST_EFFORT,
@@ -31,7 +32,7 @@ from training.multi_dataset import (
     normalize_dataset_mix_strategy,
     resolve_dataset_sources,
 )
-from training.wandb_tracking import reports_to_wandb, wandb_run_environment
+from training.wandb_tracking import reports_to_wandb, wandb_run_environment, wandb_run_for_benchmarks
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -547,6 +548,21 @@ def _save_final_model(trainer: Any, model: Any, final_dir: Path, *, label: str) 
     barrier_if_distributed()
 
 
+# If a distributed phase is ever added after post-training benchmarks, its process
+# group must be initialized again after non-main ranks leave it here.
+def _leave_process_group() -> None:
+    """Tear down the NCCL process group so a non-main rank can exit cleanly."""
+    try:
+        import torch.distributed as dist
+    except Exception:
+        return
+    if dist.is_available() and dist.is_initialized():
+        try:
+            dist.destroy_process_group()
+        except Exception:
+            pass
+
+
 def _run_sentence_transformers_post_training_benchmarks(
     output_dir: Path,
     config: dict[str, Any],
@@ -573,34 +589,60 @@ def _run_sentence_transformers_post_training_benchmarks(
         return
 
     _release_training_gpu_memory(trainer, model)
-    targets = resolve_benchmark_targets(output_dir, settings)
-    distributed = is_torchrun_child()
-    marker = output_dir / ".post-training-benchmarks.complete"
-    main_process = is_main_process()
-    if distributed:
-        if main_process:
-            marker.unlink(missing_ok=True)
-        barrier_if_distributed()
-
-    benchmark_error: BaseException | None = None
+    trainer_state = getattr(trainer, "state", None)
+    raw_final_step = getattr(trainer_state, "global_step", None)
     try:
-        if main_process:
-            for target in targets:
-                print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
-            run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
-        elif distributed:
-            wait_for_files([marker])
-    except BaseException as exc:
-        benchmark_error = exc
-    finally:
-        if distributed:
-            if main_process:
-                marker.touch()
-            barrier_if_distributed()
-            if main_process:
-                marker.unlink(missing_ok=True)
-    if benchmark_error is not None:
-        raise benchmark_error
+        final_step = int(raw_final_step) if raw_final_step is not None else None
+    except (TypeError, ValueError):
+        final_step = None
+    targets = resolve_benchmark_targets(output_dir, settings, final_step=final_step)
+    distributed = is_torchrun_child()
+    main_process = is_main_process()
+
+    # All ranks must call the barrier, otherwise the collective deadlocks.
+    barrier_if_distributed()
+
+    if distributed and not main_process:
+        # Only rank 0 runs benchmarks; the remaining ranks have no work here.
+        _leave_process_group()
+        print(f"[INFO] Rank {process_rank()} exiting before post-training benchmarks.", flush=True)
+        return
+
+    for target in targets:
+        print(f"[INFO] Running post-training benchmarks for {target.label}: {target.path}.", flush=True)
+    run_benchmarks_for_targets(targets, settings, runner=run_benchmarks_for_model)
+
+
+def _skip_completed_training(
+    request: TrainingRequest,
+    *,
+    default_output_dir: str,
+) -> bool:
+    config = request.config
+    backend_config = _backend_config(config)
+    output_dir = Path(str(_resolve_value(config, backend_config, "output_dir", default_output_dir)))
+    if not should_skip_training_for_final(output_dir, config, backend_config, request.cli_args):
+        return False
+
+    if is_main_process():
+        print(
+            f"[INFO] Final model already exists at {output_dir / 'final'}; skipping completed training.",
+            flush=True,
+        )
+    # No trainer runs on this path, so nothing would open the W&B run that the
+    # benchmark logger writes into.
+    with wandb_run_for_benchmarks(
+        output_dir,
+        report_to=backend_config.get("report_to", []),
+        configured_run_id=backend_config.get("wandb_run_id"),
+    ):
+        _run_sentence_transformers_post_training_benchmarks(
+            output_dir,
+            config,
+            backend_config,
+            request,
+        )
+    return True
 
 
 def _release_training_gpu_memory(trainer: Any, model: Any) -> None:
@@ -1079,6 +1121,9 @@ def _resolve_matryoshka_dims(backend_config: dict[str, Any], model: Any) -> list
 
 
 def run_embedder_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers"):
+        return 0
+
     (
         Dataset,
         SentenceTransformer,
@@ -1143,6 +1188,9 @@ def run_embedder_training(request: TrainingRequest) -> int:
 
 
 def run_matryoshka_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers-matryoshka"):
+        return 0
+
     (
         Dataset,
         SentenceTransformer,
@@ -1217,6 +1265,9 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
 
 
 def run_splade_training(request: TrainingRequest) -> int:
+    if _skip_completed_training(request, default_output_dir="runs/sentence-transformers-splade"):
+        return 0
+
     (
         Dataset,
         SparseEncoder,
