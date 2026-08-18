@@ -1,0 +1,8 @@
+uv venv --python 3.10.4 .venv
+source .venv/bin/activate
+uv pip compile requirements.in \
+    -o requirements.lock \
+    --extra-index-url https://download.pytorch.org/whl/cu126 \
+    --index-url https://pypi.org/simple \
+    --override overrides.txt \
+    --index-strategy unsafe-best-match

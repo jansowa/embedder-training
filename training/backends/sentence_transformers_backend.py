@@ -32,7 +32,7 @@ from training.multi_dataset import (
     normalize_dataset_mix_strategy,
     resolve_dataset_sources,
 )
-from training.wandb_tracking import reports_to_wandb, wandb_run_environment
+from training.wandb_tracking import reports_to_wandb, wandb_run_environment, wandb_run_for_benchmarks
 
 
 class SentenceTransformersConfigError(ValueError):
@@ -629,12 +629,19 @@ def _skip_completed_training(
             f"[INFO] Final model already exists at {output_dir / 'final'}; skipping completed training.",
             flush=True,
         )
-    _run_sentence_transformers_post_training_benchmarks(
+    # No trainer runs on this path, so nothing would open the W&B run that the
+    # benchmark logger writes into.
+    with wandb_run_for_benchmarks(
         output_dir,
-        config,
-        backend_config,
-        request,
-    )
+        report_to=backend_config.get("report_to", []),
+        configured_run_id=backend_config.get("wandb_run_id"),
+    ):
+        _run_sentence_transformers_post_training_benchmarks(
+            output_dir,
+            config,
+            backend_config,
+            request,
+        )
     return True
 
 
