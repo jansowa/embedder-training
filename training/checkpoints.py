@@ -225,6 +225,19 @@ def resolve_resume_checkpoint(
     return str(ensure_checkpoint_path(Path(resume_spec)))
 
 
+def should_skip_training_for_final(
+    output_dir: Path,
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+    cli_args: Any,
+) -> bool:
+    """Treat an existing final model as completed for conditional resume only."""
+    return (
+        resume_spec_from_sources(config, backend_config, cli_args) == AUTO_RESUME
+        and (output_dir / "final").is_dir()
+    )
+
+
 class EpochCheckpointCallback:
     """Copy end-of-epoch checkpoints outside Trainer's save_total_limit rotation."""
 

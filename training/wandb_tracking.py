@@ -59,3 +59,62 @@ def wandb_run_environment(
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+@contextmanager
+def wandb_run_for_benchmarks(
+    output_dir: Path,
+    *,
+    report_to: Any,
+    configured_run_id: str | None = None,
+) -> Iterator[None]:
+    """Open the training run's W&B run so that benchmarks can log into it.
+
+    During training the trainer's own W&B callback creates the run, and the
+    benchmarks that follow log into it. When training is skipped because a final
+    model already exists there is no trainer, so nothing ever calls ``wandb.init``
+    and every benchmark metric is dropped by ``_log_to_wandb``, silently. This
+    reattaches to the run recorded in the training manifest instead, which puts
+    the metrics of a re-run benchmark on the same run as the model they describe.
+
+    Anything missing - wandb not installed, no manifest, no credentials - leaves
+    the block running without a run rather than failing the benchmark.
+    """
+    if not is_main_process() or not reports_to_wandb(report_to):
+        yield
+        return
+    try:
+        import wandb
+    except ModuleNotFoundError:
+        yield
+        return
+    if getattr(wandb, "run", None) is not None:
+        # A trainer already opened it; logging into two runs would split the data.
+        yield
+        return
+
+    try:
+        run_id = get_or_create_wandb_run_id(output_dir, requested_id=configured_run_id)
+    except Exception as error:
+        print(f"[WARN] Benchmark metrics will not reach W&B: {error}", flush=True)
+        yield
+        return
+    if run_id is None:
+        print(
+            "[WARN] Benchmark metrics will not reach W&B: this run has no training manifest.",
+            flush=True,
+        )
+        yield
+        return
+
+    try:
+        wandb.init(id=run_id, resume="allow")
+    except Exception as error:
+        print(f"[WARN] Could not attach to W&B run {run_id}: {error}", flush=True)
+        yield
+        return
+    print(f"[INFO] Logging benchmark metrics to W&B run: {run_id}", flush=True)
+    try:
+        yield
+    finally:
+        wandb.finish()

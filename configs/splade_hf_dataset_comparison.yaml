@@ -23,7 +23,7 @@ sentence_transformers:
   train_batch_size: 4
   batch_sampler: no_duplicates
   gradient_accumulation_steps: 8
-  gradient_checkpointing: true
+  gradient_checkpointing: false
   fp16: true
   splade_pooling_chunk_size: 32
   negatives_per_query: 10

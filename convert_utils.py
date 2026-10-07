@@ -235,6 +235,36 @@ def run_mteb(st_dir: str, tasks, batch_size: int = 64, output_folder: str | None
 
 
 
+def detect_cpu_budget() -> int | None:
+    """Number of CPU cores this process may use, or ``None`` when unknown.
+
+    ``SLURM_CPUS_PER_TASK`` wins because Slurm allocations are usually smaller
+    than the node, and cgroup limits are not always reflected in the affinity
+    mask.
+    """
+    slurm_cpus = os.environ.get("SLURM_CPUS_PER_TASK")
+    if slurm_cpus:
+        try:
+            slurm_budget = int(slurm_cpus)
+        except ValueError:
+            slurm_budget = 0
+        if slurm_budget > 0:
+            return slurm_budget
+    try:
+        affinity = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        affinity = os.cpu_count() or 0
+    return affinity if affinity > 0 else None
+
+
+def cpu_budget_per_worker(parallel_workers: int = 1) -> int | None:
+    """CPU cores available to a single PIRB worker, or ``None`` when unknown."""
+    budget = detect_cpu_budget()
+    if budget is None:
+        return None
+    return max(1, budget // max(1, parallel_workers))
+
+
 def run_pirb(
     st_dir: str,
     query_instruction_for_retrieval: str,
@@ -243,6 +273,10 @@ def run_pirb(
     model_type: str | None = None,
     output_dir: str | None = None,
     cuda_visible_device: str | None = None,
+    benchmark_label: str | None = None,
+    threads: int | None = None,
+    batch_size: int | None = None,
+    parallel_workers: int = 1,
 ) -> dict[str, Any]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
@@ -270,6 +304,15 @@ def run_pirb(
     if model_type:
         cfg_entry["type"] = model_type
 
+    # Sizing Lucene/Anserini threads from the actual CPU allocation avoids
+    # oversubscription when several PIRB workers share one node. Without a
+    # detectable budget the backend keeps its own default.
+    resolved_threads = threads if threads is not None else cpu_budget_per_worker(parallel_workers)
+    if resolved_threads is not None:
+        cfg_entry["threads"] = int(resolved_threads)
+    if batch_size is not None:
+        cfg_entry["batch_size"] = int(batch_size)
+
     cfg = [cfg_entry]
     models_cfg.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -285,13 +328,20 @@ def run_pirb(
         "--scope", normalized_scope,
         "--benchmark_config", "config/benchmarks/pirb-without-private.json"
     ]
+    if benchmark_label:
+        cmd.extend(["--benchmark_label", benchmark_label])
 
-    run_kwargs = {"check": True, "cwd": pirb_root}
+    env = os.environ.copy()
     if cuda_visible_device is not None:
-        env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_device)
-        run_kwargs["env"] = env
-    subprocess.run(cmd, **run_kwargs)
+    # Torch/OpenMP and the fast tokenizers size their pools from the whole
+    # node, which oversubscribes the cores when several PIRB workers share it.
+    # Values already exported by the caller are left untouched.
+    if resolved_threads is not None:
+        for variable in ("OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+            env.setdefault(variable, str(int(resolved_threads)))
+    env.setdefault("TOKENIZERS_PARALLELISM", "false")
+    subprocess.run(cmd, check=True, cwd=pirb_root, env=env)
 
     data = json.loads(results_json.read_text(encoding="utf-8"))
     metrics = data["results"][0]

@@ -11,7 +11,7 @@ from pathlib import Path
 from queue import Queue
 from typing import Any, Callable, Iterable, Sequence
 
-from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR
+from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR, checkpoint_step
 from training.distributed import visible_cuda_devices
 
 
@@ -66,6 +66,11 @@ class BenchmarkSettings:
     parallel_checkpoint_workers: int | None = None
     parallel_pirb_tasks: bool = True
     pirb_jobs_per_worker: int = 2
+    pirb_threads: int | None = None
+    pirb_batch_size: int | None = None
+    # Number of PIRB subprocesses sharing the node; used to split the CPU
+    # budget when 'pirb_threads' is not set explicitly.
+    pirb_parallel_workers: int = 1
 
     @property
     def enabled(self) -> bool:
@@ -218,6 +223,24 @@ def resolve_benchmark_settings(
     )
     if pirb_jobs_per_worker <= 0:
         raise ValueError("'benchmark.pirb_jobs_per_worker' must be greater than zero.")
+    pirb_threads_value = _first_value(
+        getattr(cli_args, "pirb_threads", None),
+        _config_value(config, backend_config, "pirb_threads"),
+    )
+    pirb_threads = None
+    if pirb_threads_value is not None:
+        pirb_threads = int(pirb_threads_value)
+        if pirb_threads <= 0:
+            raise ValueError("'benchmark.pirb_threads' must be greater than zero.")
+    pirb_batch_size_value = _first_value(
+        getattr(cli_args, "pirb_batch_size", None),
+        _config_value(config, backend_config, "pirb_batch_size"),
+    )
+    pirb_batch_size = None
+    if pirb_batch_size_value is not None:
+        pirb_batch_size = int(pirb_batch_size_value)
+        if pirb_batch_size <= 0:
+            raise ValueError("'benchmark.pirb_batch_size' must be greater than zero.")
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -235,6 +258,8 @@ def resolve_benchmark_settings(
         parallel_checkpoint_workers=parallel_checkpoint_workers,
         parallel_pirb_tasks=parallel_pirb_tasks,
         pirb_jobs_per_worker=pirb_jobs_per_worker,
+        pirb_threads=pirb_threads,
+        pirb_batch_size=pirb_batch_size,
     )
 
 
@@ -289,6 +314,25 @@ def _latest_epoch_checkpoint(output_dir: Path, epoch: int) -> Path | None:
     )
 
 
+def _latest_known_training_step(output_dir: Path, *, step_checkpoint_dir: str) -> int | None:
+    checkpoint_dirs = [
+        *(path for path in output_dir.glob("checkpoint-*") if path.is_dir()),
+        *(path for path in (output_dir / "epoch-checkpoints").glob("epoch-*-step-*") if path.is_dir()),
+        *(path for path in (output_dir / step_checkpoint_dir).glob("step-*") if path.is_dir()),
+    ]
+    steps = []
+    for path in checkpoint_dirs:
+        step = checkpoint_step(path)
+        if step < 0 and path.name.startswith("step-"):
+            try:
+                step = int(path.name.removeprefix("step-"))
+            except ValueError:
+                pass
+        if step >= 0:
+            steps.append(step)
+    return max(steps) if steps else None
+
+
 def _warn_missing_target(label: str, expected: Path | str) -> None:
     LOGGER.warning("Selected benchmark checkpoint '%s' was not found at %s; skipping.", label, expected)
 
@@ -298,6 +342,7 @@ def _resolve_benchmark_target(
     spec: Any,
     *,
     step_checkpoint_dir: str = DEFAULT_STEP_CHECKPOINT_DIR,
+    final_step: int | None = None,
 ) -> BenchmarkTarget | None:
     if isinstance(spec, str):
         normalized = spec.strip().lower()
@@ -306,7 +351,7 @@ def _resolve_benchmark_target(
             if not path.is_dir():
                 _warn_missing_target("final", path)
                 return None
-            return BenchmarkTarget(label="final", path=path, step=0)
+            return BenchmarkTarget(label="final", path=path, step=final_step)
         LOGGER.warning("Ignoring unsupported benchmark checkpoint selector %r.", spec)
         return None
 
@@ -342,7 +387,17 @@ def _resolve_benchmark_target(
     return None
 
 
-def resolve_benchmark_targets(output_dir: Path, settings: BenchmarkSettings) -> list[BenchmarkTarget]:
+def resolve_benchmark_targets(
+    output_dir: Path,
+    settings: BenchmarkSettings,
+    *,
+    final_step: int | None = None,
+) -> list[BenchmarkTarget]:
+    if final_step is None:
+        final_step = _latest_known_training_step(
+            output_dir,
+            step_checkpoint_dir=settings.step_checkpoint_dir,
+        )
     specs = settings.checkpoints if settings.checkpoints is not None else ("final",)
     targets: list[BenchmarkTarget] = []
     for spec in specs:
@@ -350,10 +405,18 @@ def resolve_benchmark_targets(output_dir: Path, settings: BenchmarkSettings) -> 
             output_dir,
             spec,
             step_checkpoint_dir=settings.step_checkpoint_dir,
+            final_step=final_step,
         )
         if target is not None:
             targets.append(target)
-    return targets
+    return sorted(
+        targets,
+        key=lambda target: (
+            target.step is None,
+            target.step if target.step is not None else 0,
+            target.label == "final",
+        ),
+    )
 
 
 def _load_mteb_tasks(benchmark_name: str):
@@ -366,14 +429,23 @@ def _load_mteb_tasks(benchmark_name: str):
     return mteb.get_benchmarks(names=[benchmark_name])
 
 
-def _log_to_wandb(metrics: dict[str, Any], *, step: int | None) -> None:
+def _log_to_wandb(metrics: dict[str, Any], *, step: int | None, label: str) -> None:
     try:
         import wandb
     except ModuleNotFoundError:
         return
     if getattr(wandb, "run", None) is None:
         return
-    wandb.log(metrics, step=step)
+    payload = {
+        **metrics,
+        "benchmark/checkpoint_label": label,
+    }
+    if step is not None:
+        payload["benchmark/checkpoint_step"] = step
+    # Benchmark checkpoints are evaluated after training, when W&B's internal
+    # step has already advanced past their training steps. Passing ``step=``
+    # here would make W&B reject historical checkpoint results as out of order.
+    wandb.log(payload)
 
 
 def run_benchmarks_for_model(
@@ -417,6 +489,10 @@ def run_benchmarks_for_model(
             scope=settings.pirb_scope,
             output_dir=str(pirb_output) if pirb_output is not None else None,
             cuda_visible_device=pirb_cuda_visible_device,
+            benchmark_label=metric_prefix.removesuffix("/") or label,
+            threads=settings.pirb_threads,
+            batch_size=settings.pirb_batch_size,
+            parallel_workers=settings.pirb_parallel_workers,
         )
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -424,7 +500,7 @@ def run_benchmarks_for_model(
         (output_root / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
 
     if metrics and settings.log_to_wandb:
-        _log_to_wandb(metrics, step=step)
+        _log_to_wandb(metrics, step=step, label=label)
 
     return metrics
 
@@ -612,7 +688,11 @@ def _run_parallel_checkpoint_targets(
     available_devices: Queue[str] = Queue()
     for device in selected_devices:
         available_devices.put(device)
-    worker_settings = replace(settings, log_to_wandb=False)
+    worker_settings = replace(
+        settings,
+        log_to_wandb=False,
+        pirb_parallel_workers=len(selected_devices),
+    )
 
     def run_target(target: BenchmarkTarget) -> dict[str, Any]:
         device = available_devices.get()
@@ -637,7 +717,7 @@ def _run_parallel_checkpoint_targets(
     if settings.log_to_wandb:
         for target, metrics in zip(targets, ordered_metrics):
             if metrics:
-                _log_to_wandb(metrics, step=target.step)
+                _log_to_wandb(metrics, step=target.step, label=target.label)
     return results
 
 
@@ -660,7 +740,11 @@ def _run_parallel_pirb_chunks(
     available_devices: Queue[str] = Queue()
     for device in selected_devices:
         available_devices.put(device)
-    worker_settings = replace(settings, log_to_wandb=False)
+    worker_settings = replace(
+        settings,
+        log_to_wandb=False,
+        pirb_parallel_workers=len(selected_devices),
+    )
 
     def run_job(target: BenchmarkTarget, chunk: PirbTaskChunk) -> dict[str, Any]:
         device = available_devices.get()
@@ -705,10 +789,20 @@ def _run_parallel_pirb_chunks(
             ordered_parts,
             metric_prefix=f"{target.label}/",
         )
+        datasets_key = f"{target.label}/pirb_datasets"
+        average_prefix = f"{target.label}/pirb_average_ndcg@"
+        for key, value in sorted(metrics.items()):
+            if key.startswith(average_prefix):
+                ndcg_k = key.removeprefix(average_prefix)
+                print(
+                    f"[checkpoint: {target.label}] Average NDCG@{ndcg_k} "
+                    f"for {metrics[datasets_key]} tasks: {float(value):.2f}",
+                    flush=True,
+                )
         results[target.label] = metrics
         _write_target_metrics(settings, target, metrics)
         if metrics and settings.log_to_wandb:
-            _log_to_wandb(metrics, step=target.step)
+            _log_to_wandb(metrics, step=target.step, label=target.label)
     return results
 
 
