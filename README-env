@@ -1,8 +1,72 @@
+# Environment
+
+## Virtualenv
+
+```shell
 uv venv --python 3.10.4 .venv
 source .venv/bin/activate
+uv pip sync requirements.lock \
+    --extra-index-url https://download.pytorch.org/whl/cu128 \
+    --index-url https://pypi.org/simple \
+    --index-strategy unsafe-best-match
+```
+
+## Regenerating the lock
+
+The committed `requirements.lock` is built for CUDA 12.8 wheels and Python 3.10.
+`--python-version` matters: resolving with a newer interpreter drops the
+conditional dependencies that Python 3.10 still needs, such as `async-timeout`,
+`exceptiongroup`, and `tomli`.
+
+```shell
 uv pip compile requirements.in \
     -o requirements.lock \
-    --extra-index-url https://download.pytorch.org/whl/cu126 \
+    --extra-index-url https://download.pytorch.org/whl/cu128 \
     --index-url https://pypi.org/simple \
     --override overrides.txt \
-    --index-strategy unsafe-best-match
+    --index-strategy unsafe-best-match \
+    --python-version 3.10.4
+```
+
+The `cu128` wheels bundle their own CUDA runtime, so the driver is what has to be
+new enough, not the system toolkit: they run on any driver from the CUDA 12.x
+family. Swap the index URL for another variant (for example `cu126`) only if a
+driver turns out to be too old.
+
+## Java for PIRB
+
+PIRB retrieval runs on Anserini through pyserini, and pyserini 0.39 ships a fat
+jar built for Java 21. A system JDK is often older, which fails at JVM startup
+with a `jnius.JavaException` while loading the Anserini classes.
+
+`third_party/pirb/utils/system.py` reads `JAVA_HOME` and otherwise guesses the
+JDK from `which java`, so an older default JDK is picked up silently. Export the
+right one before running a benchmark or the full test suite:
+
+```shell
+export JAVA_HOME=/path/to/jdk-21.0.5+11
+```
+
+If the machine has no JDK 21, install one next to the project without touching
+the system default:
+
+```shell
+mkdir -p ~/opt && cd ~/opt
+curl -fsSL -o jdk21.tar.gz \
+    "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_x64_linux_hotspot_21.0.5_11.tar.gz"
+tar xzf jdk21.tar.gz && rm jdk21.tar.gz
+export JAVA_HOME=$HOME/opt/jdk-21.0.5+11
+```
+
+`scripts/pirb_resume_e2e.py` downloads the same build into its own `--root`, so
+it stays independent of this setup.
+
+## Tests
+
+```shell
+pytest -q
+```
+
+`pytest` is part of `requirements.lock`. Tests under `third_party/pirb/` start a
+real JVM, so they need `JAVA_HOME` from the section above; everything under
+`tests/` runs without it.
