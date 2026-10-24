@@ -381,6 +381,17 @@ python scripts/benchmark_model.py \
 
 `--tasks` accepts the presets `tiny` (PIRB's size-based tiny scope), `quick6` (six cheap tasks across three groups), and `maupqa` (every MaupQA task of the benchmark config), or a comma-separated list of PIRB task ids.
 
+`scripts/compare_results.py` turns several of those files into one table:
+
+```bash
+python scripts/compare_results.py "results/*/pirb_results.json" \
+  --leaderboard data.json \
+  --format markdown \
+  --output results/comparison.md
+```
+
+The table reports `NDCG@10` per task, a mean row, per-group means, the number of compared tasks, and the difference of every column against the first reference column. All of those numbers are computed on the intersection of the tasks that every column scored: tasks missing from any column are listed in a warning and excluded, so two means are never computed over different task sets. `--leaderboard` takes the `data.json` of the PIRB leaderboard; `--leaderboard-models` defaults to `./models/polish-splade` and `./models/mmlw/mmlw-retrieval-roberta-base` and adds them as reference columns. The delta reference is the first leaderboard column, or the first result column when no leaderboard is given; `--reference` overrides it.
+
 Parameters only for `matryoshka`:
 
 | Field | Description |
