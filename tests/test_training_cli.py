@@ -339,7 +339,13 @@ def test_run_benchmarks_for_model_uses_explicit_parameters(monkeypatch, tmp_path
         "final/mean_ndcg_at_10": 0.5,
         "final/pirb_average_ndcg@10": 0.25,
     }
-    assert json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8")) == metrics
+    written = json.loads((tmp_path / "bench" / "final" / "metrics.json").read_text(encoding="utf-8"))
+    assert written.items() >= metrics.items()
+    assert written["model"] == "runs/model/final"
+    assert written["scope"] == "small"
+    assert written["created_at"]
+    assert "git_commit" in written
+    assert "pirb_task_selection" not in written
 
 
 def test_benchmark_wandb_logging_uses_checkpoint_metadata_without_rewinding_step(monkeypatch):
@@ -596,7 +602,10 @@ def test_run_benchmarks_for_targets_dynamically_schedules_pirb_task_groups(monke
         assert metrics[f"{target.label}/pirb_ndcg_tasks"] == 28.0
         assert metrics[f"{target.label}/pirb_average_ndcg@10"] == 4.0
         metrics_path = settings.output_dir / target.label / "metrics.json"
-        assert json.loads(metrics_path.read_text(encoding="utf-8")) == metrics
+        written = json.loads(metrics_path.read_text(encoding="utf-8"))
+        assert written.items() >= metrics.items()
+        assert written["scope"] == "small"
+        assert written["created_at"]
 
     output = capsys.readouterr().out
     for target in targets:

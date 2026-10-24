@@ -1,5 +1,5 @@
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 from pathlib import Path
 import subprocess
@@ -77,6 +77,22 @@ def build_parser() -> argparse.ArgumentParser:
         help='PIRB scope to run: "tiny", "small", or "all" (default: tiny).',
     )
     parser.add_argument(
+        "--pirb-tasks",
+        "--pirb_tasks",
+        dest="pirb_tasks",
+        default=None,
+        help=(
+            "Restrict PIRB evaluation to selected tasks: a preset name ('quick6', 'maupqa') "
+            "or a comma-separated list of task ids. The scope then only drives data preparation."
+        ),
+    )
+    parser.add_argument(
+        "--benchmark-output-dir",
+        dest="benchmark_output_dir",
+        default=None,
+        help="Directory for benchmark outputs. Each evaluated model writes <output-dir>/<label>/metrics.json.",
+    )
+    parser.add_argument(
         "--benchmark-target",
         dest="benchmark_targets",
         action="append",
@@ -122,6 +138,10 @@ def run_training_mode(args: argparse.Namespace) -> int:
         "--pirb-scope",
         args.pirb_scope,
     ]
+    if args.pirb_tasks:
+        cmd.extend(["--pirb-tasks", args.pirb_tasks])
+    if args.benchmark_output_dir:
+        cmd.extend(["--benchmark-output-dir", args.benchmark_output_dir])
     if args.run_mteb:
         cmd.append("--run-mteb")
     if args.run_pirb:
@@ -171,11 +191,61 @@ def iter_benchmark_targets_from_args(args):
     return [parse_benchmark_target(raw, args.default_query_instruction) for raw in args.benchmark_targets]
 
 
-def log_benchmarks_for_st_model(st_model_dir, epoch_idx, query_instruction, args, tasks):
+def benchmark_settings_from_args(args):
+    """Build the shared benchmark settings for `--mode benchmark`."""
+    from training.benchmarks import BenchmarkSettings, resolve_pirb_task_selection
+
+    selection = resolve_pirb_task_selection(args.pirb_tasks)
+    return BenchmarkSettings(
+        run_mteb=bool(args.run_mteb),
+        run_pirb=bool(args.run_pirb),
+        benchmark_name=args.benchmark_name,
+        pirb_scope=args.pirb_scope,
+        batch_size=64,
+        pirb_max_seq_length=512,
+        query_instruction_for_retrieval="",
+        pirb_task_selection=selection,
+        pirb_task_selection_label=args.pirb_tasks if selection is not None else None,
+    )
+
+
+def benchmark_output_root(args, model_or_path, *, target_count):
+    """Base directory for one target's metrics.json files, or None when disabled.
+
+    A single target writes `<output-dir>/<label>/metrics.json`; several targets
+    are kept apart by an extra directory so they cannot overwrite each other.
+    """
+    if not args.benchmark_output_dir:
+        return None
+    root = Path(args.benchmark_output_dir)
+    if target_count <= 1:
+        return root
+    return root / model_or_path.replace("/", "_").replace(".", "_")
+
+
+def _metrics_path(output_root, label):
+    return Path(output_root) / label / "metrics.json" if output_root is not None else None
+
+
+def log_benchmarks_for_st_model(
+    st_model_dir,
+    epoch_idx,
+    query_instruction,
+    args,
+    tasks,
+    *,
+    metrics_path=None,
+):
     """
     Run MTEB and PIRB for a SentenceTransformer model and log results to W&B.
     """
     from convert_utils import run_mteb, run_pirb
+    from training.benchmarks import write_benchmark_metrics
+
+    settings = benchmark_settings_from_args(args)
+    # An explicit task selection replaces the scope, so the averages and dataset
+    # counts PIRB reports cover exactly the selected tasks.
+    scope = ",".join(settings.pirb_task_selection) if settings.pirb_task_selection else args.pirb_scope
 
     prefix = f"epoch{epoch_idx}/" if epoch_idx is not None else ""
     metrics_to_log = {}
@@ -188,15 +258,23 @@ def log_benchmarks_for_st_model(st_model_dir, epoch_idx, query_instruction, args
         metrics_pirb = run_pirb(
             st_model_dir,
             query_instruction_for_retrieval=query_instruction,
-            scope=args.pirb_scope,
+            scope=scope,
         )
         metrics_to_log.update({f"{prefix}{key}": value for key, value in metrics_pirb.items()})
 
     if metrics_to_log:
         _load_wandb().log(metrics_to_log, step=epoch_idx or 0)
+        if metrics_path is not None:
+            written = write_benchmark_metrics(
+                Path(metrics_path),
+                metrics_to_log,
+                model=st_model_dir,
+                settings=replace(settings, pirb_scope=scope),
+            )
+            print(f"[INFO] Wrote benchmark metrics to: {written}", flush=True)
 
 
-def run_benchmark_for_flagembedding_run(run_dir, query_instruction, args, tasks):
+def run_benchmark_for_flagembedding_run(run_dir, query_instruction, args, tasks, output_root=None):
     """
     Benchmark one FlagEmbedding run directory:
       - if base-st exists, treat it as epoch0;
@@ -230,17 +308,31 @@ def run_benchmark_for_flagembedding_run(run_dir, query_instruction, args, tasks)
 
     if base_st.exists():
         print(f"[INFO] Benchmarking base-st in {run_dir} (QI: {query_instruction!r})")
-        log_benchmarks_for_st_model(str(base_st.resolve()), epoch_idx=0, query_instruction=query_instruction, args=args, tasks=tasks)
+        log_benchmarks_for_st_model(
+            str(base_st.resolve()),
+            epoch_idx=0,
+            query_instruction=query_instruction,
+            args=args,
+            tasks=tasks,
+            metrics_path=_metrics_path(output_root, "epoch0"),
+        )
 
     for idx, ckpt in enumerate(ckpt_dirs, start=1):
         print(f"[INFO] Benchmarking checkpoint {ckpt} as epoch{idx} (QI: {query_instruction!r})")
         st_dir = ensure_sentence_transformer(str(ckpt))
-        log_benchmarks_for_st_model(st_dir, epoch_idx=idx, query_instruction=query_instruction, args=args, tasks=tasks)
+        log_benchmarks_for_st_model(
+            st_dir,
+            epoch_idx=idx,
+            query_instruction=query_instruction,
+            args=args,
+            tasks=tasks,
+            metrics_path=_metrics_path(output_root, f"epoch{idx}"),
+        )
 
     wandb_run.finish()
 
 
-def run_benchmark_for_single_model(model_name_or_path, query_instruction, args, tasks):
+def run_benchmark_for_single_model(model_name_or_path, query_instruction, args, tasks, output_root=None):
     """
     Benchmark a single model: either a Hugging Face name or a local model directory.
     """
@@ -261,7 +353,14 @@ def run_benchmark_for_single_model(model_name_or_path, query_instruction, args, 
     )
 
     print(f"[INFO] Benchmarking model {model_name_or_path} (QI: {query_instruction!r})")
-    log_benchmarks_for_st_model(st_dir, epoch_idx=0, query_instruction=query_instruction, args=args, tasks=tasks)
+    log_benchmarks_for_st_model(
+        st_dir,
+        epoch_idx=0,
+        query_instruction=query_instruction,
+        args=args,
+        tasks=tasks,
+        metrics_path=_metrics_path(output_root, "final"),
+    )
     wandb_run.finish()
 
 
@@ -278,13 +377,16 @@ def run_benchmark_mode(args, tasks) -> int:
     for target in targets:
         path = Path(target.model_or_path)
         query_instruction = target.query_instruction
+        output_root = benchmark_output_root(args, target.model_or_path, target_count=len(targets))
 
         if path.exists() and path.is_dir():
             has_ckpt = any(path.glob("checkpoint-*"))
             has_base_st = (path / "base-st").exists()
             if has_ckpt or has_base_st:
                 print(f"[INFO] Benchmarking FlagEmbedding run: {path} (QI: {query_instruction!r})")
-                run_benchmark_for_flagembedding_run(path, query_instruction=query_instruction, args=args, tasks=tasks)
+                run_benchmark_for_flagembedding_run(
+                    path, query_instruction=query_instruction, args=args, tasks=tasks, output_root=output_root
+                )
                 continue
 
             subdirs = [subdir for subdir in path.iterdir() if subdir.is_dir()]
@@ -297,15 +399,25 @@ def run_benchmark_mode(args, tasks) -> int:
                     f"(QI: {query_instruction!r}, run count: {len(subdirs_with_runs)})"
                 )
                 for run_dir in sorted(subdirs_with_runs):
-                    run_benchmark_for_flagembedding_run(run_dir, query_instruction=query_instruction, args=args, tasks=tasks)
+                    run_benchmark_for_flagembedding_run(
+                        run_dir,
+                        query_instruction=query_instruction,
+                        args=args,
+                        tasks=tasks,
+                        output_root=output_root / run_dir.name if output_root is not None else None,
+                    )
                 continue
 
             print(f"[INFO] Benchmarking single local model: {path} (QI: {query_instruction!r})")
-            run_benchmark_for_single_model(str(path), query_instruction=query_instruction, args=args, tasks=tasks)
+            run_benchmark_for_single_model(
+                str(path), query_instruction=query_instruction, args=args, tasks=tasks, output_root=output_root
+            )
             continue
 
         print(f"[INFO] Benchmarking Hugging Face model: {target.model_or_path} (QI: {query_instruction!r})")
-        run_benchmark_for_single_model(target.model_or_path, query_instruction=query_instruction, args=args, tasks=tasks)
+        run_benchmark_for_single_model(
+            target.model_or_path, query_instruction=query_instruction, args=args, tasks=tasks, output_root=output_root
+        )
 
     return 0
 

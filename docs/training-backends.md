@@ -211,6 +211,8 @@ in your own `torchrun`; the FlagEmbedding backend already launches `torchrun` in
 | `--run-pirb` / `--run_pirb` | No | Runs PIRB after supported post-training backends. Leave disabled for smoke tests. |
 | `--benchmark-name` | No | MTEB benchmark name. Defaults to `NanoBEIR`. Used only with `--run-mteb`. |
 | `--pirb-scope` / `--pirb_scope` | No | PIRB scope: `tiny`, `small`, or `all`. Used only with `--run-pirb`. |
+| `--pirb-tasks` / `--pirb_tasks` | No | Restrict PIRB to a task preset (`quick6`, `maupqa`) or a comma-separated list of task ids. The scope then only drives data preparation. |
+| `--benchmark-output-dir` | No | Directory for benchmark outputs. Each evaluated model writes `<output-dir>/<label>/metrics.json`. |
 | `--remove-checkpoints` / `--remove_checkpoints` | No | Removes `checkpoint-*` directories after a successful FlagEmbedding run. |
 | `--gpus` | No | Exact GPU ids to expose, for example `0,1` or `2`. Use `auto` for all visible GPUs. |
 | `--num-gpus` | No | Use the first N currently visible GPUs. |
@@ -369,6 +371,37 @@ Benchmark outputs and W&B metric prefixes use the target label:
 <benchmark_output_dir>/epoch-0002/metrics.json
 <benchmark_output_dir>/step-20000/metrics.json
 ```
+
+Besides the metrics, each `metrics.json` records the `model` path, the `scope`, `created_at`, and `git_commit`, plus `pirb_task_selection` when the run evaluated a task selection.
+
+#### Selecting PIRB Tasks
+
+A scope can be narrowed to specific tasks, either with `--pirb-tasks` or with `benchmark.tasks`:
+
+```yaml
+benchmark:
+  run_pirb: true
+  scope: tiny
+  tasks: quick6
+```
+
+```bash
+python -m training.train --backend sentence-transformers --training-type splade \
+  --config configs/weekend/ft_rehearsal_grid.yaml --run-pirb --pirb-tasks quick6
+
+python run_experiments.py --mode benchmark --run_pirb --pirb-tasks maupqa \
+  --benchmark-target "./runs/weekend/ft-lr-1e-5/final::" \
+  --benchmark-output-dir runs/weekend/benchmarks/ft-lr-1e-5
+```
+
+The value is a preset name or a list of PIRB task ids (a plain string may also hold a comma-separated list). The presets live in `training/benchmarks.py`:
+
+| Preset | Tasks |
+| --- | --- |
+| `quick6` | `arguana-pl`, `maupqa-mkqa`, `maupqa-poleval2021-pairs`, `poleval-2022-test-A-allegro-faq`, `poleval-2022-test-A-legal-questions`, `scifact-pl` |
+| `maupqa` | Every task of the MaupQA group, read from the benchmark config so it stays in sync. |
+
+An unknown task id is rejected before the benchmark starts, with the available presets in the message. When a selection is given, the scope only drives data preparation: the selected tasks decide what is evaluated, so `pirb_average_ndcg@10` and `pirb_datasets` cover exactly those tasks. Task selection happens where the cache groups are loaded, so tasks sharing an index cache still stay in the same chunk and the parallel scheduling is unchanged.
 
 #### Comparing Benchmark Runs
 

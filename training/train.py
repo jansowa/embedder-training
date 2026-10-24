@@ -159,6 +159,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="PIRB benchmark scope used with --run-pirb.",
     )
     parser.add_argument(
+        "--pirb-tasks",
+        "--pirb_tasks",
+        dest="pirb_tasks",
+        default=None,
+        help=(
+            "Restrict PIRB evaluation to selected tasks: a preset name ('quick6', 'maupqa') "
+            "or a comma-separated list of task ids. The scope then only drives data preparation."
+        ),
+    )
+    parser.add_argument(
         "--pirb-max-seq-length",
         "--pirb_max_seq_length",
         dest="pirb_max_seq_length",

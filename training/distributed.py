@@ -327,6 +327,8 @@ def argv_from_args(args: Any) -> list[str]:
         argv.append("--run-pirb")
     if getattr(args, "pirb_scope", None) is not None:
         argv.extend(["--pirb-scope", str(args.pirb_scope)])
+    if getattr(args, "pirb_tasks", None) is not None:
+        argv.extend(["--pirb-tasks", str(args.pirb_tasks)])
     if getattr(args, "pirb_max_seq_length", None) is not None:
         argv.extend(["--pirb-max-seq-length", str(args.pirb_max_seq_length)])
     if getattr(args, "pirb_threads", None) is not None:

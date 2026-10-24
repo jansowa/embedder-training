@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from datetime import datetime
 import json
 import logging
 import math
 from pathlib import Path
 from queue import Queue
+import subprocess
 from typing import Any, Callable, Iterable, Sequence
 
 from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR, checkpoint_step
@@ -19,7 +21,23 @@ DEFAULT_BENCHMARK_NAME = "NanoBEIR"
 DEFAULT_PIRB_SCOPE = "tiny"
 DEFAULT_BENCHMARK_BATCH_SIZE = 64
 DEFAULT_PIRB_MAX_SEQ_LENGTH = 512
+PIRB_BENCHMARK_CONFIG_PATH = Path("third_party") / "pirb" / "config" / "benchmarks" / "pirb-without-private.json"
+MAUPQA_GROUP = "MaupQA"
+# Six cheap tasks spread over three PIRB groups, for comparing checkpoints
+# without paying for a full scope.
+QUICK6_TASK_IDS = (
+    "arguana-pl",
+    "maupqa-mkqa",
+    "maupqa-poleval2021-pairs",
+    "poleval-2022-test-A-allegro-faq",
+    "poleval-2022-test-A-legal-questions",
+    "scifact-pl",
+)
 LOGGER = logging.getLogger(__name__)
+
+
+class BenchmarkTaskSelectionError(ValueError):
+    """Raised when a PIRB task selection cannot be resolved."""
 
 
 @dataclass(frozen=True)
@@ -36,6 +54,123 @@ class PirbTaskGroup:
     cache_name: str
     task_ids: tuple[str, ...]
     size_bytes: int
+
+
+def pirb_benchmark_config_path() -> Path:
+    return Path(__file__).resolve().parents[1] / PIRB_BENCHMARK_CONFIG_PATH
+
+
+def pirb_task_groups_from_config(benchmark_config: Path | None = None) -> dict[str, str]:
+    """Map every configured PIRB task id to its group, in configuration order.
+
+    The ids follow the task classes in `third_party/pirb/data.py`; reading them
+    from the benchmark config keeps the presets in sync with the benchmark that
+    is actually run.
+    """
+    path = benchmark_config if benchmark_config is not None else pirb_benchmark_config_path()
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise BenchmarkTaskSelectionError(f"Could not read the PIRB benchmark config '{path}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise BenchmarkTaskSelectionError(f"PIRB benchmark config '{path}' is not valid JSON: {exc}") from exc
+    if not isinstance(entries, list):
+        raise BenchmarkTaskSelectionError(f"PIRB benchmark config '{path}' must contain a list of tasks.")
+
+    task_groups: dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_type = str(entry.get("type", "raw"))
+        if entry_type == "maupqa":
+            task_groups[f"maupqa-{entry['subset']}"] = MAUPQA_GROUP
+        elif entry_type == "poleval":
+            task_groups[f"poleval-2022-{entry['split']}-{entry['domain']}"] = "PolEval-2022"
+        elif entry_type == "beir":
+            task_groups[str(entry["task_id"])] = f"BEIR-{str(entry.get('lang', 'pl')).upper()}"
+        elif entry_type == "mfaq":
+            task_groups["mfaq"] = "Other"
+        elif entry_type == "gpt-exams":
+            task_groups["gpt-exams"] = "Other"
+        elif entry_type == "polqa":
+            task_groups["polqa"] = "Other"
+        elif entry_type == "raw" and entry.get("task_id"):
+            task_groups[str(entry["task_id"])] = "Web"
+    return task_groups
+
+
+def pirb_task_presets(benchmark_config: Path | None = None) -> dict[str, tuple[str, ...]]:
+    """Named task selections, expanded against the PIRB benchmark config."""
+    task_groups = pirb_task_groups_from_config(benchmark_config)
+    return {
+        "quick6": QUICK6_TASK_IDS,
+        "maupqa": tuple(task_id for task_id, group in task_groups.items() if group == MAUPQA_GROUP),
+    }
+
+
+def resolve_pirb_task_selection(
+    value: Any,
+    *,
+    benchmark_config: Path | None = None,
+) -> tuple[str, ...] | None:
+    """Resolve `--pirb-tasks` / `benchmark.tasks` into concrete PIRB task ids.
+
+    The value is either a preset name or a list of task ids; a plain string may
+    also hold a comma-separated list. ``None`` means "run the whole scope".
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        raw_value = value.strip()
+        if not raw_value:
+            return None
+        presets = pirb_task_presets(benchmark_config)
+        if raw_value in presets:
+            selected = list(presets[raw_value])
+            if not selected:
+                raise BenchmarkTaskSelectionError(f"Task preset '{raw_value}' resolved to no task.")
+            return tuple(selected)
+        selected = [task_id.strip() for task_id in raw_value.split(",") if task_id.strip()]
+    elif isinstance(value, (list, tuple)):
+        selected = [str(task_id).strip() for task_id in value if str(task_id).strip()]
+    else:
+        raise BenchmarkTaskSelectionError("'benchmark.tasks' must be a preset name or a list of PIRB task ids.")
+
+    if not selected:
+        return None
+
+    known = pirb_task_groups_from_config(benchmark_config)
+    unknown = [task_id for task_id in selected if task_id not in known]
+    if unknown:
+        presets = ", ".join(sorted(pirb_task_presets(benchmark_config)))
+        raise BenchmarkTaskSelectionError(
+            f"Unknown PIRB task(s): {', '.join(unknown)}. "
+            f"Use a task id from the benchmark config or one of the presets: {presets}."
+        )
+    return tuple(dict.fromkeys(selected))
+
+
+def filter_pirb_task_groups(
+    groups: Sequence[PirbTaskGroup],
+    selection: Sequence[str] | None,
+) -> list[PirbTaskGroup]:
+    """Narrow loaded cache groups to the selected tasks, dropping empty groups.
+
+    Groups stay intact otherwise, so the existing chunk partitioning keeps tasks
+    that share an index cache together.
+    """
+    if not selection:
+        return list(groups)
+    selected = set(selection)
+    filtered: list[PirbTaskGroup] = []
+    for group in groups:
+        task_ids = tuple(task_id for task_id in group.task_ids if task_id in selected)
+        if not task_ids:
+            continue
+        filtered.append(
+            group if task_ids == group.task_ids else replace(group, task_ids=task_ids)
+        )
+    return filtered
 
 
 @dataclass(frozen=True)
@@ -71,6 +206,12 @@ class BenchmarkSettings:
     # Number of PIRB subprocesses sharing the node; used to split the CPU
     # budget when 'pirb_threads' is not set explicitly.
     pirb_parallel_workers: int = 1
+    # Explicit task selection. When set, the scope only drives data preparation
+    # and these tasks decide what is evaluated and averaged.
+    pirb_task_selection: tuple[str, ...] | None = None
+    # The selection as configured, so metrics can record 'quick6' rather than
+    # the expanded list.
+    pirb_task_selection_label: Any = None
 
     @property
     def enabled(self) -> bool:
@@ -241,6 +382,15 @@ def resolve_benchmark_settings(
         pirb_batch_size = int(pirb_batch_size_value)
         if pirb_batch_size <= 0:
             raise ValueError("'benchmark.pirb_batch_size' must be greater than zero.")
+    # The short 'tasks' spelling is read only from a benchmark section, where it
+    # cannot collide with an unrelated training key.
+    task_selection_value = _first_value(
+        getattr(cli_args, "pirb_tasks", None),
+        _config_value(config, backend_config, "pirb_tasks"),
+        benchmark_config.get("tasks"),
+        backend_benchmark_config.get("tasks"),
+    )
+    pirb_task_selection = resolve_pirb_task_selection(task_selection_value)
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -260,7 +410,62 @@ def resolve_benchmark_settings(
         pirb_jobs_per_worker=pirb_jobs_per_worker,
         pirb_threads=pirb_threads,
         pirb_batch_size=pirb_batch_size,
+        pirb_task_selection=pirb_task_selection,
+        pirb_task_selection_label=task_selection_value if pirb_task_selection is not None else None,
     )
+
+
+def git_commit() -> str | None:
+    """Current repository commit, or ``None`` when it cannot be determined."""
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    commit = completed.stdout.strip()
+    return commit if completed.returncode == 0 and commit else None
+
+
+def benchmark_metrics_payload(
+    metrics: dict[str, Any],
+    *,
+    model: str,
+    settings: BenchmarkSettings,
+) -> dict[str, Any]:
+    """Metrics plus the metadata needed to interpret them later."""
+    payload: dict[str, Any] = {
+        "model": str(model),
+        "scope": settings.pirb_scope,
+        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "git_commit": git_commit(),
+    }
+    if settings.pirb_task_selection is not None:
+        payload["pirb_task_selection"] = (
+            settings.pirb_task_selection_label
+            if isinstance(settings.pirb_task_selection_label, str)
+            else list(settings.pirb_task_selection)
+        )
+    payload.update(metrics)
+    return payload
+
+
+def write_benchmark_metrics(
+    path: Path,
+    metrics: dict[str, Any],
+    *,
+    model: str,
+    settings: BenchmarkSettings,
+) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = benchmark_metrics_payload(metrics, model=model, settings=settings)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
 
 
 def _safe_label(value: str) -> str:
@@ -497,7 +702,7 @@ def run_benchmarks_for_model(
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
     if output_root is not None:
-        (output_root / "metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_benchmark_metrics(output_root / "metrics.json", metrics, model=model_dir, settings=settings)
 
     if metrics and settings.log_to_wandb:
         _log_to_wandb(metrics, step=step, label=label)
@@ -617,10 +822,11 @@ def _write_target_metrics(
     if settings.output_dir is None:
         return
     output_root = settings.output_dir / _safe_label(target.label)
-    output_root.mkdir(parents=True, exist_ok=True)
-    (output_root / "metrics.json").write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    write_benchmark_metrics(
+        output_root / "metrics.json",
+        metrics,
+        model=str(target.path.resolve()),
+        settings=settings,
     )
 
 
@@ -819,6 +1025,16 @@ def run_benchmarks_for_targets(
     if not selected_targets:
         return {}
 
+    # An explicit selection replaces the scope for everything that is evaluated,
+    # so the averages and dataset counts cover exactly the selected tasks.
+    if settings.pirb_task_selection:
+        settings = replace(settings, pirb_scope=",".join(settings.pirb_task_selection))
+        print(
+            f"[INFO] Benchmarking {len(settings.pirb_task_selection)} selected PIRB task(s): "
+            f"{', '.join(settings.pirb_task_selection)}.",
+            flush=True,
+        )
+
     devices = _parallel_pirb_devices(settings)
     checkpoint_parallel = settings.parallel_checkpoints and len(selected_targets) > 1
     task_parallel_requested = settings.parallel_pirb_tasks
@@ -838,7 +1054,10 @@ def run_benchmarks_for_targets(
     pirb_prepared = False
     if task_parallel_requested:
         loader = load_pirb_task_groups or _prepare_and_load_pirb_task_groups
-        task_groups = _coerce_pirb_task_groups(loader(settings.pirb_scope))
+        task_groups = filter_pirb_task_groups(
+            _coerce_pirb_task_groups(loader(settings.pirb_scope)),
+            settings.pirb_task_selection,
+        )
         pirb_prepared = True
 
     simultaneous_target_count = len(selected_targets) if checkpoint_parallel else 1
