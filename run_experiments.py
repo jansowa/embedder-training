@@ -116,6 +116,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Encoding batch size used by PIRB evaluation.",
     )
     parser.add_argument(
+        "--remove-pirb-indexes",
+        "--remove_pirb_indexes",
+        dest="remove_pirb_indexes",
+        action="store_true",
+        help=(
+            "Delete each task's cached PIRB index once its metrics are written. "
+            "Indexes of tasks without saved results are kept so a restart can reuse them."
+        ),
+    )
+    parser.add_argument(
         "--benchmark-output-dir",
         dest="benchmark_output_dir",
         default=None,
@@ -173,6 +183,8 @@ def run_training_mode(args: argparse.Namespace) -> int:
         cmd.extend(["--pirb-max-seq-length", str(args.pirb_max_seq_length)])
     if args.pirb_batch_size is not None:
         cmd.extend(["--pirb-batch-size", str(args.pirb_batch_size)])
+    if args.remove_pirb_indexes:
+        cmd.append("--remove-pirb-indexes")
     if args.benchmark_output_dir:
         cmd.extend(["--benchmark-output-dir", args.benchmark_output_dir])
     if args.run_mteb:
@@ -247,6 +259,7 @@ def benchmark_settings_from_args(args):
             DEFAULT_PIRB_MAX_SEQ_LENGTH if args.pirb_max_seq_length is None else args.pirb_max_seq_length
         ),
         pirb_batch_size=args.pirb_batch_size,
+        remove_pirb_indexes=bool(args.remove_pirb_indexes),
         query_instruction_for_retrieval="",
         pirb_task_selection=selection,
         pirb_task_selection_label=args.pirb_tasks if selection is not None else None,

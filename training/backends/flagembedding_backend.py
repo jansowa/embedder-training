@@ -102,6 +102,7 @@ RESERVED_CONFIG_KEYS = {
     "pirb_max_seq_length",
     "pirb_scope",
     "pirb_threads",
+    "remove_pirb_indexes",
     "remove_checkpoints",
     "resume",
     "resume_from_checkpoint",

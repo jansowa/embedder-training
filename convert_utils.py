@@ -1,5 +1,6 @@
 import gc
 import os
+import shutil
 import subprocess
 import tempfile
 import json
@@ -347,6 +348,37 @@ def run_pirb(
     metrics = data["results"][0]
     metrics = {f"pirb_{key}": value for key, value in metrics.items()}
     return metrics
+
+
+def pirb_index_cache_dir(model_dir: str, task_id: str) -> Path:
+    """Directory holding one task's Lucene index and encoded passages.
+
+    PIRB keys the cache by task and by the model path with '/' and '.' replaced,
+    the same slug `SpladeIndex` builds in `third_party/pirb/search/splade.py`.
+    """
+    repo_root = Path(__file__).resolve().parent
+    index_name = str(model_dir).replace("/", "_").replace(".", "_")
+    return repo_root / "third_party" / "pirb" / "cache" / task_id / index_name
+
+
+def remove_pirb_index_cache(model_dir: str, task_ids) -> list[Path]:
+    """Drop the cached indexes of `task_ids` for one model; return what went.
+
+    Only call this once the metrics of those tasks are on disk: an index whose
+    result was never written is what a restart reuses, so removing it early
+    turns a resumable failure into a full re-run.
+    """
+    cache_root = (Path(__file__).resolve().parent / "third_party" / "pirb" / "cache").resolve()
+    removed = []
+    for task_id in task_ids:
+        path = pirb_index_cache_dir(model_dir, task_id)
+        resolved = path.resolve()
+        # Keep the deletion inside the cache: a task id is data, not a path.
+        if cache_root not in resolved.parents or not resolved.is_dir():
+            continue
+        shutil.rmtree(resolved)
+        removed.append(resolved)
+    return removed
 
 
 def prepare_pirb_data(scope: str | None = None) -> list[dict[str, Any]]:

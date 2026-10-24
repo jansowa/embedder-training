@@ -196,6 +196,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Encoding batch size used by PIRB evaluation.",
     )
     parser.add_argument(
+        "--remove-pirb-indexes",
+        "--remove_pirb_indexes",
+        dest="remove_pirb_indexes",
+        action="store_true",
+        help=(
+            "Delete each task's cached PIRB index once its metrics are written. "
+            "Indexes of tasks without saved results are kept so a restart can reuse them."
+        ),
+    )
+    parser.add_argument(
         "--remove-checkpoints",
         "--remove_checkpoints",
         dest="remove_checkpoints",

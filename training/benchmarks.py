@@ -203,6 +203,10 @@ class BenchmarkSettings:
     pirb_jobs_per_worker: int = 2
     pirb_threads: int | None = None
     pirb_batch_size: int | None = None
+    # Drop each task's Lucene index once its metrics are on disk. A benchmark
+    # series builds one index set per model, so without this the cache grows by
+    # gigabytes per candidate.
+    remove_pirb_indexes: bool = False
     # Number of PIRB subprocesses sharing the node; used to split the CPU
     # budget when 'pirb_threads' is not set explicitly.
     pirb_parallel_workers: int = 1
@@ -405,6 +409,13 @@ def resolve_benchmark_settings(
         pirb_batch_size = int(pirb_batch_size_value)
         if pirb_batch_size <= 0:
             raise ValueError("'benchmark.pirb_batch_size' must be greater than zero.")
+    remove_pirb_indexes = bool(
+        _first_value(
+            getattr(cli_args, "remove_pirb_indexes", None),
+            _config_value(config, backend_config, "remove_pirb_indexes"),
+            default=False,
+        )
+    )
     # The short 'tasks' spelling is read only from a benchmark section, where it
     # cannot collide with an unrelated training key.
     task_selection_value = _first_value(
@@ -433,6 +444,7 @@ def resolve_benchmark_settings(
         pirb_jobs_per_worker=pirb_jobs_per_worker,
         pirb_threads=pirb_threads,
         pirb_batch_size=pirb_batch_size,
+        remove_pirb_indexes=remove_pirb_indexes,
         pirb_task_selection=pirb_task_selection,
         pirb_task_selection_label=task_selection_value if pirb_task_selection is not None else None,
     )
@@ -476,6 +488,41 @@ def benchmark_metrics_payload(
         )
     payload.update(metrics)
     return payload
+
+
+# Flattened PIRB metrics mix per-task scores with these run-level entries.
+_PIRB_NON_TASK_KEYS = frozenset({"model", "ndcg_tasks", "datasets", "task_selection"})
+
+
+def benchmarked_pirb_tasks(metrics: dict[str, Any], metric_prefix: str = "") -> list[str]:
+    """Task ids whose score is present in `metrics`.
+
+    The averages carry an '@' and the run-level entries are named, so what is
+    left is one key per evaluated task.
+    """
+    prefix = f"{metric_prefix}pirb_"
+    tasks = []
+    for key in metrics:
+        if not key.startswith(prefix):
+            continue
+        name = key[len(prefix) :]
+        if name in _PIRB_NON_TASK_KEYS or "@" in name:
+            continue
+        tasks.append(name)
+    return tasks
+
+
+def _remove_benchmarked_pirb_indexes(model_dir: str, metrics: dict[str, Any], metric_prefix: str) -> None:
+    from convert_utils import remove_pirb_index_cache
+
+    tasks = benchmarked_pirb_tasks(metrics, metric_prefix)
+    if not tasks:
+        return
+    removed = remove_pirb_index_cache(model_dir, tasks)
+    print(
+        f"[INFO] Removed {len(removed)} cached PIRB index(es) for {len(tasks)} benchmarked task(s).",
+        flush=True,
+    )
 
 
 def write_benchmark_metrics(
@@ -726,6 +773,8 @@ def run_benchmarks_for_model(
 
     if output_root is not None:
         write_benchmark_metrics(output_root / "metrics.json", metrics, model=model_dir, settings=settings)
+        if settings.run_pirb and settings.remove_pirb_indexes:
+            _remove_benchmarked_pirb_indexes(model_dir, metrics, metric_prefix)
 
     if metrics and settings.log_to_wandb:
         _log_to_wandb(metrics, step=step, label=label)

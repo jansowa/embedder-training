@@ -400,3 +400,109 @@ def test_run_experiments_forwards_the_pirb_sizing_flags_to_training(monkeypatch)
     cmd = recorded["cmd"]
     assert cmd[cmd.index("--pirb-max-seq-length") + 1] == "256"
     assert cmd[cmd.index("--pirb-batch-size") + 1] == "16"
+
+
+def _pirb_cache_dir(monkeypatch, tmp_path, model_dir, task_id):
+    """Create a fake cached index for one (task, model) pair."""
+    import convert_utils
+
+    monkeypatch.setattr(convert_utils, "__file__", str(tmp_path / "convert_utils.py"))
+    path = tmp_path / "third_party" / "pirb" / "cache" / task_id / model_dir.replace("/", "_").replace(".", "_")
+    (path / "lucene_index").mkdir(parents=True)
+    (path / "docs").mkdir()
+    (path / "docs" / "passages.jsonl").write_text("{}", encoding="utf-8")
+    return path
+
+
+def test_remove_pirb_index_cache_drops_only_the_named_tasks(monkeypatch, tmp_path):
+    import convert_utils
+
+    model = "/models/soup"
+    kept = _pirb_cache_dir(monkeypatch, tmp_path, model, "scifact-pl")
+    gone = _pirb_cache_dir(monkeypatch, tmp_path, model, "arguana-pl")
+
+    removed = convert_utils.remove_pirb_index_cache(model, ["arguana-pl"])
+
+    assert removed == [gone.resolve()]
+    assert not gone.exists()
+    assert kept.exists(), "a task that was not named keeps its index"
+
+
+def test_remove_pirb_index_cache_ignores_another_model(monkeypatch, tmp_path):
+    import convert_utils
+
+    mine = _pirb_cache_dir(monkeypatch, tmp_path, "/models/soup", "arguana-pl")
+    theirs = _pirb_cache_dir(monkeypatch, tmp_path, "/models/base", "arguana-pl")
+
+    convert_utils.remove_pirb_index_cache("/models/soup", ["arguana-pl"])
+
+    assert not mine.exists()
+    assert theirs.exists(), "the index is keyed by model as well as by task"
+
+
+def test_remove_pirb_index_cache_refuses_to_escape_the_cache(monkeypatch, tmp_path):
+    import convert_utils
+
+    monkeypatch.setattr(convert_utils, "__file__", str(tmp_path / "convert_utils.py"))
+    outside = tmp_path / "precious"
+    outside.mkdir()
+
+    removed = convert_utils.remove_pirb_index_cache("/models/soup", ["../../../../precious"])
+
+    assert removed == []
+    assert outside.exists()
+
+
+def test_benchmarked_pirb_tasks_lists_only_scored_tasks():
+    from training.benchmarks import benchmarked_pirb_tasks
+
+    metrics = {
+        "epoch0/pirb_arguana-pl": 42.8,
+        "epoch0/pirb_scifact-pl": 63.1,
+        "epoch0/pirb_model": "/models/soup",
+        "epoch0/pirb_ndcg_tasks": 105.9,
+        "epoch0/pirb_average_ndcg@10": 52.9,
+        "epoch0/pirb_datasets": 2,
+        "epoch0/mteb_something": 1.0,
+    }
+
+    assert sorted(benchmarked_pirb_tasks(metrics, "epoch0/")) == ["arguana-pl", "scifact-pl"]
+
+
+def test_benchmark_settings_default_to_keeping_the_indexes():
+    from training.benchmarks import resolve_benchmark_settings
+
+    settings = resolve_benchmark_settings({"benchmark": {"run_pirb": True}}, {}, SimpleNamespace())
+
+    assert settings.remove_pirb_indexes is False
+
+
+def test_benchmark_settings_read_remove_pirb_indexes_from_config():
+    from training.benchmarks import resolve_benchmark_settings
+
+    settings = resolve_benchmark_settings(
+        {"benchmark": {"run_pirb": True, "remove_pirb_indexes": True}}, {}, SimpleNamespace()
+    )
+
+    assert settings.remove_pirb_indexes is True
+
+
+def test_run_experiments_benchmark_mode_reads_the_remove_flag():
+    import run_experiments
+
+    args = run_experiments.build_parser().parse_args(
+        ["--mode", "benchmark", "--run_pirb", "--remove-pirb-indexes"]
+    )
+
+    assert run_experiments.benchmark_settings_from_args(args).remove_pirb_indexes is True
+
+
+def test_run_experiments_forwards_the_remove_flag_to_training(monkeypatch):
+    import run_experiments
+
+    recorded = {}
+    monkeypatch.setattr(run_experiments.subprocess, "run", lambda cmd, check: recorded.setdefault("cmd", cmd))
+    args = run_experiments.build_parser().parse_args(["--run_pirb", "--remove-pirb-indexes"])
+    run_experiments.run_training_mode(args)
+
+    assert "--remove-pirb-indexes" in recorded["cmd"]

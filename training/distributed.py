@@ -335,6 +335,8 @@ def argv_from_args(args: Any) -> list[str]:
         argv.extend(["--pirb-threads", str(args.pirb_threads)])
     if getattr(args, "pirb_batch_size", None) is not None:
         argv.extend(["--pirb-batch-size", str(args.pirb_batch_size)])
+    if getattr(args, "remove_pirb_indexes", False):
+        argv.append("--remove-pirb-indexes")
     if getattr(args, "remove_checkpoints", False):
         argv.append("--remove-checkpoints")
     if getattr(args, "resume", False):
