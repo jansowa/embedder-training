@@ -342,3 +342,61 @@ def test_the_cli_batch_size_wins_over_the_config():
     )
 
     assert settings.pirb_batch_size == 128
+
+
+def test_run_experiments_benchmark_mode_reads_the_pirb_sizing_flags():
+    import run_experiments
+
+    args = run_experiments.build_parser().parse_args(
+        [
+            "--mode",
+            "benchmark",
+            "--run_pirb",
+            "--pirb-max-seq-length",
+            "256",
+            "--pirb-batch-size",
+            "16",
+        ]
+    )
+
+    settings = run_experiments.benchmark_settings_from_args(args)
+
+    assert settings.pirb_max_seq_length == 256
+    assert settings.pirb_batch_size == 16
+
+
+def test_run_experiments_benchmark_mode_keeps_the_default_sizing():
+    import run_experiments
+    from training.benchmarks import DEFAULT_PIRB_MAX_SEQ_LENGTH
+
+    args = run_experiments.build_parser().parse_args(["--mode", "benchmark", "--run_pirb"])
+
+    settings = run_experiments.benchmark_settings_from_args(args)
+
+    assert settings.pirb_max_seq_length == DEFAULT_PIRB_MAX_SEQ_LENGTH
+    assert settings.pirb_batch_size is None
+
+
+@pytest.mark.parametrize("flag", ["--pirb-max-seq-length", "--pirb-batch-size"])
+def test_run_experiments_rejects_non_positive_sizing(flag):
+    import run_experiments
+
+    args = run_experiments.build_parser().parse_args(["--mode", "benchmark", "--run_pirb", flag, "0"])
+
+    with pytest.raises(ValueError, match=flag):
+        run_experiments.benchmark_settings_from_args(args)
+
+
+def test_run_experiments_forwards_the_pirb_sizing_flags_to_training(monkeypatch):
+    import run_experiments
+
+    recorded = {}
+    monkeypatch.setattr(run_experiments.subprocess, "run", lambda cmd, check: recorded.setdefault("cmd", cmd))
+    args = run_experiments.build_parser().parse_args(
+        ["--run_pirb", "--pirb-max-seq-length", "256", "--pirb-batch-size", "16"]
+    )
+    run_experiments.run_training_mode(args)
+
+    cmd = recorded["cmd"]
+    assert cmd[cmd.index("--pirb-max-seq-length") + 1] == "256"
+    assert cmd[cmd.index("--pirb-batch-size") + 1] == "16"

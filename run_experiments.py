@@ -100,6 +100,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--pirb-max-seq-length",
+        "--pirb_max_seq_length",
+        dest="pirb_max_seq_length",
+        type=int,
+        default=None,
+        help="Maximum sequence length used by PIRB evaluation.",
+    )
+    parser.add_argument(
+        "--pirb-batch-size",
+        "--pirb_batch_size",
+        dest="pirb_batch_size",
+        type=int,
+        default=None,
+        help="Encoding batch size used by PIRB evaluation.",
+    )
+    parser.add_argument(
         "--benchmark-output-dir",
         dest="benchmark_output_dir",
         default=None,
@@ -153,6 +169,10 @@ def run_training_mode(args: argparse.Namespace) -> int:
     ]
     if args.pirb_tasks:
         cmd.extend(["--pirb-tasks", args.pirb_tasks])
+    if args.pirb_max_seq_length is not None:
+        cmd.extend(["--pirb-max-seq-length", str(args.pirb_max_seq_length)])
+    if args.pirb_batch_size is not None:
+        cmd.extend(["--pirb-batch-size", str(args.pirb_batch_size)])
     if args.benchmark_output_dir:
         cmd.extend(["--benchmark-output-dir", args.benchmark_output_dir])
     if args.run_mteb:
@@ -206,16 +226,27 @@ def iter_benchmark_targets_from_args(args):
 
 def benchmark_settings_from_args(args):
     """Build the shared benchmark settings for `--mode benchmark`."""
-    from training.benchmarks import BenchmarkSettings, resolve_pirb_task_selection
+    from training.benchmarks import (
+        DEFAULT_PIRB_MAX_SEQ_LENGTH,
+        BenchmarkSettings,
+        resolve_pirb_task_selection,
+    )
 
     selection = resolve_pirb_task_selection(args.pirb_tasks)
+    if args.pirb_max_seq_length is not None and args.pirb_max_seq_length <= 0:
+        raise ValueError("'--pirb-max-seq-length' must be greater than zero.")
+    if args.pirb_batch_size is not None and args.pirb_batch_size <= 0:
+        raise ValueError("'--pirb-batch-size' must be greater than zero.")
     return BenchmarkSettings(
         run_mteb=bool(args.run_mteb),
         run_pirb=bool(args.run_pirb),
         benchmark_name=args.benchmark_name,
         pirb_scope=args.pirb_scope,
         batch_size=64,
-        pirb_max_seq_length=512,
+        pirb_max_seq_length=(
+            DEFAULT_PIRB_MAX_SEQ_LENGTH if args.pirb_max_seq_length is None else args.pirb_max_seq_length
+        ),
+        pirb_batch_size=args.pirb_batch_size,
         query_instruction_for_retrieval="",
         pirb_task_selection=selection,
         pirb_task_selection_label=args.pirb_tasks if selection is not None else None,
