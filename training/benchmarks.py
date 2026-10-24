@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
-from datetime import datetime
 import json
 import logging
 import math
 from pathlib import Path
 from queue import Queue
-import subprocess
 from typing import Any, Callable, Iterable, Sequence
 
 from training.checkpoints import DEFAULT_STEP_CHECKPOINT_DIR, checkpoint_step
@@ -21,12 +19,6 @@ DEFAULT_BENCHMARK_NAME = "NanoBEIR"
 DEFAULT_PIRB_SCOPE = "tiny"
 DEFAULT_BENCHMARK_BATCH_SIZE = 64
 DEFAULT_PIRB_MAX_SEQ_LENGTH = 512
-DEFAULT_PIRB_RESULTS_DIR = Path("results")
-PIRB_RESULTS_FILENAME = "pirb_results.json"
-PIRB_RUNLOG_RELATIVE_PATH = Path("third_party") / "pirb" / "runlog.txt"
-# PIRB writes per-task metrics only to its run log; 'Accuracy@1-5' is a list and
-# is therefore left out of the per-task summary.
-PIRB_TASK_METRIC_KEYS = ("NDCG@10", "MRR@10", "Recall@100", "Accuracy@1")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -35,13 +27,6 @@ class BenchmarkTarget:
     label: str
     path: Path
     step: int | None = None
-    # Set for models that are not checkpoints of the current run, for example a
-    # Hugging Face model id that must not be turned into a filesystem path.
-    model: str | None = None
-
-    @property
-    def model_ref(self) -> str:
-        return self.model if self.model is not None else str(self.path.resolve())
 
 
 @dataclass(frozen=True)
@@ -86,14 +71,6 @@ class BenchmarkSettings:
     # Number of PIRB subprocesses sharing the node; used to split the CPU
     # budget when 'pirb_threads' is not set explicitly.
     pirb_parallel_workers: int = 1
-    pirb_fp16: bool = True
-    # Destination of the portable 'pirb_results.json' summaries. 'None' disables them.
-    pirb_results_dir: Path | None = DEFAULT_PIRB_RESULTS_DIR
-    # Post-training runs evaluate several checkpoints, so each one gets its own
-    # subdirectory. A standalone benchmark writes a single file instead.
-    pirb_results_group_by_label: bool = True
-    run_name: str | None = None
-    tasks_preset: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -264,22 +241,6 @@ def resolve_benchmark_settings(
         pirb_batch_size = int(pirb_batch_size_value)
         if pirb_batch_size <= 0:
             raise ValueError("'benchmark.pirb_batch_size' must be greater than zero.")
-    # 'fp16' is read only from the benchmark sections: the backend sections use the
-    # same key for training precision, which must not change how PIRB encodes.
-    pirb_fp16 = _as_bool(
-        _first_value(
-            _config_value(config, backend_config, "pirb_fp16"),
-            benchmark_config.get("fp16"),
-            backend_benchmark_config.get("fp16"),
-            default=True,
-        ),
-        default=True,
-    )
-    pirb_results_dir = _resolve_pirb_results_dir(
-        benchmark_sections=(benchmark_config, backend_benchmark_config),
-        other_sections=(backend_config, config),
-    )
-    run_name_value = _config_value(config, backend_config, "run_name")
 
     return BenchmarkSettings(
         run_mteb=run_mteb,
@@ -299,198 +260,10 @@ def resolve_benchmark_settings(
         pirb_jobs_per_worker=pirb_jobs_per_worker,
         pirb_threads=pirb_threads,
         pirb_batch_size=pirb_batch_size,
-        pirb_fp16=pirb_fp16,
-        pirb_results_dir=pirb_results_dir,
-        run_name=str(run_name_value) if run_name_value is not None else None,
-        tasks_preset=pirb_scope,
     )
 
 
-def _resolve_pirb_results_dir(
-    *,
-    benchmark_sections: Sequence[dict[str, Any]],
-    other_sections: Sequence[dict[str, Any]],
-) -> Path | None:
-    """Resolve where 'pirb_results.json' summaries are written.
-
-    An explicit ``null`` in the config disables them, while a missing key keeps
-    the default ``results/`` directory. The short ``results_dir`` spelling is
-    accepted only inside a ``benchmark`` section, where it cannot be confused
-    with an unrelated training key.
-    """
-    candidates: list[tuple[dict[str, Any], str]] = []
-    for section in benchmark_sections:
-        candidates.extend([(section, "pirb_results_dir"), (section, "results_dir")])
-    candidates.extend((section, "pirb_results_dir") for section in other_sections)
-    for section, key in candidates:
-        if key in section:
-            value = section[key]
-            return Path(str(value)) if value is not None else None
-    return DEFAULT_PIRB_RESULTS_DIR
-
-
-def pirb_runlog_path() -> Path:
-    """Path of the PIRB run log, the only place with full per-task metrics."""
-    return Path(__file__).resolve().parents[1] / PIRB_RUNLOG_RELATIVE_PATH
-
-
-def pirb_runlog_offset(runlog_path: Path | None = None) -> int:
-    """Size of the PIRB run log, used to read back only what a run appended."""
-    path = runlog_path if runlog_path is not None else pirb_runlog_path()
-    try:
-        return path.stat().st_size
-    except OSError:
-        return 0
-
-
-def read_pirb_task_metrics(
-    model_ref: str,
-    *,
-    offset: int = 0,
-    runlog_path: Path | None = None,
-) -> dict[str, dict[str, float]]:
-    """Collect per-task metrics a model appended to the PIRB run log.
-
-    PIRB only writes average NDCG into its results JSON, so the per-task
-    ``NDCG@10``/``MRR@10``/``Recall@100``/``Accuracy@1`` values are recovered from
-    the run log. Entries are matched on the model path PIRB was configured with,
-    which keeps parallel checkpoint workers apart.
-    """
-    path = runlog_path if runlog_path is not None else pirb_runlog_path()
-    if not path.is_file():
-        LOGGER.warning("PIRB run log %s does not exist; per-task metrics are unavailable.", path)
-        return {}
-
-    metrics: dict[str, dict[str, float]] = {}
-    with path.open(encoding="utf-8") as fh:
-        fh.seek(max(0, int(offset)))
-        for raw_line in fh:
-            raw_line = raw_line.strip()
-            if not raw_line:
-                continue
-            try:
-                entry = json.loads(raw_line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(entry, dict):
-                continue
-            metadata = entry.get("metadata")
-            if not isinstance(metadata, dict) or str(metadata.get("name", "")) != model_ref:
-                continue
-            task_id = entry.get("task_id")
-            entry_metrics = entry.get("metrics")
-            if not task_id or not isinstance(entry_metrics, dict):
-                continue
-            metrics[str(task_id)] = {
-                key: float(entry_metrics[key]) for key in PIRB_TASK_METRIC_KEYS if key in entry_metrics
-            }
-    return metrics
-
-
-def git_commit() -> str | None:
-    """Current repository commit, or ``None`` when it cannot be determined."""
-    repo_root = Path(__file__).resolve().parents[1]
-    try:
-        completed = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return None
-    commit = completed.stdout.strip()
-    return commit if completed.returncode == 0 and commit else None
-
-
-def build_pirb_results(
-    *,
-    run_name: str,
-    model: str,
-    tasks_preset: str,
-    config: dict[str, Any],
-    results: dict[str, dict[str, float]],
-    maupqa_label_fix: bool = False,
-    created_at: str | None = None,
-    commit: str | None = None,
-) -> dict[str, Any]:
-    """Build the portable benchmark summary shared by training and standalone runs."""
-    return {
-        "run_name": run_name,
-        "model": model,
-        "tasks_preset": tasks_preset,
-        "created_at": created_at or datetime.now().astimezone().isoformat(timespec="seconds"),
-        "git_commit": commit if commit is not None else git_commit(),
-        "maupqa_label_fix": bool(maupqa_label_fix),
-        "config": dict(config),
-        "results": {task_id: dict(task_metrics) for task_id, task_metrics in sorted(results.items())},
-    }
-
-
-def write_pirb_results(path: Path, payload: dict[str, Any]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
-
-
-def pirb_results_path(settings: BenchmarkSettings, label: str) -> Path | None:
-    if settings.pirb_results_dir is None:
-        return None
-    root = settings.pirb_results_dir
-    if settings.run_name:
-        root = root / safe_label(settings.run_name)
-    if settings.pirb_results_group_by_label:
-        root = root / safe_label(label)
-    return root / PIRB_RESULTS_FILENAME
-
-
-def pirb_results_config(settings: BenchmarkSettings, *, label: str) -> dict[str, Any]:
-    """Describe the settings a reader needs to interpret the recorded metrics."""
-    return {
-        "checkpoint_label": label,
-        "pirb_scope": settings.pirb_scope,
-        "max_seq_length": settings.pirb_max_seq_length,
-        "query_instruction": settings.query_instruction_for_retrieval,
-        "fp16": settings.pirb_fp16,
-        "batch_size": settings.pirb_batch_size,
-        "threads": settings.pirb_threads,
-    }
-
-
-def write_pirb_results_for_targets(
-    targets: Sequence[BenchmarkTarget],
-    settings: BenchmarkSettings,
-    *,
-    runlog_offset: int,
-    runlog_path: Path | None = None,
-) -> dict[str, Path]:
-    """Write one portable summary per evaluated target."""
-    written: dict[str, Path] = {}
-    for target in targets:
-        path = pirb_results_path(settings, target.label)
-        if path is None:
-            continue
-        results = read_pirb_task_metrics(target.model_ref, offset=runlog_offset, runlog_path=runlog_path)
-        if not results:
-            LOGGER.warning(
-                "No PIRB run log entries found for %s; skipping %s.", target.model_ref, PIRB_RESULTS_FILENAME
-            )
-            continue
-        payload = build_pirb_results(
-            run_name=settings.run_name or target.label,
-            model=target.model_ref,
-            tasks_preset=settings.tasks_preset or settings.pirb_scope,
-            config=pirb_results_config(settings, label=target.label),
-            results=results,
-        )
-        written[target.label] = write_pirb_results(path, payload)
-        print(f"[INFO] Wrote PIRB results for {target.label} to: {written[target.label]}", flush=True)
-    return written
-
-
-def safe_label(value: str) -> str:
-    """Turn a label into a filesystem-safe directory name."""
+def _safe_label(value: str) -> str:
     allowed = []
     for char in value.strip().replace("\\", "/"):
         if char.isalnum() or char in {"_", "-"}:
@@ -689,7 +462,7 @@ def run_benchmarks_for_model(
 
     from convert_utils import run_mteb, run_pirb
 
-    output_root = settings.output_dir / safe_label(label) if settings.output_dir is not None else None
+    output_root = settings.output_dir / _safe_label(label) if settings.output_dir is not None else None
     if output_root is not None:
         output_root.mkdir(parents=True, exist_ok=True)
 
@@ -720,7 +493,6 @@ def run_benchmarks_for_model(
             threads=settings.pirb_threads,
             batch_size=settings.pirb_batch_size,
             parallel_workers=settings.pirb_parallel_workers,
-            fp16=settings.pirb_fp16,
         )
         metrics.update({f"{metric_prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -844,7 +616,7 @@ def _write_target_metrics(
 ) -> None:
     if settings.output_dir is None:
         return
-    output_root = settings.output_dir / safe_label(target.label)
+    output_root = settings.output_dir / _safe_label(target.label)
     output_root.mkdir(parents=True, exist_ok=True)
     (output_root / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2),
@@ -927,7 +699,7 @@ def _run_parallel_checkpoint_targets(
         try:
             print(f"[INFO] Running benchmark for {target.label} on GPU {device}.", flush=True)
             return runner(
-                target.model_ref,
+                str(target.path.resolve()),
                 worker_settings,
                 metric_prefix=f"{target.label}/",
                 step=target.step,
@@ -981,7 +753,7 @@ def _run_parallel_pirb_chunks(
             if settings.output_dir is not None:
                 part_settings = replace(
                     part_settings,
-                    output_dir=settings.output_dir / safe_label(target.label) / "pirb-parts",
+                    output_dir=settings.output_dir / _safe_label(target.label) / "pirb-parts",
                 )
             print(
                 f"[INFO] Running {target.label} PIRB part {chunk.index:03d} "
@@ -989,7 +761,7 @@ def _run_parallel_pirb_chunks(
                 flush=True,
             )
             return runner(
-                target.model_ref,
+                str(target.path.resolve()),
                 part_settings,
                 metric_prefix=f"{target.label}/",
                 step=target.step,
@@ -1047,34 +819,13 @@ def run_benchmarks_for_targets(
     if not selected_targets:
         return {}
 
-    runlog_offset = pirb_runlog_offset() if settings.run_pirb else None
-    results = _run_benchmark_targets(
-        selected_targets,
-        settings,
-        runner=runner,
-        prepare_pirb=prepare_pirb,
-        load_pirb_task_groups=load_pirb_task_groups,
-    )
-    if runlog_offset is not None:
-        write_pirb_results_for_targets(selected_targets, settings, runlog_offset=runlog_offset)
-    return results
-
-
-def _run_benchmark_targets(
-    selected_targets: Sequence[BenchmarkTarget],
-    settings: BenchmarkSettings,
-    *,
-    runner: BenchmarkRunner,
-    prepare_pirb: Callable[[], None] | None,
-    load_pirb_task_groups: PirbTaskLoader | None,
-) -> dict[str, dict[str, Any]]:
     devices = _parallel_pirb_devices(settings)
     checkpoint_parallel = settings.parallel_checkpoints and len(selected_targets) > 1
     task_parallel_requested = settings.parallel_pirb_tasks
     if not devices or not (checkpoint_parallel or task_parallel_requested):
         return {
             target.label: runner(
-                target.model_ref,
+                str(target.path.resolve()),
                 settings,
                 metric_prefix=f"{target.label}/",
                 step=target.step,
@@ -1118,7 +869,7 @@ def _run_benchmark_targets(
 
     return {
         target.label: runner(
-            target.model_ref,
+            str(target.path.resolve()),
             settings,
             metric_prefix=f"{target.label}/",
             step=target.step,

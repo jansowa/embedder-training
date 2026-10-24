@@ -277,7 +277,6 @@ def run_pirb(
     threads: int | None = None,
     batch_size: int | None = None,
     parallel_workers: int = 1,
-    fp16: bool = True,
 ) -> dict[str, Any]:
     # Example result: TODO
     pirb_run_benchmark_path = "third_party/pirb/run_benchmark.py"
@@ -296,7 +295,7 @@ def run_pirb(
     cfg_entry = {
         "name": st_dir,
         # "bf16": True,
-        "fp16": bool(fp16),
+        "fp16": True,
         "max_seq_length": max_seq_length,
         "q_prefix": query_instruction_for_retrieval,
         "rm": True,

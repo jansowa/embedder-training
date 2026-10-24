@@ -354,44 +354,6 @@ Benchmark outputs and W&B metric prefixes use the target label:
 <benchmark_output_dir>/step-20000/metrics.json
 ```
 
-#### Portable PIRB Result Files
-
-Every PIRB run also writes a portable per-task summary that `scripts/compare_results.py` can read:
-
-```text
-results/<run_name>/final/pirb_results.json
-results/<run_name>/epoch-0001/pirb_results.json
-```
-
-| Field | Description |
-| --- | --- |
-| `benchmark.results_dir` | Base directory of the summaries. Defaults to `results`. Set it to `null` to turn them off. |
-| `benchmark.fp16` | Encoding precision used by PIRB. Defaults to `true`. This is independent of `sentence_transformers.fp16`, which only controls training. |
-
-The file records `run_name`, `model`, `tasks_preset`, `created_at`, `git_commit`, `maupqa_label_fix`, the benchmark `config`, and a `results` mapping from task id to `NDCG@10`, `MRR@10`, `Recall@100`, and `Accuracy@1`. The per-task metrics come from PIRB's own `third_party/pirb/runlog.txt`, matched on the model path the run was configured with, so nothing about the benchmark itself changes. W&B logging is untouched.
-
-The same file is produced without training by `scripts/benchmark_model.py`, which writes `results/<run-name>/pirb_results.json`:
-
-```bash
-python scripts/benchmark_model.py \
-  --model ./runs/weekend/ft-lr-1e-5/final \
-  --tasks quick6 \
-  --run-name ft-lr-1e-5
-```
-
-`--tasks` accepts the presets `tiny` (PIRB's size-based tiny scope), `quick6` (six cheap tasks across three groups), and `maupqa` (every MaupQA task of the benchmark config), or a comma-separated list of PIRB task ids.
-
-`scripts/compare_results.py` turns several of those files into one table:
-
-```bash
-python scripts/compare_results.py "results/*/pirb_results.json" \
-  --leaderboard data.json \
-  --format markdown \
-  --output results/comparison.md
-```
-
-The table reports `NDCG@10` per task, a mean row, per-group means, the number of compared tasks, and the difference of every column against the first reference column. All of those numbers are computed on the intersection of the tasks that every column scored: tasks missing from any column are listed in a warning and excluded, so two means are never computed over different task sets. `--leaderboard` takes the `data.json` of the PIRB leaderboard; `--leaderboard-models` defaults to `./models/polish-splade` and `./models/mmlw/mmlw-retrieval-roberta-base` and adds them as reference columns. The delta reference is the first leaderboard column, or the first result column when no leaderboard is given; `--reference` overrides it.
-
 Parameters only for `matryoshka`:
 
 | Field | Description |
