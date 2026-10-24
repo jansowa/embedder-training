@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-"""Compare NDCG@10 across PIRB result files and optional leaderboard columns.
+"""Compare NDCG@10 across benchmark metrics.json files and leaderboard columns.
+
+The inputs are the `metrics.json` files written by the post-training benchmark
+and by `run_experiments.py --mode benchmark --benchmark-output-dir ...`. Only the
+per-task `pirb_<task_id>` keys are read; aggregates and metadata are ignored.
 
 Every table is built on the intersection of the tasks that all compared columns
 provide. Means are never computed over different task sets, because a mean over
@@ -16,11 +20,15 @@ import io
 import json
 from pathlib import Path
 import sys
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 
 NDCG_METRIC = "NDCG@10"
-RESULTS_FILENAME = "pirb_results.json"
+METRICS_FILENAME = "metrics.json"
+PIRB_METRIC_PREFIX = "pirb_"
+# Keys that share the 'pirb_' prefix but describe the run instead of one task.
+PIRB_AGGREGATE_KEYS = frozenset({"model", "ndcg_tasks", "datasets", "task_selection", "queries"})
+PIRB_AGGREGATE_PREFIXES = ("average_ndcg@",)
 DEFAULT_LEADERBOARD_MODELS = ("./models/polish-splade", "./models/mmlw/mmlw-retrieval-roberta-base")
 
 # Group names follow the PIRB leaderboard. When no leaderboard file is given,
@@ -81,7 +89,34 @@ def task_group(task_id: str, groups: dict[str, str] | None = None) -> str:
     return "Other"
 
 
-def expand_result_paths(patterns: Sequence[str]) -> list[Path]:
+def pirb_task_id(metric_key: str) -> str | None:
+    """Task id behind a `pirb_<task_id>` metric key, or None for other keys.
+
+    Benchmark metrics are prefixed with the checkpoint label, so the `pirb_`
+    marker is looked up in the last path segment of the key.
+    """
+    name = metric_key.rsplit("/", 1)[-1]
+    if not name.startswith(PIRB_METRIC_PREFIX):
+        return None
+    task_id = name[len(PIRB_METRIC_PREFIX) :]
+    if not task_id or task_id in PIRB_AGGREGATE_KEYS:
+        return None
+    if any(task_id.startswith(prefix) for prefix in PIRB_AGGREGATE_PREFIXES):
+        return None
+    return task_id
+
+
+def pirb_task_scores(metrics: dict[str, Any]) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    for key, value in metrics.items():
+        task_id = pirb_task_id(str(key))
+        if task_id is None or isinstance(value, (list, dict, str, bool)) or value is None:
+            continue
+        scores[task_id] = float(value)
+    return scores
+
+
+def expand_metrics_paths(patterns: Sequence[str]) -> list[Path]:
     """Resolve CLI arguments that may be files, directories, or glob patterns."""
     paths: list[Path] = []
     seen: set[Path] = set()
@@ -90,11 +125,11 @@ def expand_result_paths(patterns: Sequence[str]) -> list[Path]:
         if not matches and Path(pattern).exists():
             matches = [Path(pattern)]
         if not matches:
-            raise CompareResultsError(f"No result files matched '{pattern}'.")
+            raise CompareResultsError(f"No metrics files matched '{pattern}'.")
         for match in matches:
-            candidates = sorted(match.rglob(RESULTS_FILENAME)) if match.is_dir() else [match]
+            candidates = sorted(match.rglob(METRICS_FILENAME)) if match.is_dir() else [match]
             if match.is_dir() and not candidates:
-                raise CompareResultsError(f"Directory '{match}' contains no {RESULTS_FILENAME}.")
+                raise CompareResultsError(f"Directory '{match}' contains no {METRICS_FILENAME}.")
             for candidate in candidates:
                 resolved = candidate.resolve()
                 if resolved in seen:
@@ -104,10 +139,14 @@ def expand_result_paths(patterns: Sequence[str]) -> list[Path]:
     return paths
 
 
+def default_column_label(path: Path) -> str:
+    return path.parent.name or path.stem
+
+
 def _unique_name(preferred: str, path: Path, used: set[str]) -> str:
     if preferred not in used:
         return preferred
-    qualified = f"{path.parent.name}/{preferred}" if path.parent.name else preferred
+    qualified = f"{path.parent.parent.name}/{preferred}" if path.parent.parent.name else preferred
     if qualified not in used:
         return qualified
     index = 2
@@ -116,30 +155,24 @@ def _unique_name(preferred: str, path: Path, used: set[str]) -> str:
     return f"{preferred}#{index}"
 
 
-def load_result_column(path: Path, used_names: set[str]) -> Column:
+def load_metrics_column(path: Path, used_names: set[str], *, label: str | None = None) -> Column:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
         raise CompareResultsError(f"Could not read '{path}': {exc}") from exc
     except json.JSONDecodeError as exc:
         raise CompareResultsError(f"'{path}' is not valid JSON: {exc}") from exc
-    if not isinstance(payload, dict) or not isinstance(payload.get("results"), dict):
-        raise CompareResultsError(f"'{path}' does not look like a {RESULTS_FILENAME} file.")
+    if not isinstance(payload, dict):
+        raise CompareResultsError(f"'{path}' does not look like a {METRICS_FILENAME} file.")
 
-    scores: dict[str, float] = {}
-    for task_id, metrics in payload["results"].items():
-        if isinstance(metrics, dict) and NDCG_METRIC in metrics:
-            scores[str(task_id)] = float(metrics[NDCG_METRIC])
+    scores = pirb_task_scores(payload)
     if not scores:
-        raise CompareResultsError(f"'{path}' has no {NDCG_METRIC} scores.")
+        raise CompareResultsError(f"'{path}' has no per-task 'pirb_<task_id>' metrics.")
 
-    preferred = str(payload.get("run_name") or path.parent.name or path.stem)
-    label = str((payload.get("config") or {}).get("checkpoint_label") or "")
-    if label and label not in {"final", preferred}:
-        preferred = f"{preferred}/{label}"
-    name = _unique_name(preferred, path, used_names)
+    name = _unique_name(label or default_column_label(path), path, used_names)
     used_names.add(name)
-    return Column(name=name, model=str(payload.get("model", "")), source=str(path), scores=scores)
+    model = str(payload.get("model") or payload.get("pirb_model") or "")
+    return Column(name=name, model=model, source=str(path), scores=scores)
 
 
 def load_leaderboard(
@@ -196,7 +229,7 @@ def shared_tasks(columns: Sequence[Column]) -> tuple[list[str], list[str]]:
     if not columns:
         return [], []
     shared = set(columns[0].scores)
-    union = set()
+    union: set[str] = set()
     for column in columns:
         shared &= set(column.scores)
         union |= set(column.scores)
@@ -240,7 +273,10 @@ def build_rows(
     grouped: dict[str, list[str]] = {}
     for task_id in tasks:
         grouped.setdefault(task_group(task_id, groups), []).append(task_id)
-    for group in sorted(grouped, key=lambda name: (GROUP_ORDER.index(name) if name in GROUP_ORDER else len(GROUP_ORDER), name)):
+    for group in sorted(
+        grouped,
+        key=lambda name: (GROUP_ORDER.index(name) if name in GROUP_ORDER else len(GROUP_ORDER), name),
+    ):
         group_tasks = grouped[group]
         rows.append(
             ComparisonRow(
@@ -304,10 +340,7 @@ def render_markdown(
     return out.getvalue()
 
 
-def render_csv(
-    columns: Sequence[Column],
-    rows: Sequence[ComparisonRow],
-) -> str:
+def render_csv(columns: Sequence[Column], rows: Sequence[ComparisonRow]) -> str:
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(["kind", "row", "group", "tasks", *[column.name for column in columns]])
@@ -327,13 +360,19 @@ def render_csv(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "results",
+        "metrics",
         nargs="+",
         metavar="PATH",
         help=(
-            f"{RESULTS_FILENAME} files, directories to search recursively, or glob patterns. "
+            f"{METRICS_FILENAME} files, directories to search recursively, or glob patterns. "
             "Quote a pattern to let the script expand it."
         ),
+    )
+    parser.add_argument(
+        "--labels",
+        nargs="+",
+        default=None,
+        help="Column labels, one per metrics file, in input order. Defaults to each file's parent directory name.",
     )
     parser.add_argument("--leaderboard", type=Path, default=None, help="PIRB leaderboard data.json.")
     parser.add_argument(
@@ -347,7 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Column the delta row is computed against. Defaults to the first leaderboard column, "
-            "or to the first result column when no leaderboard is given."
+            "or to the first metrics column when no leaderboard is given."
         ),
     )
     parser.add_argument("--format", choices=("markdown", "csv"), default="markdown", help="Output format.")
@@ -363,11 +402,16 @@ def build_comparison(args: argparse.Namespace) -> tuple[str, int]:
     if args.leaderboard is not None:
         leaderboard_columns, groups = load_leaderboard(Path(args.leaderboard), args.leaderboard_models, used_names)
 
-    result_columns = [load_result_column(path, used_names) for path in expand_result_paths(args.results)]
-    if not result_columns:
-        raise CompareResultsError("At least one result file is required.")
+    paths = expand_metrics_paths(args.metrics)
+    labels = args.labels
+    if labels is not None and len(labels) != len(paths):
+        raise CompareResultsError(f"--labels has {len(labels)} values but {len(paths)} metrics file(s) were given.")
+    metrics_columns = [
+        load_metrics_column(path, used_names, label=labels[index] if labels else None)
+        for index, path in enumerate(paths)
+    ]
 
-    columns = [*leaderboard_columns, *result_columns]
+    columns = [*leaderboard_columns, *metrics_columns]
     reference = columns[0]
     if args.reference is not None:
         matching = [column for column in columns if column.name == args.reference]

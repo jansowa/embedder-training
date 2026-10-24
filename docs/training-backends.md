@@ -354,6 +354,21 @@ Benchmark outputs and W&B metric prefixes use the target label:
 <benchmark_output_dir>/step-20000/metrics.json
 ```
 
+#### Comparing Benchmark Runs
+
+`scripts/compare_results.py` turns several of those `metrics.json` files into one table:
+
+```bash
+python scripts/compare_results.py "runs/weekend/*/benchmarks/final/metrics.json" \
+  --leaderboard data.json \
+  --format markdown \
+  --output runs/weekend/comparison.md
+```
+
+It reads only the per-task `pirb_<task_id>` keys and ignores aggregates such as `pirb_average_ndcg@10`, `pirb_datasets`, and `pirb_ndcg_tasks` as well as the metadata keys. Each column is labelled after the parent directory of its `metrics.json` unless `--labels` is given.
+
+The table reports `NDCG@10` per task, a mean row, per-group means, the number of compared tasks, and the difference of every column against the first reference column. All of those numbers are computed on the intersection of the tasks that every column scored: tasks missing from any column are listed in a warning and excluded, so two means are never computed over different task sets. `--leaderboard` takes the `data.json` of the PIRB leaderboard; `--leaderboard-models` defaults to `./models/polish-splade` and `./models/mmlw/mmlw-retrieval-roberta-base` and adds them as reference columns. The delta reference is the first leaderboard column, or the first metrics column when no leaderboard is given; `--reference` overrides it.
+
 Parameters only for `matryoshka`:
 
 | Field | Description |
