@@ -449,6 +449,34 @@ Each positive passage creates a separate `anchor`/`positive` example. Offline ne
 
 `pylate + colbert` and `pylate + late-interaction` use the same JSONL format. The backend loads `pylate.models.ColBERT`, trains with `pylate.losses.Contrastive`, and batches with `pylate.utils.ColBERTCollator`.
 
+## Per-Source Subsampling
+
+A `train_data` source can be written as a mapping instead of a plain path, which lets a large source contribute only part of its rows to a mix:
+
+```yaml
+train_data:
+  - ./datasets/fiqa
+  - path: ./datasets/squadv2
+    max_samples: 30000
+  - path: ./datasets/msmarco
+    max_samples: 20000
+    seed: 7
+    sample_stage: before_filter
+
+sampled_dataset_cache_dir: cache/sampled_datasets
+```
+
+| Field | Description |
+| --- | --- |
+| `max_samples` | Maximum number of rows kept from this source. A source with fewer rows is used unchanged. |
+| `seed` | Seed of the row selection. Defaults to the run's `seed`, and to `42` when that is unset. |
+| `sample_stage` | `after_filter` (default) subsamples what `dataset_filter` kept, `before_filter` subsamples the raw file and filters afterwards. |
+| `sampled_dataset_cache_dir` | Cache directory for the subsampled files. Defaults to `cache/sampled_datasets`. |
+
+The selection is deterministic: the same input file, `max_samples`, `seed`, and `sample_stage` always keep the same rows, in their original order. Each subsample is cached next to a `sample_report.json` and logs its row count before and after, and the mixed dataset logs the rows every source contributed. The mix cache key includes the sampling settings, so changing `max_samples` or `seed` produces a new mix instead of reusing the previous one.
+
+A source without a mapping behaves exactly as before. Single-source `train_data` on the `flagembedding` backend rejects `max_samples` rather than ignoring it, because that backend mixes sources in an external process.
+
 ## Dataset Filters
 
 Encoder-only FlagEmbedding and SentenceTransformers runs can filter the training JSONL before the backend sees it:

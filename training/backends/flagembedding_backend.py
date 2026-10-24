@@ -19,10 +19,11 @@ from training.dataset_sources import HF_DATASET_CACHE_CONFIG_KEYS, resolve_train
 from training.distributed import resolve_distributed_config
 from training.multi_dataset import (
     PROPORTIONAL_BATCH_BEST_EFFORT,
+    MultiDatasetConfigError,
     is_multi_train_data,
     materialize_mixed_jsonl_dataset,
     normalize_dataset_mix_strategy,
-    normalize_train_data_entries,
+    normalize_train_data_specs,
 )
 
 
@@ -317,7 +318,7 @@ def run_training(request: TrainingRequest) -> int:
                     "'flagembedding' because it runs training in an external process."
                 )
 
-            train_data_entries = normalize_train_data_entries(full_args.get("train_data"))
+            train_data_entries = normalize_train_data_specs(full_args.get("train_data"), full_args, config)
             if is_multi_train_data(full_args.get("train_data")):
                 grid_group = config.get("grid_train_data_group") if isinstance(config.get("grid_train_data_group"), dict) else {}
                 mixed_result = materialize_mixed_jsonl_dataset(
@@ -339,7 +340,12 @@ def run_training(request: TrainingRequest) -> int:
                 )
                 full_args["train_data"] = str(mixed_result.output_dir)
             else:
-                full_args["train_data"] = str(resolve_train_data_entry(train_data_entries[0], full_args, config))
+                if train_data_entries[0].sampling is not None:
+                    raise MultiDatasetConfigError(
+                        "'max_samples' is applied while sources are mixed, so a single-source "
+                        "'train_data' cannot use it on backend 'flagembedding'."
+                    )
+                full_args["train_data"] = str(resolve_train_data_entry(train_data_entries[0].path, full_args, config))
                 filter_result = apply_dataset_filter_if_configured(
                     full_args.get("train_data"),
                     full_args,

@@ -13,6 +13,7 @@ from typing import Any, Iterable, Iterator
 
 from training.dataset_sources import resolve_train_data_entry
 from training.dataset_filters import apply_dataset_filter_if_configured
+from training.distributed import is_main_process, is_torchrun_child, wait_for_files
 
 
 CONCAT_SHUFFLE = "concat_shuffle"
@@ -31,6 +32,15 @@ DATASET_MIX_STRATEGY_ALIASES = {
 }
 
 DEFAULT_MIXED_DATASET_CACHE_DIR = Path("cache/mixed_datasets")
+DEFAULT_SAMPLED_DATASET_CACHE_DIR = Path("cache/sampled_datasets")
+
+BEFORE_FILTER = "before_filter"
+AFTER_FILTER = "after_filter"
+SAMPLE_STAGES = (BEFORE_FILTER, AFTER_FILTER)
+# Matches the training seed default in the SentenceTransformers backend, so an
+# unset per-source seed follows the run instead of a separate constant.
+DEFAULT_SAMPLING_SEED = 42
+TRAIN_DATA_PATH_KEYS = ("path", "train_data")
 
 
 class MultiDatasetConfigError(ValueError):
@@ -38,10 +48,38 @@ class MultiDatasetConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class DatasetSampling:
+    """Deterministic per-source subsampling of a training JSONL file."""
+
+    max_samples: int
+    seed: int
+    stage: str
+
+    def as_cache_payload(self) -> dict[str, Any]:
+        return {"max_samples": self.max_samples, "seed": self.seed, "sample_stage": self.stage}
+
+
+@dataclass(frozen=True)
+class TrainDataEntry:
+    path: str
+    sampling: DatasetSampling | None = None
+
+
+@dataclass(frozen=True)
+class SampledDatasetResult:
+    input_path: Path
+    output_path: Path
+    total: int
+    kept: int
+    cache_hit: bool
+
+
+@dataclass(frozen=True)
 class DatasetSource:
     name: str
     original: str
     path: Path
+    sampling: DatasetSampling | None = None
 
 
 @dataclass(frozen=True)
@@ -79,18 +117,99 @@ def normalize_dataset_mix_strategy(value: Any) -> str:
     return strategy
 
 
+def _setting_value(settings: tuple[dict[str, Any] | None, ...], *keys: str) -> Any:
+    for section in settings:
+        if not isinstance(section, dict):
+            continue
+        for key in keys:
+            if key in section:
+                return section[key]
+    return None
+
+
+def _positive_int(value: Any, *, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise MultiDatasetConfigError(f"'{field_name}' must be a positive integer.")
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MultiDatasetConfigError(f"'{field_name}' must be a positive integer.") from exc
+    if number <= 0:
+        raise MultiDatasetConfigError(f"'{field_name}' must be a positive integer.")
+    return number
+
+
+def _sampling_from_mapping(item: dict[str, Any], *, field_name: str, default_seed: int) -> DatasetSampling | None:
+    max_samples = item.get("max_samples")
+    if max_samples is None:
+        for key in ("seed", "sample_stage"):
+            if key in item:
+                raise MultiDatasetConfigError(f"'{field_name}.{key}' requires '{field_name}.max_samples'.")
+        return None
+
+    stage = str(item.get("sample_stage", AFTER_FILTER)).strip().lower().replace("-", "_")
+    if stage not in SAMPLE_STAGES:
+        supported = ", ".join(SAMPLE_STAGES)
+        raise MultiDatasetConfigError(f"'{field_name}.sample_stage' must be one of: {supported}.")
+    seed = item.get("seed", default_seed)
+    if isinstance(seed, bool):
+        raise MultiDatasetConfigError(f"'{field_name}.seed' must be an integer.")
+    try:
+        seed = int(seed)
+    except (TypeError, ValueError) as exc:
+        raise MultiDatasetConfigError(f"'{field_name}.seed' must be an integer.") from exc
+    return DatasetSampling(
+        max_samples=_positive_int(max_samples, field_name=f"{field_name}.max_samples"),
+        seed=seed,
+        stage=stage,
+    )
+
+
+def _train_data_entry(item: Any, *, field_name: str, default_seed: int) -> TrainDataEntry:
+    if isinstance(item, (str, Path)):
+        value = str(item)
+        if not value:
+            raise MultiDatasetConfigError(f"'{field_name}' must not be empty.")
+        return TrainDataEntry(path=value)
+    if isinstance(item, dict):
+        path = next((item[key] for key in TRAIN_DATA_PATH_KEYS if item.get(key)), None)
+        if path is None:
+            supported = " or ".join(f"'{key}'" for key in TRAIN_DATA_PATH_KEYS)
+            raise MultiDatasetConfigError(f"'{field_name}' must set {supported}.")
+        if not isinstance(path, (str, Path)):
+            raise MultiDatasetConfigError(f"'{field_name}.path' must be a string.")
+        return TrainDataEntry(
+            path=str(path),
+            sampling=_sampling_from_mapping(item, field_name=field_name, default_seed=default_seed),
+        )
+    raise MultiDatasetConfigError(f"'{field_name}' must be a string or a mapping with a 'path'.")
+
+
+def normalize_train_data_specs(train_data: Any, *settings: dict[str, Any] | None) -> list[TrainDataEntry]:
+    """Normalize `train_data` into one entry per source, with optional sampling.
+
+    A source is either a plain path/URL or a mapping that additionally sets
+    `max_samples`, `seed`, and `sample_stage`.
+    """
+    seed_value = _setting_value(settings, "seed")
+    default_seed = DEFAULT_SAMPLING_SEED if seed_value is None else int(seed_value)
+
+    if isinstance(train_data, (str, Path, dict)):
+        return [_train_data_entry(train_data, field_name="train_data", default_seed=default_seed)]
+    if isinstance(train_data, list) and train_data:
+        return [
+            _train_data_entry(item, field_name=f"train_data[{index}]", default_seed=default_seed)
+            for index, item in enumerate(train_data)
+        ]
+    raise MultiDatasetConfigError("'train_data' must be a non-empty string, mapping, or list of sources.")
+
+
 def normalize_train_data_entries(train_data: Any) -> list[str]:
-    if isinstance(train_data, (str, Path)):
-        value = str(train_data)
-        if value:
-            return [value]
-    if isinstance(train_data, list) and train_data and all(isinstance(item, (str, Path)) for item in train_data):
-        return [str(item) for item in train_data]
-    raise MultiDatasetConfigError("'train_data' must be a non-empty string or list of strings.")
+    return [entry.path for entry in normalize_train_data_specs(train_data)]
 
 
 def is_multi_train_data(train_data: Any) -> bool:
-    return len(normalize_train_data_entries(train_data)) > 1
+    return len(normalize_train_data_specs(train_data)) > 1
 
 
 def resolve_jsonl_train_data_path(train_data: str | Path, *settings: dict[str, Any] | None) -> Path:
@@ -130,22 +249,168 @@ def _source_name(train_data: str, index: int) -> str:
     return f"{index}-{_safe_slug(candidate, max_length=60)}"
 
 
+def _sampled_cache_key(input_path: Path, sampling: DatasetSampling) -> str:
+    payload = {
+        "input_path": str(input_path.resolve()),
+        "input_hash": _file_sha256(input_path),
+        **sampling.as_cache_payload(),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def _count_jsonl_rows(path: Path) -> int:
+    with path.open(encoding="utf-8") as fh:
+        return sum(1 for raw_line in fh if raw_line.strip())
+
+
+def _print_sample_report(report: dict[str, Any], *, cache_hit: bool) -> None:
+    print(
+        "[INFO] Dataset subsample "
+        f"'{report['label']}' ({'cache hit' if cache_hit else 'materialized'}): "
+        f"input={report['input_path']} output={report['output_path']} "
+        f"rows_before={report['total']} rows_after={report['kept']} "
+        f"max_samples={report['max_samples']} seed={report['seed']} sample_stage={report['sample_stage']}",
+        flush=True,
+    )
+
+
+def materialize_sampled_jsonl_dataset(
+    input_path: Path,
+    sampling: DatasetSampling,
+    *,
+    cache_dir: str | Path | None = None,
+    label: str = "dataset",
+) -> SampledDatasetResult:
+    """Keep a deterministic subset of a JSONL file, cached by content and settings.
+
+    The selected rows keep their original order, and the same seed always picks
+    the same rows for the same input file.
+    """
+    key = _sampled_cache_key(input_path, sampling)
+    output_root = Path(cache_dir) if cache_dir is not None else DEFAULT_SAMPLED_DATASET_CACHE_DIR
+    output_dir = output_root / f"{_safe_slug(label, max_length=60)}-{key}"
+    output_path = output_dir / "dataset.jsonl"
+    report_path = output_dir / "sample_report.json"
+
+    def cached_result() -> SampledDatasetResult | None:
+        if not (output_path.exists() and report_path.exists()):
+            return None
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        _print_sample_report(report, cache_hit=True)
+        return SampledDatasetResult(
+            input_path=input_path,
+            output_path=output_path,
+            total=int(report["total"]),
+            kept=int(report["kept"]),
+            cache_hit=True,
+        )
+
+    result = cached_result()
+    if result is not None:
+        return result
+
+    if is_torchrun_child() and not is_main_process():
+        wait_for_files([output_path, report_path])
+        result = cached_result()
+        if result is None:
+            raise MultiDatasetConfigError(f"Subsample cache under '{output_dir}' is incomplete after rank 0 finished.")
+        return result
+
+    total = _count_jsonl_rows(input_path)
+    if total <= sampling.max_samples:
+        print(
+            f"[INFO] Dataset subsample '{label}' skipped: {input_path} has {total} rows, "
+            f"which is not more than max_samples={sampling.max_samples}.",
+            flush=True,
+        )
+        return SampledDatasetResult(
+            input_path=input_path,
+            output_path=input_path,
+            total=total,
+            kept=total,
+            cache_hit=False,
+        )
+
+    selected = set(random.Random(sampling.seed).sample(range(total), sampling.max_samples))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        with input_path.open(encoding="utf-8") as in_fh, output_path.open("w", encoding="utf-8", newline="\n") as out_fh:
+            row_index = 0
+            for raw_line in in_fh:
+                if not raw_line.strip():
+                    continue
+                if row_index in selected:
+                    out_fh.write(raw_line if raw_line.endswith("\n") else f"{raw_line}\n")
+                row_index += 1
+    except Exception:
+        if output_path.exists():
+            output_path.unlink()
+        raise
+
+    report = {
+        "label": label,
+        "input_path": str(input_path),
+        "output_path": str(output_path),
+        "total": total,
+        "kept": len(selected),
+        **sampling.as_cache_payload(),
+    }
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _print_sample_report(report, cache_hit=False)
+    return SampledDatasetResult(
+        input_path=input_path,
+        output_path=output_path,
+        total=total,
+        kept=len(selected),
+        cache_hit=False,
+    )
+
+
+def _sampled_dataset_cache_dir(*settings: dict[str, Any] | None) -> Any:
+    return _setting_value(settings, "sampled_dataset_cache_dir")
+
+
 def resolve_dataset_sources(
     train_data: Any,
     *settings: dict[str, Any] | None,
     config_path: str | None = None,
     apply_filters: bool = True,
 ) -> list[DatasetSource]:
-    entries = normalize_train_data_entries(train_data)
+    entries = normalize_train_data_specs(train_data, *settings)
+    sample_cache_dir = _sampled_dataset_cache_dir(*settings)
     sources: list[DatasetSource] = []
     for index, entry in enumerate(entries):
+        name = _source_name(entry.path, index)
+        sampling = entry.sampling
+        selected: str | Path = entry.path
+
+        if sampling is not None and sampling.stage == BEFORE_FILTER:
+            selected = materialize_sampled_jsonl_dataset(
+                resolve_jsonl_train_data_path(entry.path, *settings),
+                sampling,
+                cache_dir=sample_cache_dir,
+                label=name,
+            ).output_path
+
         filtered = (
-            apply_dataset_filter_if_configured(entry, *settings, config_path=config_path)
+            apply_dataset_filter_if_configured(selected, *settings, config_path=config_path)
             if apply_filters
             else None
         )
-        path = filtered.output_path if filtered is not None else resolve_jsonl_train_data_path(entry, *settings)
-        sources.append(DatasetSource(name=_source_name(entry, index), original=entry, path=path))
+        path = filtered.output_path if filtered is not None else resolve_jsonl_train_data_path(selected, *settings)
+
+        if sampling is not None and sampling.stage == AFTER_FILTER:
+            path = materialize_sampled_jsonl_dataset(
+                path,
+                sampling,
+                cache_dir=sample_cache_dir,
+                label=name,
+            ).output_path
+
+        sources.append(DatasetSource(name=name, original=entry.path, path=path, sampling=sampling))
     return sources
 
 
@@ -186,11 +451,22 @@ def _mixed_cache_key(sources: list[DatasetSource]) -> str:
             "name": source.name,
             "path": str(source.path.resolve()),
             "sha256": _file_sha256(source.path),
+            "sampling": source.sampling.as_cache_payload() if source.sampling is not None else None,
         }
         for source in sources
     ]
     raw = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _print_mix_report(report: dict[str, Any], *, cache_hit: bool) -> None:
+    print(
+        f"[INFO] Mixed dataset ({'cache hit' if cache_hit else 'materialized'}): "
+        f"total_rows={report['total_lines']}",
+        flush=True,
+    )
+    for source in report.get("sources", []):
+        print(f"[INFO]   {source['name']}: rows={source['lines']} path={source['path']}", flush=True)
 
 
 def materialize_mixed_jsonl_dataset(
@@ -212,6 +488,10 @@ def materialize_mixed_jsonl_dataset(
     report_path = output_dir / "mix_report.json"
 
     if output_path.exists() and report_path.exists():
+        try:
+            _print_mix_report(json.loads(report_path.read_text(encoding="utf-8")), cache_hit=True)
+        except (OSError, json.JSONDecodeError, KeyError):
+            pass
         return MixedDatasetResult(sources=sources, output_dir=output_dir, output_path=output_path, cache_hit=True)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -242,6 +522,7 @@ def materialize_mixed_jsonl_dataset(
         "total_lines": sum(line_counts.values()),
     }
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    _print_mix_report(report, cache_hit=False)
     return MixedDatasetResult(sources=sources, output_dir=output_dir, output_path=output_path, cache_hit=False)
 
 
