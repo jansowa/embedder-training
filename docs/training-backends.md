@@ -354,6 +354,33 @@ Benchmark outputs and W&B metric prefixes use the target label:
 <benchmark_output_dir>/step-20000/metrics.json
 ```
 
+#### Portable PIRB Result Files
+
+Every PIRB run also writes a portable per-task summary that `scripts/compare_results.py` can read:
+
+```text
+results/<run_name>/final/pirb_results.json
+results/<run_name>/epoch-0001/pirb_results.json
+```
+
+| Field | Description |
+| --- | --- |
+| `benchmark.results_dir` | Base directory of the summaries. Defaults to `results`. Set it to `null` to turn them off. |
+| `benchmark.fp16` | Encoding precision used by PIRB. Defaults to `true`. This is independent of `sentence_transformers.fp16`, which only controls training. |
+
+The file records `run_name`, `model`, `tasks_preset`, `created_at`, `git_commit`, `maupqa_label_fix`, the benchmark `config`, and a `results` mapping from task id to `NDCG@10`, `MRR@10`, `Recall@100`, and `Accuracy@1`. The per-task metrics come from PIRB's own `third_party/pirb/runlog.txt`, matched on the model path the run was configured with, so nothing about the benchmark itself changes. W&B logging is untouched.
+
+The same file is produced without training by `scripts/benchmark_model.py`, which writes `results/<run-name>/pirb_results.json`:
+
+```bash
+python scripts/benchmark_model.py \
+  --model ./runs/weekend/ft-lr-1e-5/final \
+  --tasks quick6 \
+  --run-name ft-lr-1e-5
+```
+
+`--tasks` accepts the presets `tiny` (PIRB's size-based tiny scope), `quick6` (six cheap tasks across three groups), and `maupqa` (every MaupQA task of the benchmark config), or a comma-separated list of PIRB task ids.
+
 Parameters only for `matryoshka`:
 
 | Field | Description |
