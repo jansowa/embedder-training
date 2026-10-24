@@ -16,6 +16,7 @@ from training.backends.registry import TrainingRequest
 from training.checkpoints import (
     EpochCheckpointCallback,
     build_epoch_checkpoint_callback,
+    build_fraction_checkpoint_callback,
     build_step_checkpoint_callback,
 )
 
@@ -79,6 +80,9 @@ def _add_checkpoint_callbacks(
     for callback in (
         _build_distributed_epoch_checkpoint_callback(output_dir, config, backend_config),
         build_step_checkpoint_callback(output_dir, config, backend_config),
+        # FractionCheckpointCallback already keeps its copy on rank 0 only, while
+        # its should_save decision has to be identical on every rank.
+        build_fraction_checkpoint_callback(output_dir, config, backend_config),
     ):
         if callback is not None:
             trainer.add_callback(callback)

@@ -18,6 +18,7 @@ from training.benchmarks import (
 from training.backends.registry import BackendDependencyError, TrainingRequest
 from training.checkpoints import (
     build_epoch_checkpoint_callback,
+    build_fraction_checkpoint_callback,
     build_step_checkpoint_callback,
     resolve_resume_checkpoint,
     should_skip_training_for_final,
@@ -58,6 +59,7 @@ COMMON_TRAINING_KEYS = {
     "learning_rate",
     "loss",
     "logging_steps",
+    "lr_scheduler_type",
     "max_seq_length",
     "max_steps",
     "cache_dir",
@@ -76,6 +78,7 @@ COMMON_TRAINING_KEYS = {
     "resume",
     "resume_from_checkpoint",
     "run_name",
+    "save_at_fractions",
     "save_steps",
     "save_strategy",
     "save_total_limit",
@@ -428,6 +431,9 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
         "learning_rate": float(backend_config.get("learning_rate", 5e-5)),
         "weight_decay": float(backend_config.get("weight_decay", 0.0)),
         "warmup_ratio": float(backend_config.get("warmup_ratio", 0.0)),
+        # "linear" is also the Transformers default, so an unset value keeps the
+        # schedule every existing config already trains with.
+        "lr_scheduler_type": str(backend_config.get("lr_scheduler_type", "linear")),
         "logging_steps": int(backend_config.get("logging_steps", 10)),
         "save_strategy": str(backend_config.get("save_strategy", "steps")),
         "save_steps": int(backend_config.get("save_steps", 500)),
@@ -525,6 +531,7 @@ def _add_checkpoint_callbacks(trainer: Any, output_dir: Path, config: dict[str, 
     for callback in (
         build_epoch_checkpoint_callback(output_dir, config, backend_config),
         build_step_checkpoint_callback(output_dir, config, backend_config),
+        build_fraction_checkpoint_callback(output_dir, config, backend_config),
     ):
         if callback is not None:
             trainer.add_callback(callback)

@@ -93,6 +93,28 @@ def step_checkpoint_dir_name(config: dict[str, Any], backend_config: dict[str, A
     return str(value)
 
 
+def _checkpoint_fractions(value: Any) -> tuple[float, ...]:
+    if value is None:
+        return ()
+    values = value if isinstance(value, (list, tuple, set, frozenset)) else (value,)
+    fractions: set[float] = set()
+    for raw_fraction in values:
+        if isinstance(raw_fraction, bool):
+            raise CheckpointError("'save_at_fractions' must contain numbers greater than 0 and at most 1.")
+        try:
+            fraction = float(raw_fraction)
+        except (TypeError, ValueError) as exc:
+            raise CheckpointError("'save_at_fractions' must contain numbers greater than 0 and at most 1.") from exc
+        if not 0.0 < fraction <= 1.0:
+            raise CheckpointError("'save_at_fractions' must contain numbers greater than 0 and at most 1.")
+        fractions.add(fraction)
+    return tuple(sorted(fractions))
+
+
+def fraction_checkpoint_name(fraction: float) -> str:
+    return f"frac-{fraction:.2f}"
+
+
 def _step_checkpoint_numbers(value: Any) -> tuple[int, ...]:
     if value is None:
         return ()
@@ -356,6 +378,83 @@ class StepCheckpointCallback:
         return control
 
 
+class FractionCheckpointCallback:
+    """Preserve a checkpoint after a fraction of all optimizer steps.
+
+    The target step is only known once the trainer has resolved how many
+    optimizer steps the run will take, so it is computed at train begin. Unlike
+    the other callbacks here, ``on_step_end`` mutates ``TrainerControl``, so the
+    callback must run on every distributed rank; only the copy in ``on_save`` is
+    restricted to the main process.
+    """
+
+    def __init__(self, output_dir: Path | str, fractions: Any) -> None:
+        self.output_dir = Path(output_dir)
+        self.fractions = _checkpoint_fractions(fractions)
+        self._targets: dict[int, list[float]] = {}
+        self._pending: tuple[int, list[float]] | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        if not name.startswith("on_"):
+            raise AttributeError(name)
+
+        def _noop(args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+            return control
+
+        return _noop
+
+    def on_train_begin(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        max_steps = int(getattr(state, "max_steps", 0) or 0)
+        self._targets = {}
+        if max_steps <= 0:
+            print(
+                "[WARN] 'save_at_fractions' needs the total number of optimizer steps, "
+                "which this trainer did not report; no fraction checkpoint will be saved.",
+                flush=True,
+            )
+            return control
+        for fraction in self.fractions:
+            step = max(1, min(max_steps, int(round(fraction * max_steps))))
+            self._targets.setdefault(step, []).append(fraction)
+        for step, fractions in sorted(self._targets.items()):
+            names = ", ".join(fraction_checkpoint_name(fraction) for fraction in fractions)
+            print(f"[INFO] Scheduled fraction checkpoint {names} at step {step} of {max_steps}.", flush=True)
+        return control
+
+    def on_step_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        step = int(getattr(state, "global_step", 0) or 0)
+        fractions = self._targets.get(step)
+        if not fractions:
+            return control
+        self._pending = (step, list(fractions))
+        if hasattr(control, "should_save"):
+            control.should_save = True
+        return control
+
+    def on_save(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        pending = self._pending
+        self._pending = None
+        if pending is None or not is_main_process():
+            return control
+
+        step, fractions = pending
+        source = self.output_dir / f"checkpoint-{step}"
+        if not source.is_dir():
+            return control
+
+        for fraction in fractions:
+            target = self.output_dir / fraction_checkpoint_name(fraction)
+            if target.exists():
+                continue
+            tmp_target = self.output_dir / f".{target.name}.tmp"
+            if tmp_target.exists():
+                shutil.rmtree(tmp_target)
+            shutil.copytree(source, tmp_target)
+            tmp_target.rename(target)
+            print(f"[INFO] Preserved fraction checkpoint: {target}", flush=True)
+        return control
+
+
 def build_epoch_checkpoint_callback(
     output_dir: Path,
     config: dict[str, Any],
@@ -383,6 +482,18 @@ def build_step_checkpoint_callback(
         steps,
         step_checkpoint_dir=step_checkpoint_dir_name(config, backend_config),
     )
+
+
+def build_fraction_checkpoint_callback(
+    output_dir: Path,
+    config: dict[str, Any],
+    backend_config: dict[str, Any],
+) -> FractionCheckpointCallback | None:
+    configured_fractions = backend_config.get("save_at_fractions", config.get("save_at_fractions"))
+    fractions = _checkpoint_fractions(configured_fractions)
+    if not fractions:
+        return None
+    return FractionCheckpointCallback(output_dir, fractions)
 
 
 def train_with_resume(trainer: Any, resume_from_checkpoint: str | None) -> Any:

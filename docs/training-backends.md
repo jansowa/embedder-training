@@ -303,6 +303,22 @@ Shared parameters for `embedder`, `matryoshka`, and `splade`:
 | `sentence_transformers.run_name` | Optional run name passed to SentenceTransformers/Transformers. Grid runs generate unique names automatically. |
 | `sentence_transformers.trust_remote_code` | Added to `model_kwargs` when set. |
 | `sentence_transformers.keep_epoch_checkpoints` | Preserve a full checkpoint at the end of every epoch while still allowing frequent step checkpoints. |
+| `sentence_transformers.warmup_ratio` | Fraction of the training steps used to warm the learning rate up. Defaults to `0.0`. |
+| `sentence_transformers.lr_scheduler_type` | Learning-rate schedule passed to Transformers, for example `linear`, `cosine`, or `constant_with_warmup`. Defaults to `linear`, which is also the Transformers default. |
+| `sentence_transformers.save_at_fractions` | List of fractions of the total optimizer steps at which an extra checkpoint is preserved, for example `[0.8]`. |
+
+`save_at_fractions` works alongside `save_steps` and does not change the rotating `checkpoint-*` directories. Each fraction is resolved against the number of optimizer steps the trainer reports at train begin, and the preserved copy lands directly in the run directory:
+
+```yaml
+sentence_transformers:
+  save_at_fractions: [0.8]
+```
+
+```text
+runs/<run-name>/frac-0.80/
+```
+
+The copy is only made when training passes that step, so resuming a run past it does not recreate the directory, and an existing `frac-*` directory is never overwritten.
 
 For long epochs, prefer step checkpoints plus preserved epoch checkpoints:
 
