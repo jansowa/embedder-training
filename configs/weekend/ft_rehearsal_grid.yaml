@@ -1,0 +1,108 @@
+# Learning-rate sweep for a rehearsal fine-tune of sdadas/polish-splade.
+#
+# The three grid entries run sequentially in the order written below, each into
+# its own output directory and with its own benchmark metrics.json.
+backend: sentence-transformers
+training_type: splade
+
+runs_dir: runs/weekend/ft-rehearsal-grid
+timestamp_output_dir: false
+save_resolved_config: true
+
+# TODO: point these at the actual datasets before running. Each entry is a
+# directory with dataset.jsonl or a JSONL file in the FlagEmbedding format.
+train_data:
+  # Rehearsal target: the whole in-domain dataset.
+  - ./datasets/fiqa-pl
+  # Rehearsal sources, subsampled so they do not dominate the mix.
+  - path: ./datasets/squadv2-pl
+    max_samples: 30000
+  - path: ./datasets/msmarco-pl
+    max_samples: 20000
+
+dataset_mix_strategy: proportional_batch_best_effort
+sampled_dataset_cache_dir: cache/sampled_datasets
+mixed_dataset_cache_dir: cache/mixed_datasets
+
+# Same filter as configs/splade_hf_dataset_comparison_optimized.yaml.
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+# Only learning_rate differs between the entries. warmup_ratio and
+# lr_scheduler_type are shared below instead, because they have no short run-name
+# label and would only lengthen every directory name.
+hparams:
+  - learning_rate: 1e-5
+    num_train_epochs: 1
+    document_regularizer_weight: 0.001
+    query_regularizer_weight: 0.00005
+  - learning_rate: 2e-5
+    num_train_epochs: 1
+    document_regularizer_weight: 0.001
+    query_regularizer_weight: 0.00005
+  - learning_rate: 5e-6
+    num_train_epochs: 1
+    document_regularizer_weight: 0.001
+    query_regularizer_weight: 0.00005
+
+sentence_transformers:
+  max_seq_length: 512
+
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+
+  # Do not increase this: batches containing long passages need the current limit.
+  train_batch_size: 4
+  gradient_accumulation_steps: 8
+  negatives_per_query: 10
+
+  # proportional_batch_best_effort requires exactly this sampler.
+  batch_sampler: no_duplicates
+  dataloader_num_workers: 4
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 4
+  dataloader_pin_memory: true
+
+  gradient_checkpointing: true
+
+  # Measured faster than BF16 + non-reentrant checkpointing on the RTX 5070 Ti.
+  fp16: true
+  bf16: false
+  tf32: false
+  optim: adamw_torch_fused
+
+  splade_pooling_chunk_size: 64
+
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 2
+  keep_epoch_checkpoints: false
+  # Extra checkpoint at 80% of the optimizer steps, saved as <run>/frac-0.80.
+  save_at_fractions: [0.8]
+
+  report_to:
+    - wandb
+
+  splade_activation_stats:
+    enabled: true
+    sample_size: 128
+    batch_size: 32
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: true
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  parallel_checkpoints: false
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
+  # {run_name} keeps the three grid runs from overwriting each other's metrics.
+  output_dir: runs/weekend/ft-rehearsal-grid/benchmarks/{run_name}
+  checkpoints:
+    - final

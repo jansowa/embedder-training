@@ -7,6 +7,8 @@ import sys
 
 
 WANDB_PROJECT = os.getenv("WANDB_PROJECT", "mining-tests")
+DEFAULT_TRAIN_BACKEND = "flagembedding"
+DEFAULT_TRAIN_TRAINING_TYPE = "embedder"
 
 
 def normalize_local_model_path(model_or_path: str) -> str:
@@ -41,6 +43,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--grid-configuration-file",
         default="configs/grid.yaml",
         help="Path to YAML file with architectures and hyper-parameters.",
+    )
+    parser.add_argument(
+        "--backend",
+        default=DEFAULT_TRAIN_BACKEND,
+        help=f"Training backend passed to training.train (default: {DEFAULT_TRAIN_BACKEND}).",
+    )
+    parser.add_argument(
+        "--training-type",
+        dest="training_type",
+        default=DEFAULT_TRAIN_TRAINING_TYPE,
+        help=f"Training recipe passed to training.train (default: {DEFAULT_TRAIN_TRAINING_TYPE}).",
     )
     parser.add_argument(
         "--benchmark-name",
@@ -128,9 +141,9 @@ def run_training_mode(args: argparse.Namespace) -> int:
         "-m",
         "training.train",
         "--backend",
-        "flagembedding",
+        args.backend,
         "--training-type",
-        "embedder",
+        args.training_type,
         "--config",
         args.grid_configuration_file,
         "--benchmark-name",

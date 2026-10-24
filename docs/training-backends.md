@@ -654,6 +654,56 @@ When `train_data` is a directory, filtering picks `dataset.jsonl`, then `mixed_d
 
 After filtering, the console reports the profile name, input path, output path, total/kept/removed counts, and missing/type mismatch counts per field. `filter_report.json` also includes positive/negative total, kept, and removed counts, plus samples removed by `min_positives` or `min_negatives`. On cache hits, the cached report is printed without re-filtering.
 
+## Weekend Workflow
+
+`configs/weekend/` holds two rehearsal fine-tunes of `sdadas/polish-splade`: `ft_rehearsal_grid.yaml` sweeps three learning rates (`1e-5`, `2e-5`, `5e-6`) over a subsampled mix, and `ft_rehearsal_overnight.yaml` repeats the winner on the full mix. Both still need their dataset paths filled in, and the overnight config needs the learning rate the sweep picked. Each grid entry runs sequentially into its own run directory and writes its own `metrics.json`.
+
+```bash
+# 1. Sweep the learning rates, then repeat the best one overnight.
+python -m training.train --backend sentence-transformers --training-type splade \
+  --config configs/weekend/ft_rehearsal_grid.yaml
+
+python -m training.train --backend sentence-transformers --training-type splade \
+  --config configs/weekend/ft_rehearsal_overnight.yaml
+```
+
+Benchmark anything that was not just trained, including a weight-averaged model:
+
+```bash
+# 2. Merge two checkpoints into a model soup, then benchmark it.
+python scripts/merge_splade_weights.py \
+  --models sdadas/polish-splade ./runs/weekend/ft-rehearsal-overnight/.../final \
+  --alpha 0.5 \
+  --output ./models/soup-alpha-0.5
+
+python run_experiments.py --mode benchmark --run_pirb --pirb_scope tiny \
+  --benchmark-target "./models/soup-alpha-0.5::" \
+  --benchmark-output-dir runs/weekend/benchmarks/soup-alpha-0.5
+
+# Six cheap tasks across three groups.
+python run_experiments.py --mode benchmark --run_pirb --pirb-tasks quick6 \
+  --benchmark-target "./models/soup-alpha-0.5::" \
+  --benchmark-output-dir runs/weekend/benchmarks/soup-alpha-0.5-quick6
+
+# The whole MaupQA group.
+python run_experiments.py --mode benchmark --run_pirb --pirb-tasks maupqa \
+  --benchmark-target "./models/soup-alpha-0.5::" \
+  --benchmark-output-dir runs/weekend/benchmarks/soup-alpha-0.5-maupqa
+```
+
+Each of those writes `<benchmark-output-dir>/final/metrics.json`, which is what the comparison reads:
+
+```bash
+# 3. Compare the runs against each other and against the leaderboard.
+python scripts/compare_results.py \
+  "runs/weekend/ft-rehearsal-grid/benchmarks/*/final/metrics.json" \
+  "runs/weekend/benchmarks/soup-alpha-0.5/final/metrics.json" \
+  --leaderboard data.json \
+  --output runs/weekend/comparison.md
+```
+
+Compare only runs that used the same task selection, or let the script drop the differing tasks: it always reports on the intersection and names the tasks it skipped.
+
 ## Lazy Imports
 
 `training.train` and the backend registry do not globally import `FlagEmbedding`, `sentence_transformers`, or `pylate`. Only the selected backend module is loaded, and the backend library is checked inside that module.

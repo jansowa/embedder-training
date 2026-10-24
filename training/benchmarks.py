@@ -255,6 +255,24 @@ def _config_value(config: dict[str, Any], backend_config: dict[str, Any], *keys:
     return default
 
 
+RUN_NAME_PLACEHOLDER = "{run_name}"
+
+
+def _resolve_output_dir_template(output_dir: str, *, run_name: Any) -> str:
+    """Expand `{run_name}` so every run of a grid gets its own benchmark directory.
+
+    Grid runs share one config, so a static benchmark output directory would make
+    them overwrite each other's metrics.
+    """
+    if RUN_NAME_PLACEHOLDER not in output_dir:
+        return output_dir
+    if not run_name:
+        raise ValueError(
+            f"'benchmark.output_dir' uses {RUN_NAME_PLACEHOLDER}, but the run has no 'run_name'."
+        )
+    return output_dir.replace(RUN_NAME_PLACEHOLDER, _safe_label(str(run_name)))
+
+
 def resolve_benchmark_settings(
     config: dict[str, Any],
     backend_config: dict[str, Any],
@@ -318,6 +336,11 @@ def resolve_benchmark_settings(
         backend_config.get("benchmark_output_dir"),
         config.get("benchmark_output_dir"),
     )
+    if output_dir is not None:
+        output_dir = _resolve_output_dir_template(
+            str(output_dir),
+            run_name=_config_value(config, backend_config, "run_name"),
+        )
     log_to_wandb = _as_bool(_config_value(config, backend_config, "log_to_wandb", default=True), default=True)
     checkpoints = _config_value(config, backend_config, "checkpoints")
     if checkpoints is not None:
