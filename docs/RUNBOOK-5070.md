@@ -15,6 +15,49 @@ Zasady, których nie łamiemy (nauczka z maszyny 3060):
   poleceń,
 - nie commitujemy `models/`, `datasets/`, `logs/`, `runs/`, `cache/`, `wandb/`.
 
+## 0. Windows z WSL: gdzie i jak uruchamiać
+
+Komputer to Windows, projekt działa wyłącznie w WSL (dystrybucja Linux, np.
+Ubuntu). Wszystkie polecenia z tego runbooka wykonujemy w shellu WSL (Windows
+Terminal z profilem Ubuntu albo `wsl.exe`), nie w PowerShell ani cmd.
+
+- Repo, `.venv`, JDK i dane trzymamy w systemie plików Linuksa (np.
+  `~/work/embedder-training`), nie na `/mnt/c/...`: na dyskach Windows I/O
+  jest wielokrotnie wolniejsze, a uprawnienia i symlinki nie działają
+  poprawnie. Jeśli repo leży na `/mnt/c`, sklonować je ponownie w `~`.
+- Klonować gitem z WSL, nie gitem z Windows: skrypty bash z końcówkami CRLF nie
+  działają (`$'\r': command not found`). Kontrola:
+  `grep -c $'\r' scripts/queue_lib.sh scripts/queue_5070.sh` musi dać 0 i 0,
+  `git config --get core.autocrlf` puste albo `false`.
+- GPU: sterownik NVIDIA instaluje się tylko po stronie Windows; w WSL
+  `nvidia-smi` ma działać od razu, bez instalowania sterowników w Linuksie.
+  Torch z locka (`+cu128`) działa w WSL bez zmian.
+- RAM: WSL2 domyślnie dostaje połowę RAM hosta. Kolejka wymaga co najmniej
+  6 GB wolnego (`free -g` w WSL). Jeśli jest mniej, ustawić w Windows plik
+  `C:\Users\<user>\.wslconfig`:
+
+  ```
+  [wsl2]
+  memory=24GB
+  swap=8GB
+  ```
+
+  i wykonać `wsl --shutdown` z PowerShell przed ponownym wejściem do WSL.
+  Tylko przed startem kolejki, nigdy w trakcie: `wsl --shutdown` zabija
+  wszystkie procesy w WSL.
+- Dysk: `df -h .` w WSL pokazuje wirtualny dysk ext4 (plik `ext4.vhdx` na
+  dysku Windows), więc wolne miejsce na tym dysku Windows musi być co najmniej
+  30 GB.
+- Noc: procesy uruchomione przez `setsid nohup` żyją tylko tak długo, jak
+  instancja WSL, a Windows potrafi ją zamknąć po zamknięciu ostatniego
+  terminala. Dlatego: zostawić otwarte okno terminala WSL z
+  `tail -f logs/queue.log`, wyłączyć na noc usypianie i hibernację Windows
+  (opcje zasilania, uśpienie „nigdy" przy zasilaniu sieciowym), nie
+  wylogowywać się, nie uruchamiać `wsl --shutdown`.
+- Archiwum z Google Drive pobrane w Windows jest w WSL widoczne jako
+  `/mnt/c/Users/<user>/Downloads/transfer-5070-20261026.tar.gz`; rozpakować
+  je do repo w systemie plików Linuksa (sekcja 1, punkt 2).
+
 ## 1. Co musi być na maszynie
 
 1. Repo `jansowa/embedder-training`, gałąź `master`, co najmniej commit
@@ -88,6 +131,8 @@ Wszystko z katalogu repo, `.venv` aktywowane lub przez `.venv/bin/python`.
 
 ```shell
 git log --oneline -1 && git -C third_party/pirb status -sb | head -1
+grep -c $'\r' scripts/queue_lib.sh scripts/queue_5070.sh   # WSL: oba 0, inaczej repo sklonowane gitem z Windows
+pwd | grep -q "^/mnt/" && echo "UWAGA: repo na dysku Windows, przenieś do ~" || echo "fs ok"
 ls -la datasets/arms/{fiqa-2073,fiqa-plus-squadv2,fiqa-plus-squadv2-10k,mix3-6219}.jsonl models/soup-v2b/model.safetensors
 nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv
 .venv/bin/python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
@@ -132,6 +177,10 @@ sleep 20; tail -5 logs/queue.log
 ```
 
 Bez zalogowanego wandb: `WANDB_MODE=offline setsid nohup bash scripts/queue_5070.sh ...`.
+
+W WSL po starcie zostawić w tym oknie `tail -f logs/queue.log` na całą noc
+(sekcja 0: zamknięcie ostatniego terminala może zamknąć instancję WSL razem
+z kolejką).
 
 Kolejka zapisuje PID w `logs/queue_5070.pid`, postęp w `logs/queue.log`
 (jedna linia na krok, `->` = wynik, `FAILED` = krok pominięty) i tabelę w
