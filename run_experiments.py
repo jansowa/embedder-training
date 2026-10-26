@@ -297,7 +297,7 @@ def log_benchmarks_for_st_model(
     Run MTEB and PIRB for a SentenceTransformer model and log results to W&B.
     """
     from convert_utils import run_mteb, run_pirb
-    from training.benchmarks import write_benchmark_metrics
+    from training.benchmarks import _remove_benchmarked_pirb_indexes, write_benchmark_metrics
 
     settings = benchmark_settings_from_args(args)
     # An explicit task selection replaces the scope, so the averages and dataset
@@ -316,6 +316,8 @@ def log_benchmarks_for_st_model(
             st_model_dir,
             query_instruction_for_retrieval=query_instruction,
             scope=scope,
+            max_seq_length=settings.pirb_max_seq_length,
+            batch_size=settings.pirb_batch_size,
         )
         metrics_to_log.update({f"{prefix}{key}": value for key, value in metrics_pirb.items()})
 
@@ -329,6 +331,11 @@ def log_benchmarks_for_st_model(
                 settings=replace(settings, pirb_scope=scope),
             )
             print(f"[INFO] Wrote benchmark metrics to: {written}", flush=True)
+            # Benchmark mode writes metrics here rather than through
+            # training.benchmarks, so the index cleanup has to be hooked in
+            # on this path too, and only once the metrics are on disk.
+            if args.run_pirb and settings.remove_pirb_indexes:
+                _remove_benchmarked_pirb_indexes(st_model_dir, metrics_to_log, prefix)
 
 
 def run_benchmark_for_flagembedding_run(run_dir, query_instruction, args, tasks, output_root=None):

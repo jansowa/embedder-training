@@ -506,3 +506,76 @@ def test_run_experiments_forwards_the_remove_flag_to_training(monkeypatch):
     run_experiments.run_training_mode(args)
 
     assert "--remove-pirb-indexes" in recorded["cmd"]
+
+
+def test_benchmark_mode_removes_indexes_after_writing_metrics(monkeypatch, tmp_path):
+    """The benchmark path writes metrics itself, so it needs its own cleanup."""
+    import run_experiments
+
+    calls = {}
+    monkeypatch.setattr(run_experiments, "_load_wandb", lambda: SimpleNamespace(log=lambda *a, **k: None))
+    monkeypatch.setattr(
+        "convert_utils.run_pirb",
+        lambda *a, **k: {"pirb_arguana-pl": 42.8, "pirb_average_ndcg@10": 42.8, "pirb_datasets": 1},
+    )
+    monkeypatch.setattr(
+        "training.benchmarks._remove_benchmarked_pirb_indexes",
+        lambda model, metrics, prefix: calls.setdefault("args", (model, sorted(metrics), prefix)),
+    )
+    args = run_experiments.build_parser().parse_args(
+        ["--mode", "benchmark", "--run_pirb", "--remove-pirb-indexes"]
+    )
+
+    run_experiments.log_benchmarks_for_st_model(
+        "/models/soup", epoch_idx=0, query_instruction="", args=args, tasks=None,
+        metrics_path=tmp_path / "metrics.json",
+    )
+
+    assert "args" in calls, "cleanup must run on the benchmark-mode path"
+    assert calls["args"][0] == "/models/soup"
+    assert (tmp_path / "metrics.json").exists(), "metrics must be written before the cleanup"
+
+
+def test_benchmark_mode_keeps_indexes_without_the_flag(monkeypatch, tmp_path):
+    import run_experiments
+
+    calls = {}
+    monkeypatch.setattr(run_experiments, "_load_wandb", lambda: SimpleNamespace(log=lambda *a, **k: None))
+    monkeypatch.setattr("convert_utils.run_pirb", lambda *a, **k: {"pirb_arguana-pl": 42.8})
+    monkeypatch.setattr(
+        "training.benchmarks._remove_benchmarked_pirb_indexes",
+        lambda *a: calls.setdefault("called", True),
+    )
+    args = run_experiments.build_parser().parse_args(["--mode", "benchmark", "--run_pirb"])
+
+    run_experiments.log_benchmarks_for_st_model(
+        "/models/soup", epoch_idx=0, query_instruction="", args=args, tasks=None,
+        metrics_path=tmp_path / "metrics.json",
+    )
+
+    assert "called" not in calls
+
+
+def test_benchmark_mode_passes_the_sizing_flags_to_pirb(monkeypatch, tmp_path):
+    """--pirb-max-seq-length must reach run_pirb, not just the settings object."""
+    import run_experiments
+
+    seen = {}
+
+    def fake_run_pirb(st_dir, **kwargs):
+        seen.update(kwargs)
+        return {"pirb_arguana-pl": 42.8}
+
+    monkeypatch.setattr(run_experiments, "_load_wandb", lambda: SimpleNamespace(log=lambda *a, **k: None))
+    monkeypatch.setattr("convert_utils.run_pirb", fake_run_pirb)
+    args = run_experiments.build_parser().parse_args(
+        ["--mode", "benchmark", "--run_pirb", "--pirb-max-seq-length", "256", "--pirb-batch-size", "16"]
+    )
+
+    run_experiments.log_benchmarks_for_st_model(
+        "/models/soup", epoch_idx=0, query_instruction="", args=args, tasks=None,
+        metrics_path=tmp_path / "metrics.json",
+    )
+
+    assert seen["max_seq_length"] == 256
+    assert seen["batch_size"] == 16
