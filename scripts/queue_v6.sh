@@ -144,8 +144,8 @@ split_block trivia rand easy hard lowcov highcov
 # ---- F, C2, G --------------------------------------------------------------------
 log "=== v6 block F: SQuAD-v2 halves ==="
 split_block squadv2 rand hard easy lowcov highcov
-log "=== v6 block C2: cluster-like inputs on FiQA+SQuAD ==="
-train cluster-like-fiqa-plus-squadv2 configs/weekend/cluster_like_fiqa_plus_squadv2_3060.yaml && { bench arm-cluster-like-fiqa-plus-squadv2 models/arm-cluster-like-fiqa-plus-squadv2; holdout arm-cluster-like-fiqa-plus-squadv2 models/arm-cluster-like-fiqa-plus-squadv2; }
+# dropped 26.10 evening (= arm N1 on the 5070 Ti): log "=== v6 block C2: cluster-like inputs on FiQA+SQuAD ==="
+# dropped 26.10 evening (= arm N1 on the 5070 Ti): train cluster-like-fiqa-plus-squadv2 configs/weekend/cluster_like_fiqa_plus_squadv2_3060.yaml && { bench arm-cluster-like-fiqa-plus-squadv2 models/arm-cluster-like-fiqa-plus-squadv2; holdout arm-cluster-like-fiqa-plus-squadv2 models/arm-cluster-like-fiqa-plus-squadv2; }
 log "=== v6 block G: wikisynth halves ==="
 split_block wikisynth rand hard easy lowcov highcov
 
