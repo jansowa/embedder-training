@@ -1,0 +1,5 @@
+Pasaż:
+{passage}
+
+Zapytanie (z danych treningowych, tłumaczone maszynowo z angielskiego):
+{query}

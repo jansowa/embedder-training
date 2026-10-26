@@ -1,0 +1,83 @@
+backend: sentence-transformers
+training_type: splade
+
+# Warmup variant of ft_fiqa_3060_repro.yaml: lower LR plus a 10% warmup.
+# Separate directory so this 3060 Ti attempt does not mix with the historical
+# dataset-comparison runs.
+runs_dir: runs/sweep-seed44
+# Timestamp the run name so repeated attempts do not overwrite each other in W&B.
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: https://huggingface.co/datasets/speakleash/fiqa_pl/blob/main/train_pl.jsonl
+
+# Apply this filter to every dataset before it reaches the training backend.
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  # 256, not the original 512: at 512 the vocabulary projection needs more
+  # than the 8 GB this card has. The benchmark section below stays at 512.
+  max_seq_length: 256
+
+  seed: 44
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 4
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 8
+  # Same 8 GB constraint as ft_fiqa_3060_repro.yaml.
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 32
+  # 6, not the original 10: memory scales with sequences x length, so the
+  # shorter sequences buy back negatives. Measured peak 6.3 GB of 7.77 GB.
+  negatives_per_query: 6
+
+  # Keep regular step checkpoints. Exact "keep only step 20000" still needs
+  # a dedicated implementation task.
+  save_strategy: steps
+  save_steps: 100
+  save_total_limit: 3
+
+  # Preserve full epoch checkpoints outside the normal checkpoint rotation.
+  keep_epoch_checkpoints: true
+
+  keep_step_checkpoints:
+    - 1500
+
+  report_to:
+    - wandb
+
+  query_regularizer_weight: 0.00005
+
+  splade_activation_stats:
+    # Off: the stats cost memory the training step needs. Measure them
+    # on the finished model instead.
+    enabled: false
+    sample_size: 128
+    batch_size: 16
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: true
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  # Dynamically schedule checkpoint/task-group jobs across visible GPUs.
+  parallel_checkpoints: true
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
+  checkpoints:
+    - final

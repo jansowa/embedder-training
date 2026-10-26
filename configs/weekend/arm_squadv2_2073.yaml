@@ -1,0 +1,58 @@
+backend: sentence-transformers
+training_type: splade
+
+# Data-source arm: 2073 random rows of reranker-filtered SQuAD-v2-pl in the
+# ck-warmup-s recipe. Same row count and recipe as the FiQA fine-tune, so the
+# only difference between the arms is where the pairs come from.
+runs_dir: runs/arm-squadv2-2073
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/squadv2-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 4
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 32
+  negatives_per_query: 6
+  # Only final/ is ever benchmarked; intermediate checkpoints filled the disk.
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+  splade_activation_stats:
+    enabled: false
+    sample_size: 128
+    batch_size: 16
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  # The benchmark runs from the queue script after training, on a free GPU.
+  # Running it from the trainer always OOMs on this card.
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

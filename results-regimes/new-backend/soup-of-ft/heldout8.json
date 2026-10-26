@@ -1,0 +1,18 @@
+{
+  "regime": "new-backend",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout8",
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.1294,
+    "maupqa-multilingual-nli": 14.5161,
+    "mfaq": 62.9458,
+    "poleval-2022-test-a-legal-questions": 81.6178,
+    "maupqa-wiki-def": 65.8278,
+    "scidocs-pl": 14.0669,
+    "maupqa-1z10": 47.9847,
+    "fiqa-pl": 29.5428
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 42.078912499999994
+}

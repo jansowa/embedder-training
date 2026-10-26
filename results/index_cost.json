@@ -1,0 +1,96 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "base": {
+      "doc_active_mean": 450.0451851851852,
+      "doc_active_median": 432.0,
+      "query_active_mean": 138.58,
+      "query_active_median": 76.0,
+      "postings_per_query": 16414.82074074074,
+      "flops": 2.643812894821167,
+      "doc_weight_sum_mean": 188.88064575195312,
+      "query_weight_sum_mean": 61.94696807861328
+    },
+    "soup-of-ft": {
+      "doc_active_mean": 353.1911111111111,
+      "doc_active_median": 347.0,
+      "query_active_mean": 125.8725925925926,
+      "query_active_median": 81.0,
+      "postings_per_query": 14995.353333333333,
+      "flops": 2.684507131576538,
+      "doc_weight_sum_mean": 159.996826171875,
+      "query_weight_sum_mean": 62.127159118652344
+    },
+    "ck-warmup-l": {
+      "doc_active_mean": 350.0288888888889,
+      "doc_active_median": 346.0,
+      "query_active_mean": 130.28074074074075,
+      "query_active_median": 87.0,
+      "postings_per_query": 16269.226666666667,
+      "flops": 2.691486120223999,
+      "doc_weight_sum_mean": 152.1200714111328,
+      "query_weight_sum_mean": 62.299530029296875
+    },
+    "ck-warmup-s": {
+      "doc_active_mean": 425.82,
+      "doc_active_median": 415.0,
+      "query_active_mean": 148.0222222222222,
+      "query_active_median": 95.0,
+      "postings_per_query": 22474.102222222224,
+      "flops": 3.2678873538970947,
+      "doc_weight_sum_mean": 172.4181365966797,
+      "query_weight_sum_mean": 64.86820983886719
+    },
+    "soup-top8": {
+      "doc_active_mean": 438.71037037037036,
+      "doc_active_median": 428.0,
+      "query_active_mean": 150.4925925925926,
+      "query_active_median": 93.0,
+      "postings_per_query": 21662.62,
+      "flops": 3.262688159942627,
+      "doc_weight_sum_mean": 180.02474975585938,
+      "query_weight_sum_mean": 66.83885955810547
+    },
+    "squadv2-2073": {
+      "doc_active_mean": 274.76,
+      "doc_active_median": 258.0,
+      "query_active_mean": 101.90592592592593,
+      "query_active_median": 66.0,
+      "postings_per_query": 7832.443703703703,
+      "flops": 1.6620386838912964,
+      "doc_weight_sum_mean": 142.2046661376953,
+      "query_weight_sum_mean": 57.72288131713867
+    },
+    "mix1to1": {
+      "doc_active_mean": 469.77777777777777,
+      "doc_active_median": 452.5,
+      "query_active_mean": 156.83777777777777,
+      "query_active_median": 94.0,
+      "postings_per_query": 23575.102222222224,
+      "flops": 3.9115469455718994,
+      "doc_weight_sum_mean": 201.49203491210938,
+      "query_weight_sum_mean": 72.80830383300781
+    },
+    "judge-clean": {
+      "doc_active_mean": 609.4696296296296,
+      "doc_active_median": 595.0,
+      "query_active_mean": 169.88592592592593,
+      "query_active_median": 81.0,
+      "postings_per_query": 38492.36148148148,
+      "flops": 5.903074741363525,
+      "doc_weight_sum_mean": 247.7021026611328,
+      "query_weight_sum_mean": 75.401611328125
+    },
+    "mlm-msmarco": {
+      "doc_active_mean": 808.2074074074075,
+      "doc_active_median": 785.5,
+      "query_active_mean": 206.42888888888888,
+      "query_active_median": 53.0,
+      "postings_per_query": 42842.95185185185,
+      "flops": 6.592947959899902,
+      "doc_weight_sum_mean": 332.3221435546875,
+      "query_weight_sum_mean": 87.47240447998047
+    }
+  }
+}

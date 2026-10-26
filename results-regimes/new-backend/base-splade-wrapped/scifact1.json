@@ -1,0 +1,11 @@
+{
+  "regime": "new-backend",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "scifact1",
+  "tasks": {
+    "scifact-pl": 64.5028
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 64.5028
+}

@@ -1,0 +1,50 @@
+backend: sentence-transformers
+training_type: splade
+
+# 5070 Ti night, arm N3: data scale — FiQA 2073 + 8000 fresh gate-passing
+# SQuAD-v2 rows (10 073 rows, scripts/build_5070_arms.py), cluster-like recipe.
+# The SQuAD pool has 56k gate-passing rows; this asks whether 4x more SQuAD
+# keeps paying (squadv2-2073 alone gave +0.7 tiny / +1.6 held-out on the 3060).
+# ~630 optimizer steps at batch 32; the longest arm of the night.
+runs_dir: runs/arm-n3-cluster-fiqa-plus-squadv2-10k
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2-10k.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/judge-rejected",
+  "scope": "tiny",
+  "created_at": "2026-10-25T02:01:14+02:00",
+  "git_commit": "6fc2e21616f089283a500497fa88ff2c0a0e1264",
+  "epoch0/pirb_maupqa-gpt3-cc": 17.882315082122567,
+  "epoch0/pirb_maupqa-mkqa": 57.43294806150341,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 75.44122274371567,
+  "epoch0/pirb_maupqa-templates": 71.21072781006175,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 70.04700311085551,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 64.23669201044311,
+  "epoch0/pirb_arguana-pl": 37.232944605707424,
+  "epoch0/pirb_nfcorpus-pl": 29.40742002935507,
+  "epoch0/pirb_scifact-pl": 60.549851134826305,
+  "epoch0/pirb_gpt-exams": 97.4265215159053,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/judge-rejected",
+  "epoch0/pirb_ndcg_tasks": 580.8676461044961,
+  "epoch0/pirb_average_ndcg@10": 58.086764610449606,
+  "epoch0/pirb_datasets": 10
+}

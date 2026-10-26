@@ -1,0 +1,19 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "scope": "maupqa-gpt3.5-cc,maupqa-multilingual-NLI,mfaq,poleval-2022-test-A-legal-questions,maupqa-wiki-def,scidocs-pl,maupqa-1z10,fiqa-pl",
+  "created_at": "2026-10-25T10:03:54+01:00",
+  "git_commit": "6fc2e21616f089283a500497fa88ff2c0a0e1264",
+  "pirb_task_selection": "maupqa-gpt3.5-cc,maupqa-multilingual-NLI,mfaq,poleval-2022-test-A-legal-questions,maupqa-wiki-def,scidocs-pl,maupqa-1z10,fiqa-pl",
+  "epoch0/pirb_maupqa-1z10": 45.95466855800585,
+  "epoch0/pirb_maupqa-gpt3.5-cc": 19.90357613602152,
+  "epoch0/pirb_maupqa-multilingual-NLI": 14.104707685449181,
+  "epoch0/pirb_maupqa-wiki-def": 60.340333714074376,
+  "epoch0/pirb_poleval-2022-test-A-legal-questions": 80.69501303446,
+  "epoch0/pirb_fiqa-pl": 27.235711861441636,
+  "epoch0/pirb_scidocs-pl": 12.705261187191773,
+  "epoch0/pirb_mfaq": 61.99053220837195,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "epoch0/pirb_ndcg_tasks": 322.9298043850163,
+  "epoch0/pirb_average_ndcg@10": 40.36622554812704,
+  "epoch0/pirb_datasets": 8
+}

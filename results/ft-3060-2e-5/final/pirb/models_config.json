@@ -1,0 +1,12 @@
+[
+  {
+    "name": "/home/jsowa/work/FlagEmbedding/runs/weekend-3060/sentence-transformers/splade/sdadas_polish-splade-lr-2e-5-ep-1-docreg-0_001-qreg-5e-05-20261024-181527/final",
+    "fp16": true,
+    "max_seq_length": 512,
+    "q_prefix": "",
+    "rm": true,
+    "trust_remote_code": true,
+    "type": "splade",
+    "threads": 12
+  }
+]

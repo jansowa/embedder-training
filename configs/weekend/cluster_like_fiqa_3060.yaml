@@ -1,0 +1,51 @@
+backend: sentence-transformers
+training_type: splade
+
+# "Cluster-like inputs" on the 3060 Ti: train length 512 and 10 negatives per query
+# (as in the cluster FiQA run that scored +1.90 / +2.06), effective batch 32 as
+# batch 2 x 16 accumulation, otherwise the ck-warmup-s recipe. Compared with
+# models/ck-warmup-s (256 / 6 negatives) it isolates the context-length and
+# negative-count part of the cluster recipe. splade_pooling_chunk_size 8 keeps the
+# MLM-logit peak small on 8 GB; if it still OOMs the queue logs and moves on.
+runs_dir: runs/arm-cluster-like-fiqa
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

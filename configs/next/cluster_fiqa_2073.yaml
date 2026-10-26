@@ -1,0 +1,52 @@
+backend: sentence-transformers
+training_type: splade
+
+# 5070 Ti (16 GB) version of the cluster recipe on the FiQA arm: train length
+# 512, 10 negatives per query, effective batch 32 as batch 8 x 4 accumulation.
+# Everything else is the ck-warmup-s recipe (lr 2e-5, warmup 10 %, 2 epochs),
+# so the comparison with models/ck-warmup-s (256 / 6 negatives / 4 x 8) isolates
+# "cluster-like inputs" from the learning-rate question.
+# If this OOMs: train_batch_size 4, gradient_accumulation_steps 8 keeps the
+# effective batch; splade_pooling_chunk_size 8 halves the MLM-logit peak.
+runs_dir: runs/next-cluster-fiqa
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

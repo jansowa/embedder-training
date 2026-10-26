@@ -1,0 +1,54 @@
+backend: sentence-transformers
+training_type: splade
+
+# The MLM path, several epochs: start from the plain masked-LM
+# sdadas/polish-distilroberta (what polish-splade itself was built from) and
+# train SPLADE on the judged-clean MS MARCO-pl subset for 3 epochs. The one
+# existing MLM-path checkpoint (mlm-msmarco-ep1, 57.61 on tiny) had a single
+# epoch; this tests the user's point that more epochs may close the gap.
+# 20 000 rows x 3 epochs = 1875 steps; ~70 min on the 3060 Ti, less on the 5070 Ti.
+# Epoch checkpoints are kept so that epochs 1, 2 and 3 can be benchmarked
+# separately (copy each to models/<short-name> before benchmarking).
+runs_dir: runs/next-mlm-path
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/judged/msmarco-clean-20000.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-distilroberta
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 3
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 6
+  save_strategy: epoch
+  save_total_limit: 3
+  keep_epoch_checkpoints: true
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

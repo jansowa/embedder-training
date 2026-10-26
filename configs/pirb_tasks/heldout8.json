@@ -1,0 +1,10 @@
+[
+  {"subset": "gpt3.5-cc", "type": "maupqa"},
+  {"subset": "multilingual-NLI", "type": "maupqa"},
+  {"type": "mfaq"},
+  {"split": "test-A", "domain": "legal-questions", "type": "poleval"},
+  {"subset": "wiki-def", "type": "maupqa"},
+  {"task_id": "scidocs-pl", "type": "beir"},
+  {"subset": "1z10", "type": "maupqa"},
+  {"task_id": "fiqa-pl", "type": "beir"}
+]

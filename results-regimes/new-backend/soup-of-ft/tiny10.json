@@ -1,0 +1,20 @@
+{
+  "regime": "new-backend",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "tiny10",
+  "tasks": {
+    "maupqa-gpt3-cc": 18.2616,
+    "maupqa-mkqa": 64.3835,
+    "maupqa-poleval2021-pairs": 83.1828,
+    "maupqa-templates": 75.3849,
+    "poleval-2022-test-a-allegro-faq": 76.5527,
+    "poleval-2022-test-b-allegro-faq": 72.1634,
+    "arguana-pl": 42.2795,
+    "nfcorpus-pl": 32.2929,
+    "scifact-pl": 66.2671,
+    "gpt-exams": 98.6851
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 62.945350000000005
+}

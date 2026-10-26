@@ -1,0 +1,110 @@
+# Rehearsal fine-tune of sdadas/polish-splade on the 3060 Ti, single learning rate.
+#
+# Derived from ft_rehearsal_grid.yaml: the learning-rate sweep is reduced to the
+# 2e-5 entry and the datasets point at the speakleash repositories instead of
+# local directories that do not exist on this machine.
+backend: sentence-transformers
+training_type: splade
+
+runs_dir: runs/weekend-3060-long
+# Timestamp the run name so repeated attempts do not overwrite each other in W&B.
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data:
+  # Rehearsal target: the whole in-domain dataset.
+  - https://huggingface.co/datasets/speakleash/fiqa_pl/blob/main/train_pl.jsonl
+  # Rehearsal sources, subsampled so they do not dominate the mix.
+  - path: https://huggingface.co/datasets/speakleash/squadv2/blob/main/train_pl.jsonl
+    max_samples: 30000
+  - path: https://huggingface.co/datasets/speakleash/msmarco_pl/blob/main/train_pl.jsonl
+    max_samples: 20000
+
+dataset_mix_strategy: proportional_batch_best_effort
+sampled_dataset_cache_dir: cache/sampled_datasets
+mixed_dataset_cache_dir: cache/mixed_datasets
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+# Only learning_rate differs between the entries. warmup_ratio and
+# lr_scheduler_type are shared below instead, because they have no short run-name
+# label and would only lengthen every directory name.
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 1
+    document_regularizer_weight: 0.001
+    query_regularizer_weight: 0.00005
+
+sentence_transformers:
+  # 256, not the original 512: at 512 the vocabulary projection needs more
+  # than the 8 GB this card has. The benchmark section below stays at 512.
+  # Long-context variant. Same 8192-token budget as the 256/6 run, spent on
+  # full-length passages instead of more per-batch samples: batch 2 x 8
+  # sequences x 512 equals batch 4 x 8 sequences x 256. Accumulation is
+  # doubled so the effective batch, the step count and the LR schedule are
+  # unchanged, leaving sequence length as the only difference.
+  max_seq_length: 512
+
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+
+  # Do not increase this: batches containing long passages need the current limit.
+  train_batch_size: 2
+  gradient_accumulation_steps: 16
+  # 6, not the original 10: memory scales with sequences x length, so the
+  # shorter sequences buy back negatives. Measured peak 6.3 GB of 7.77 GB.
+  negatives_per_query: 6
+
+  # proportional_batch_best_effort requires exactly this sampler.
+  batch_sampler: no_duplicates
+  dataloader_num_workers: 4
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 4
+  dataloader_pin_memory: true
+
+  gradient_checkpointing: true
+
+  # Measured faster than BF16 + non-reentrant checkpointing on the RTX 5070 Ti.
+  fp16: true
+  bf16: false
+  tf32: false
+  optim: adamw_torch_fused
+
+  splade_pooling_chunk_size: 64
+
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 2
+  keep_epoch_checkpoints: false
+  # Extra checkpoint at 80% of the optimizer steps, saved as <run>/frac-0.80.
+  save_at_fractions: [0.8]
+
+  report_to:
+    - wandb
+
+  splade_activation_stats:
+    # Off: the stats cost memory the training step needs. Measure them
+    # on the finished model instead.
+    enabled: false
+    sample_size: 128
+    batch_size: 32
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: true
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  parallel_checkpoints: false
+  parallel_pirb_tasks: true
+  pirb_jobs_per_worker: 2
+  # {run_name} keeps grid runs from overwriting each other's metrics.
+  output_dir: runs/weekend-3060-long/benchmarks/{run_name}
+  checkpoints:
+    - final

@@ -1,0 +1,27 @@
+Pasaż:
+{passage}
+
+Zapytanie (z danych treningowych, tłumaczone maszynowo z angielskiego):
+{query}
+
+Oceń tę parę na czterech osiach, niezależnie od siebie:
+
+1. `odpowiadalne` — czy na to zapytanie da się odpowiedzieć WYŁĄCZNIE na
+   podstawie tego pasażu? false, gdy pasaż jest tylko w temacie albo odpowiada
+   częściowo. Uwaga na synonimy i warianty terminów (np. odma/rozedma) — licz
+   treść, nie dosłowne dopasowanie słów.
+2. `polszczyzna` — ścisła definicja. WADĄ SĄ: uszkodzone znaki (â, Ã),
+   przekręcone lub sklejone nazwy własne, kalki składniowe dające bezsens,
+   urwane zdania, słowa z języka innego niż polski i angielski. WADĄ NIE SĄ:
+   angielskie nazwy własne i terminy (walking dead, selenium, paracord),
+   skróty stanów i miast (nj, ca, de), mała litera, styl telegraficzny
+   zapytań, brak znaku zapytania.
+3. `sensowne_zapytanie` — czy to realna potrzeba informacyjna użytkownika
+   wyszukiwarki? false dla fragmentów zdań, testów z lukami, bełkotu.
+4. `zbyt_ogolne` — czy zapytanie pasowałoby do tysięcy różnych pasaży?
+   Krótkie nie znaczy ogólne: „czy DNA jest widoczne" jest konkretne.
+
+Zwróć wyłącznie JSON:
+{{"odpowiadalne": <true|false>, "polszczyzna": <true|false>,
+ "sensowne_zapytanie": <true|false>, "zbyt_ogolne": <true|false>,
+ "glowny_problem": "<brak|nieodpowiadalne|tlumaczenie|niesensowne|zbyt_ogolne>"}}

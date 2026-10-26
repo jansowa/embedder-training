@@ -1,0 +1,55 @@
+backend: sentence-transformers
+training_type: splade
+
+# Data-source arm: 2073 random rows of judge-approved Polish MS MARCO in the
+# ck-warmup-s recipe. Separates "MS MARCO is the wrong corpus" from "20k rows
+# is the wrong dose": the judge-clean arm used 20k rows, 625 steps, lr 5e-5.
+runs_dir: runs/arm-msmarco-clean-2073
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/msmarco-clean-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 4
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 32
+  negatives_per_query: 6
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+  splade_activation_stats:
+    enabled: false
+    sample_size: 128
+    batch_size: 16
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

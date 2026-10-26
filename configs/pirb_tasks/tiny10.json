@@ -1,0 +1,12 @@
+[
+  {"subset": "gpt3-cc", "type": "maupqa"},
+  {"subset": "mkqa", "type": "maupqa"},
+  {"subset": "poleval2021-pairs", "type": "maupqa"},
+  {"subset": "templates", "type": "maupqa"},
+  {"split": "test-A", "domain": "allegro-faq", "type": "poleval"},
+  {"split": "test-B", "domain": "allegro-faq", "type": "poleval"},
+  {"task_id": "arguana-pl", "skip_self": true, "type": "beir"},
+  {"task_id": "nfcorpus-pl", "type": "beir"},
+  {"task_id": "scifact-pl", "type": "beir"},
+  {"type": "gpt-exams"}
+]

@@ -1,0 +1,47 @@
+backend: sentence-transformers
+training_type: splade
+
+# Cluster-like inputs (512, 10 negatives, batch 2 x 16) on the FiQA + SQuAD-v2
+# mixture (4146 rows); see cluster_like_fiqa_3060.yaml.
+runs_dir: runs/arm-cluster-like-fiqa-plus-squadv2
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-msmarco-ep1",
+  "scope": "tiny",
+  "created_at": "2026-10-24T14:48:58+02:00",
+  "git_commit": "36128d8ef3a9e81d2a7d8046260d121872c716a1",
+  "epoch0/pirb_maupqa-gpt3-cc": 17.845387115766158,
+  "epoch0/pirb_maupqa-mkqa": 55.04162310983863,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 74.62786545912232,
+  "epoch0/pirb_maupqa-templates": 70.59725325260544,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 67.12214046332814,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 61.757219897708524,
+  "epoch0/pirb_arguana-pl": 38.113168951953256,
+  "epoch0/pirb_nfcorpus-pl": 31.321757111382155,
+  "epoch0/pirb_scifact-pl": 62.95406630649369,
+  "epoch0/pirb_gpt-exams": 96.7436591967351,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/mlm-msmarco-ep1",
+  "epoch0/pirb_ndcg_tasks": 576.1241408649335,
+  "epoch0/pirb_average_ndcg@10": 57.612414086493345,
+  "epoch0/pirb_datasets": 10
+}

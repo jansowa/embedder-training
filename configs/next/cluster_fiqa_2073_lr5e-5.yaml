@@ -1,0 +1,50 @@
+backend: sentence-transformers
+training_type: splade
+
+# Faithful single-GPU repro of the cluster FiQA run from wyniki-ft-polish-splade:
+# lr 5e-5, no warmup, 2 epochs, train length 512, 10 negatives, effective batch
+# 32 (batch 8 x 4 accumulation). The cluster run scored +1.90 on tiny and +2.06
+# on held-out-8 with its own (larger) FiQA filter; this one uses the 2073-row
+# arm, so the only differences left are the data filter and the hardware.
+runs_dir: runs/next-cluster-fiqa-lr5e-5
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.0
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

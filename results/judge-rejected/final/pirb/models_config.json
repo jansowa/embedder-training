@@ -1,0 +1,12 @@
+[
+  {
+    "name": "/home/jsowa/work/FlagEmbedding/runs/judged-rejected/sentence-transformers/splade/sdadas_polish-splade-lr-5e-5-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_001-20261025-012513/final",
+    "fp16": true,
+    "max_seq_length": 512,
+    "q_prefix": "",
+    "rm": true,
+    "trust_remote_code": true,
+    "type": "splade",
+    "threads": 12
+  }
+]

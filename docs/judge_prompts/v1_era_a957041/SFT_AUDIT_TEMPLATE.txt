@@ -1,0 +1,23 @@
+Pasaż:
+{passage}
+
+Zapytanie (z danych treningowych, tłumaczone maszynowo z angielskiego):
+{query}
+
+Oceń tę parę na czterech osiach, niezależnie od siebie:
+
+1. `odpowiadalne` — czy na to zapytanie da się odpowiedzieć WYŁĄCZNIE na podstawie
+   tego pasażu? false, gdy pasaż jest tylko w temacie albo odpowiada częściowo.
+2. `polszczyzna` — czy zapytanie jest poprawnym, naturalnym polskim zdaniem lub
+   frazą? false przy kalkach z angielskiego, resztkach angielskich słów,
+   przekręconych nazwach własnych, bezsensownej składni.
+3. `sensowne_zapytanie` — czy to wygląda na realną potrzebę informacyjną
+   użytkownika wyszukiwarki? false dla fragmentów zdań, śmieci, zapytań
+   nawigacyjnych bez treści.
+4. `zbyt_ogolne` — czy zapytanie jest tak ogólne, że pasowałoby do tysięcy
+   różnych pasaży?
+
+Zwróć wyłącznie JSON:
+{{"odpowiadalne": <true|false>, "polszczyzna": <true|false>,
+ "sensowne_zapytanie": <true|false>, "zbyt_ogolne": <true|false>,
+ "glowny_problem": "<brak|nieodpowiadalne|tlumaczenie|niesensowne|zbyt_ogolne>"}}

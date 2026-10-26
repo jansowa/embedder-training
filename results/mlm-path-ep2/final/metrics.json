@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-path-ep2",
+  "scope": "tiny",
+  "created_at": "2026-10-26T13:05:44+01:00",
+  "git_commit": "6fc2e21616f089283a500497fa88ff2c0a0e1264",
+  "epoch0/pirb_maupqa-gpt3-cc": 18.103468622176585,
+  "epoch0/pirb_maupqa-mkqa": 50.39562318078623,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 75.99560615442364,
+  "epoch0/pirb_maupqa-templates": 69.62382312294189,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 64.26628726803325,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 59.75995242525632,
+  "epoch0/pirb_arguana-pl": 27.552651702403907,
+  "epoch0/pirb_nfcorpus-pl": 29.184894497444265,
+  "epoch0/pirb_scifact-pl": 58.12918252020057,
+  "epoch0/pirb_gpt-exams": 94.88878855313513,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/mlm-path-ep2",
+  "epoch0/pirb_ndcg_tasks": 547.9002780468018,
+  "epoch0/pirb_average_ndcg@10": 54.79002780468018,
+  "epoch0/pirb_datasets": 10
+}

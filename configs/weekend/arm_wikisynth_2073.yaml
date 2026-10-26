@@ -1,0 +1,55 @@
+backend: sentence-transformers
+training_type: splade
+
+# Data-source arm: 2073 synthetic pairs. Queries written by Claude Sonnet over
+# native-Polish Wikipedia chunks (PolQA passages glued to ~200 words, eval
+# corpora excluded), verified by Claude Opus, lexically shaped to the FiQA
+# difficulty band, hard negatives mined with the speakleash two-stage pipeline.
+# No dataset_filter: the rows carry sdadas reranker scores on a different scale
+# than the 23.50 gate; the verification and the band filter are the gate here.
+runs_dir: runs/arm-wikisynth-2073
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/wikisynth-2073.jsonl
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 4
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 32
+  negatives_per_query: 6
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+  splade_activation_stats:
+    enabled: false
+    sample_size: 128
+    batch_size: 16
+    interval_steps: 500
+    quantization_factor: 100
+    include_negatives: true
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

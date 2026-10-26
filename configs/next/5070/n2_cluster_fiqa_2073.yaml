@@ -1,0 +1,49 @@
+backend: sentence-transformers
+training_type: splade
+
+# 5070 Ti night, arm N2: control for N1 — FiQA 2073 alone with the same
+# cluster-like recipe (512 tokens, 10 negatives, batch 8 x 4). Tells whether the
+# SQuAD half still helps once the model sees more context and more negatives.
+# Reference on the 3060 at 256 / 6 negatives: ck-warmup-s = 61.49 tiny, 39.97 held-out.
+runs_dir: runs/arm-n2-cluster-fiqa-2073
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-2073.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

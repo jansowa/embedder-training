@@ -1,0 +1,47 @@
+{
+  "model": "models/base-splade-wrapped",
+  "batch_size": 4,
+  "negatives": 6,
+  "results": {
+    "datasets/arms/wikisynth-2073.jsonl": {
+      "rows": 400,
+      "mean_loss": 0.41050136057059716,
+      "mean_margin": 7.408917337656021,
+      "frac_pos_ranked_first": 0.915,
+      "query_active_dims_mean": 102.2525,
+      "doc_active_dims_mean": 623.8475
+    },
+    "datasets/arms/fiqa-2073.jsonl": {
+      "rows": 400,
+      "mean_loss": 0.28831590371501536,
+      "mean_margin": 7.542079036235809,
+      "frac_pos_ranked_first": 0.9225,
+      "query_active_dims_mean": 87.4325,
+      "doc_active_dims_mean": 408.0875
+    },
+    "datasets/arms/squadv2-2073.jsonl": {
+      "rows": 400,
+      "mean_loss": 0.06577062163548816,
+      "mean_margin": 10.850005111694337,
+      "frac_pos_ranked_first": 0.98,
+      "query_active_dims_mean": 82.5375,
+      "doc_active_dims_mean": 498.365
+    },
+    "datasets/arms/msmarco-clean-2073.jsonl": {
+      "rows": 400,
+      "mean_loss": 0.3260552604167606,
+      "mean_margin": 5.334791499376297,
+      "frac_pos_ranked_first": 0.9075,
+      "query_active_dims_mean": 55.89,
+      "doc_active_dims_mean": 356.8125
+    },
+    "datasets/arms/trivia-2073.jsonl": {
+      "rows": 400,
+      "mean_loss": 0.2482319422022647,
+      "mean_margin": 10.530204721689223,
+      "frac_pos_ranked_first": 0.93,
+      "query_active_dims_mean": 119.67,
+      "doc_active_dims_mean": 518.94
+    }
+  }
+}

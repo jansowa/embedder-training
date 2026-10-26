@@ -1,0 +1,20 @@
+{
+  "model": "sdadas/polish-splade",
+  "scope": "tiny",
+  "created_at": "2026-10-24T15:08:00+02:00",
+  "git_commit": "36128d8ef3a9e81d2a7d8046260d121872c716a1",
+  "epoch0/pirb_maupqa-gpt3-cc": 6.75044423108018,
+  "epoch0/pirb_maupqa-mkqa": 7.069063851228266,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 20.574902571180942,
+  "epoch0/pirb_maupqa-templates": 11.813610818679155,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 28.733649213701412,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 27.032660279257957,
+  "epoch0/pirb_arguana-pl": 30.099961276000524,
+  "epoch0/pirb_nfcorpus-pl": 5.921710633490648,
+  "epoch0/pirb_scifact-pl": 14.168762235701013,
+  "epoch0/pirb_gpt-exams": 78.23105854294342,
+  "epoch0/pirb_model": "sdadas/polish-splade",
+  "epoch0/pirb_ndcg_tasks": 230.3958236532635,
+  "epoch0/pirb_average_ndcg@10": 23.03958236532635,
+  "epoch0/pirb_datasets": 10
+}

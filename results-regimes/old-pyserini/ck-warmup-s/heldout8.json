@@ -1,0 +1,19 @@
+{
+  "regime": "old-pyserini",
+  "label": "ck-warmup-s",
+  "model": "/home/jsowa/work/FlagEmbedding/models/ck-warmup-s",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.0361193512823,
+    "maupqa-multilingual-NLI": 14.514534004767354,
+    "mfaq": 63.018968703688515,
+    "poleval-2022-test-A-legal-questions": 79.30751378721102,
+    "maupqa-wiki-def": 65.85706235703084,
+    "scidocs-pl": 14.042522959676393,
+    "maupqa-1z10": 47.526081957347486,
+    "fiqa-pl": 29.45493727157628
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 41.71971754907252
+}

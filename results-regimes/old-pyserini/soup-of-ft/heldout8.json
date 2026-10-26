@@ -1,0 +1,18 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout8",
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.130481413312573,
+    "maupqa-multilingual-NLI": 14.513479359542453,
+    "mfaq": 62.94382802150869,
+    "poleval-2022-test-A-legal-questions": 81.81736832820575,
+    "maupqa-wiki-def": 65.83094305733053,
+    "scidocs-pl": 14.069906071176339,
+    "maupqa-1z10": 47.981489616178735,
+    "fiqa-pl": 29.593361750266627
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 42.110107202190214
+}

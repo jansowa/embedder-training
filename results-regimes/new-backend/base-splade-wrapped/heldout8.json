@@ -1,0 +1,18 @@
+{
+  "regime": "new-backend",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "heldout8",
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.1352,
+    "maupqa-multilingual-nli": 14.2094,
+    "mfaq": 62.0313,
+    "poleval-2022-test-a-legal-questions": 80.3337,
+    "maupqa-wiki-def": 64.75,
+    "scidocs-pl": 12.6136,
+    "maupqa-1z10": 47.3221,
+    "fiqa-pl": 26.7975
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 41.0241
+}
