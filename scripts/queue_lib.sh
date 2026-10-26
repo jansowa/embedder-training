@@ -61,6 +61,41 @@ guard_alive() {
     ps -eo args | grep -q "[o]rphan_guard.py" || { setsid nohup python3 scripts/orphan_guard.py >> "$LOGS/orphan_guard.out" 2>&1 < /dev/null & log "restarted orphan guard"; }
 }
 
+sparsity_mean() {  # sparsity_mean FILE LABEL: mean over tasks of the mean active document dims
+    "$PY" -c "import json,sys;d=json.load(open(sys.argv[1]))[sys.argv[2]];v=[t['mean'] for t in d.values() if t.get('mean') is not None];print(round(sum(v)/len(v),1))" "$1" "$2" 2>/dev/null
+}
+sparsity() {  # sparsity NAME MODEL: active document dims (round(w*100) > 0) on 300 passages of each tiny task, next to base
+    local name="$1" model="$2"
+    [ -f "results/sparsity/$name.json" ] && return 0
+    [ -e "$model" ] || { log "sparsity $name: $model missing"; return 1; }
+    wait_gpu_free; wait_ram
+    log "sparsity $name"; local s=$SECONDS
+    timeout -k 60 1800 "$PY" scripts/compare_splade_sparsity.py --model "base=models/base-splade-wrapped" --model "$name=$model" \
+        --scope tiny --max-docs-per-task 300 --device cuda --batch-size 16 \
+        --output-json "results/sparsity/$name.json" > "$LOGS/sparsity_$name.log" 2>&1
+    local e=$((SECONDS - s))
+    if [ -f "results/sparsity/$name.json" ]; then
+        log "sparsity $name -> $(sparsity_mean "results/sparsity/$name.json" "$name") active dims/doc (base $(sparsity_mean "results/sparsity/$name.json" base)) in ${e}s"
+        record "sparsity:$name" ok "$(sparsity_mean "results/sparsity/$name.json" "$name")" "${e}s"
+    else log "sparsity $name FAILED after ${e}s"; record "sparsity:$name" FAILED "-" "${e}s"; return 1; fi
+}
+sparsity_missing() {  # sparsity for every model with a tiny result and no sparsity file (base itself excluded)
+    local f name
+    for f in results/*/final/metrics.json; do
+        name=$(basename "$(dirname "$(dirname "$f")")")
+        [ "$name" = base-splade-wrapped ] && continue
+        [ -d "models/$name" ] && [ ! -f "results/sparsity/$name.json" ] && sparsity "$name" "models/$name"
+    done
+}
+
+drop_indexes() {  # drop_indexes MODEL: remove the PIRB index dirs of a model whose benchmark failed (no saved result would ever prune them; 26.10 morning: 12 GB leaked this way)
+    local slug n
+    slug=$("$PY" -c "import os,sys;print(os.path.abspath(sys.argv[1]).replace('/','_').replace('.','_'))" "$1")
+    n=$(ls -d third_party/pirb/cache/*/"$slug" 2>/dev/null | wc -l)
+    [ "$n" -gt 0 ] && { rm -rf third_party/pirb/cache/*/"$slug"; log "dropped $n index dir(s) of $1 after the failure"; }
+    return 0
+}
+
 bench() {  # bench NAME MODEL [extra args]: tiny, truncated-query regime (as every number so far)
     local name="$1" model="$2"; shift 2
     [ -f "results/$name/final/metrics.json" ] && { log "bench $name: already present ($(tiny "$name"))"; return 0; }
@@ -73,7 +108,7 @@ bench() {  # bench NAME MODEL [extra args]: tiny, truncated-query regime (as eve
     local e=$((SECONDS - s))
     if [ -f "results/$name/final/metrics.json" ]; then
         log "bench $name -> ndcg=$(tiny "$name") in ${e}s"; record "bench:$name" ok "$(tiny "$name")" "${e}s"
-    else log "bench $name FAILED after ${e}s"; record "bench:$name" FAILED "-" "${e}s"; return 1; fi
+    else log "bench $name FAILED after ${e}s"; record "bench:$name" FAILED "-" "${e}s"; drop_indexes "$model"; return 1; fi
 }
 holdout() {  # holdout NAME MODEL: the 8 held-out tasks, truncated-query regime, encoding batch 16
     local name="$1" model="$2"
@@ -87,7 +122,7 @@ holdout() {  # holdout NAME MODEL: the 8 held-out tasks, truncated-query regime,
     local e=$((SECONDS - s))
     if [ -f "$HOLDOUT_DIR/$name/final/metrics.json" ]; then
         log "holdout $name -> ndcg=$(hold "$name") in ${e}s"; record "holdout:$name" ok "$(hold "$name")" "${e}s"
-    else log "holdout $name FAILED after ${e}s"; record "holdout:$name" FAILED "-" "${e}s"; return 1; fi
+    else log "holdout $name FAILED after ${e}s"; record "holdout:$name" FAILED "-" "${e}s"; drop_indexes "$model"; return 1; fi
 }
 train() {  # train NAME CONFIG: train and copy final/ to models/arm-NAME
     local tag="$1" cfg="$2"
@@ -136,5 +171,5 @@ regime() {  # regime REGIME LABEL MODEL TASKSET [BATCH] [MAXLEN]: scripts/pirb_r
     m=$(regime_mean "$out")
     if [ -n "$m" ] && [ "$(echo "$m" | awk '{print $2}')" != "0" ]; then
         log "regime $reg/$label/$ts -> mean=$m in ${e}s"; record "regime:$reg:$label:$ts" ok "$m" "${e}s"
-    else log "regime $reg/$label/$ts FAILED after ${e}s"; record "regime:$reg:$label:$ts" FAILED "-" "${e}s"; return 1; fi
+    else log "regime $reg/$label/$ts FAILED after ${e}s"; record "regime:$reg:$label:$ts" FAILED "-" "${e}s"; rm -rf "cache/regimes/${reg}_${label}_${ts}"; return 1; fi
 }

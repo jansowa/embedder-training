@@ -48,6 +48,12 @@ fi
 guard_alive; wait_gpu_free
 log "=== v6 start: $(free_gb) GB free on /, $(free -g | awk '/^Mem:/ {print $7}') GB RAM available ==="
 
+# ---- SP: document sparsity for every benchmarked model that has none yet ----------
+# Active dims per document (round(w*100) > 0) on 300 passages of each tiny task,
+# next to base: the efficiency side of every tiny number. ~1-2 min per model.
+log "=== v6 block SP: document sparsity for models without results/sparsity/<name>.json ==="
+sparsity_missing
+
 # ---- R3: evaluation sequence length ---------------------------------------------
 # Checkpoints trained at 256 carry max_seq_length=256; the upstream backend
 # evaluates them at 256 (ck-warmup-s: arguana-pl 45.15 vs 37.14 at 512), our fork
@@ -132,7 +138,8 @@ done
 log "=== v6 block V1: old-pyserini regime for the runners-up ==="
 regime old-pyserini soup-v2b models/soup-v2b heldout8 16
 regime new-backend ck-warmup-s-len512 models/ck-warmup-s heldout8 16 512
-for m in arm-squadv2-2073 ck-warmup-l arm-fiqa-rand arm-fiqa-hard arm-cluster-like-fiqa arm-fiqa-plus-squadv2; do
+# trimmed 26.10 evening to the two arms that still matter (the other four are ranked by the truncated numbers; ~3 h saved)
+for m in arm-cluster-like-fiqa arm-fiqa-plus-squadv2; do
     [ -d "models/$m" ] || continue
     for ts in tiny10 heldout8; do regime old-pyserini "$m" "models/$m" "$ts" 16; done
 done
