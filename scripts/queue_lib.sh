@@ -3,7 +3,13 @@
 # queues). Set QUEUE_TAG before sourcing. Everything runs serially; every GPU
 # job waits for an idle card and >= 6 GB free RAM, runs under `timeout`, and a
 # failed step is logged and skipped, never fatal.
-export JAVA_HOME=/home/jsowa/opt/jdk-21.0.5+11
+# JDK 21 for Anserini: a JAVA_HOME already pointing at a JDK wins, otherwise the
+# first local JDK 21 install (~/opt/jdk-21*, /usr/lib/jvm/*21*).
+if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
+    JAVA_HOME=$(ls -d "$HOME"/opt/jdk-21* /usr/lib/jvm/*21* 2>/dev/null | head -1)
+fi
+[ -x "${JAVA_HOME:-/nonexistent}/bin/java" ] || echo "queue_lib: no JDK 21 found; set JAVA_HOME before launching (PIRB needs it)" >&2
+export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
 PY="$(pwd)/.venv/bin/python"
 LOGS="$(pwd)/logs"
