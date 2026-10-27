@@ -104,7 +104,27 @@ sufit, do którego się odnosimy.
 | **mean** | 67.80 | 67.53 | 69.00 |  | +1.47 |  |  |
 <!-- tables:end -->
 
-## 4. Gdzie stoją modele i gdzie jest największe pole do poprawy
+## 4. Liczba niezerowych wag
+
+Aktywny wymiar = waga, która po kwantyzacji PIRB (round(w·100)) jest > 0, czyli
+trafia do indeksu (dokument) albo do zapytania. Dwie próbki: po 300 pasaży z
+każdego z 10 zadań tiny (`results/sparsity/*.json`, `scripts/compare_splade_sparsity.py`)
+oraz próbka kosztu indeksu z pasażami i zapytaniami (`results/index_cost*.json`,
+`scripts/splade_index_cost.py`); „postings/zapytanie” to liczba par
+(term, pasaż) ocenianych przy jednym zapytaniu w tej próbce, czyli koszt
+wyszukiwania. Tabelę generuje `scripts/sparsity_table.py`.
+
+<!-- sparsity:start -->
+| model | wymiary/dokument, średnia (3000 pasaży tiny) | ×baza | p95 | wymiary/dokument (próbka kosztu) | wymiary/zapytanie | ×baza | postings/zapytanie | ×baza |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| base-splade-wrapped | 436.3 | ×1.00 | 695 | 450.0 | 138.6 | ×1.00 | 16415 | ×1.00 |
+| soup-of-ft | 346.1 | ×0.79 | 510 | 353.2 | 125.9 | ×0.91 | 14995 | ×0.91 |
+| soup-v2b | 326.3 | ×0.75 | 482 |  |  |  |  |  |
+
+Źródło próbki kosztu: index_cost.json (1350 pasaży i tyle samo zapytań).
+<!-- sparsity:end -->
+
+## 5. Gdzie stoją modele i gdzie jest największe pole do poprawy
 
 **Zysk jest realny, ale mały i skoncentrowany.** soup-of-ft i soup-v2b dają
 średnio +1.2–1.5 nad polish-splade we wszystkich trzech zestawach, z tego samego
@@ -147,7 +167,7 @@ jest „najlepszy model rzadki dla polskiego z wyraźnym marginesem”, nie szcz
    na dokument 346 (soup-of-ft, ×0.79) i 326 (soup-v2b, ×0.75) wobec 436 bazy;
    na zapytanie 126 vs 139 (×0.91) dla soup-of-ft; postings na zapytanie ×0.91.
 
-## 5. Odtworzenie
+## 6. Odtworzenie
 
 ```bash
 # jeden model, jeden zestaw, reżim leaderboardu (wyniki w results-regimes/old-pyserini/<label>/<zestaw>.json)

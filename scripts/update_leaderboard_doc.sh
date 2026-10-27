@@ -8,14 +8,17 @@ TMP=$(mktemp)
 python3 scripts/leaderboard_compare.py --regime old-pyserini \
     --model base-splade-wrapped --model soup-of-ft --model soup-v2b \
     --taskset tiny10 --taskset heldout8 --taskset heldout2 > "$TMP"
-python3 - "$DOC" "$TMP" <<'EOF'
+SPARSITY=$(mktemp)
+python3 scripts/sparsity_table.py --model base-splade-wrapped=base --model soup-of-ft --model soup-v2b > "$SPARSITY"
+python3 - "$DOC" "$TMP" "$SPARSITY" <<'EOF'
 import sys
-doc, tables = sys.argv[1:3]
+doc, tables, sparsity = sys.argv[1:4]
 text = open(doc).read()
-start, end = "<!-- tables:start -->", "<!-- tables:end -->"
-a, b = text.index(start) + len(start), text.index(end)
-text = text[:a] + "\n" + open(tables).read().strip("\n") + "\n" + text[b:]
+for marker, path in (("tables", tables), ("sparsity", sparsity)):
+    start, end = f"<!-- {marker}:start -->", f"<!-- {marker}:end -->"
+    a, b = text.index(start) + len(start), text.index(end)
+    text = text[:a] + "\n" + open(path).read().strip("\n") + "\n" + text[b:]
 open(doc, "w").write(text)
-print(f"tables updated in {doc}")
+print(f"tables and sparsity updated in {doc}")
 EOF
-rm -f "$TMP"
+rm -f "$TMP" "$SPARSITY"
