@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Distillation step B of docs/PLAN-2026-10-27.md: margin-MSE on the fiqa-2073
 # queries re-scored by sdadas/polish-reranker-roberta-v3 (positives and all 10
-# negatives) in ~/work/hardnegatives. Needs datasets/arms/fiqa-2073-v3.jsonl
-# (FlagEmbedding-style rows with pos_scores / neg_scores from v3); refuses to
-# start without it. Blocks:
+# negatives) in ~/work/speakleash/mine-hard-negatives (its JSONL export).
+# Needs datasets/arms/fiqa-2073-v3.jsonl (FlagEmbedding-style rows with
+# pos_scores / neg_scores from v3); refuses to start without it. Blocks:
 #   T  three arms, one per teacher-score normalisation (none, minmax, zscore),
 #      recipe of arm-cluster-like-fiqa otherwise (512 tokens, 10 negatives)
 #   M  tiny bench + document sparsity of each arm
@@ -18,7 +18,7 @@ source scripts/queue_lib.sh
 echo $$ > "$LOGS/queue_v11.pid"
 
 DATA=datasets/arms/fiqa-2073-v3.jsonl
-[ -f "$DATA" ] || { log "v11: $DATA missing (produce it in ~/work/hardnegatives with RERANKER_NAME=sdadas/polish-reranker-roberta-v3); exiting"; exit 1; }
+[ -f "$DATA" ] || { log "v11: $DATA missing (export it from ~/work/speakleash/mine-hard-negatives with the v3 reranker as the final scorer); exiting"; exit 1; }
 rows=$(wc -l < "$DATA"); bad=$("$PY" -c "
 import json,sys
 n=0
