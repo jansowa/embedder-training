@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Margin-MSE configs for the distillation arms of docs/PLAN-2026-10-27.md (queues v11/v12):
-every teacher-data variant x teacher-score normalisation x recipe tweak, so the queue
+"""Distillation-arm configs of docs/PLAN-2026-10-27.md (queues v11/v12/v13): every teacher-data
+variant x teacher-score normalisation x recipe tweak for margin-MSE, plus the KL arms, so a queue
 can pick the normalisation that won step B and the data variant that wins next.
 
   data variants (rows = the 2073 gated FiQA queries, scores from sdadas/polish-reranker-roberta-v3)
@@ -8,13 +8,19 @@ can pick the normalisation that won step B and the data variant that wins next.
     v3old      fiqa-2073-v3old.jsonl       the old rows' own negatives, re-scored by v3
     v3hard     fiqa-2073-v3hard.jsonl      re-mined, hard negatives (candidate u_floor 0.5, final 0.05)
     v3hardplus fiqa-2073-v3hard-plus.jsonl v3hard plus the synthetic positives of MINE_POSITIVES
-  recipe tweaks
+  margin-MSE recipe tweaks
     (none)     the step-B recipe: lr 2e-5, 2 epochs, 512 tokens, 10 negatives, batch 2 x 16, docreg 0.001
     docreg3e-4 document FLOPS weight 0.0003
     docreg3e-3 document FLOPS weight 0.003
     hardlowcov only the hard + lowcov half of the rows (query ids of datasets/arms/splits/fiqa-hard + fiqa-lowcov)
+    scaleauto  teacher margins multiplied by alpha fitted to the untrained student's margins (score_scale: auto);
+               step B showed the student at ~2x the teacher's margin scale, which margin-MSE "fixed" by
+               shrinking the representations (436 -> 260 active dims, tiny 55.4 vs base 60.1)
+  KL arms (kl_fiqa_<data>_scaleauto.yaml): SparseDistillKLDivLoss at temperature 2 on the raw teacher
+    scores, same alpha calibration, normalisation none.
 
-File: configs/next/3060/mmse_fiqa_<data>_<norm>[_<tweak>].yaml, arm: mmse-fiqa-<data>-<norm>[-<tweak>].
+Files: configs/next/3060/mmse_fiqa_<data>_<norm>[_<tweak>].yaml (arm mmse-fiqa-<data>-<norm>[-<tweak>])
+       configs/next/3060/kl_fiqa_<data>_scaleauto.yaml (arm kl-fiqa-<data>-scaleauto).
 The three step-B files (mmse_fiqa_v3_<norm>.yaml) already exist and are not rewritten.
 """
 
@@ -41,7 +47,7 @@ hparams:
   - learning_rate: 2e-5
     num_train_epochs: 2
     document_regularizer_weight: {docreg}
-    loss: sparse_margin_mse
+    loss: {loss}
 
 sentence_transformers:
   max_seq_length: 512
@@ -55,7 +61,7 @@ sentence_transformers:
   splade_pooling_chunk_size: 8
   negatives_per_query: 10
   score_normalization: {norm_value}
-  save_strategy: "no"
+{extra}  save_strategy: "no"
   keep_epoch_checkpoints: false
   report_to:
     - wandb
@@ -77,12 +83,22 @@ DATA = {
     "v3hard": ("datasets/arms/fiqa-2073-v3hard.jsonl", "re-mined hard negatives (candidate u_floor 0.5, final 0.05)"),
     "v3hardplus": ("datasets/arms/fiqa-2073-v3hard-plus.jsonl", "v3hard plus the MINE_POSITIVES synthetic positives"),
 }
+# tweak -> (document regularizer weight, train-file suffix, extra sentence_transformers keys, description)
 TWEAKS = {
-    "": ("0.001", None, "step-B recipe"),
-    "docreg3e-4": ("0.0003", None, "weaker document FLOPS regularisation (0.0003)"),
-    "docreg3e-3": ("0.003", None, "stronger document FLOPS regularisation (0.003)"),
-    "hardlowcov": ("0.001", "-hardlowcov", "only the hard + lowcov half of the rows"),
+    "": ("0.001", None, {}, "step-B recipe"),
+    "docreg3e-4": ("0.0003", None, {}, "weaker document FLOPS regularisation (0.0003)"),
+    "docreg3e-3": ("0.003", None, {}, "stronger document FLOPS regularisation (0.003)"),
+    "hardlowcov": ("0.001", "-hardlowcov", {}, "only the hard + lowcov half of the rows"),
+    "scaleauto": ("0.001", None, {"score_scale": "auto"}, "teacher margins scaled to the student's margin scale"),
 }
+KL_EXTRA = {"score_scale": "auto", "kl_temperature": "2.0"}
+
+
+def render(*, desc: str, norm: str, name: str, data: str, docreg: str, loss: str, extra: dict[str, str]) -> str:
+    extra_lines = "".join(f"  {key}: {value}\n" for key, value in extra.items())
+    return TEMPLATE.format(
+        desc=desc, norm=norm, norm_value=NORMS[norm], name=name, data=data, docreg=docreg, loss=loss, extra=extra_lines
+    )
 
 
 def main() -> None:
@@ -90,19 +106,26 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     n = 0
     for data, (path, data_desc) in DATA.items():
-        for norm, norm_value in NORMS.items():
-            for tweak, (docreg, data_suffix, tweak_desc) in TWEAKS.items():
+        for norm in NORMS:
+            for tweak, (docreg, data_suffix, extra, tweak_desc) in TWEAKS.items():
                 if data == "v3" and tweak == "":
                     continue  # the step-B configs, written by hand
                 stem = f"mmse_fiqa_{data}_{norm}" + (f"_{tweak}" if tweak else "")
                 name = f"mmse-fiqa-{data}-{norm}" + (f"-{tweak}" if tweak else "")
                 train_data = path if not data_suffix else path.replace(".jsonl", f"{data_suffix}.jsonl")
                 (out_dir / f"{stem}.yaml").write_text(
-                    TEMPLATE.format(desc=f"Distillation arm: {data_desc}; {tweak_desc}.", norm=norm,
-                                    norm_value=norm_value, name=name, data=train_data, docreg=docreg),
+                    render(desc=f"Distillation arm: {data_desc}; {tweak_desc}.", norm=norm, name=name,
+                           data=train_data, docreg=docreg, loss="sparse_margin_mse", extra=extra),
                     encoding="utf-8",
                 )
                 n += 1
+        (out_dir / f"kl_fiqa_{data}_scaleauto.yaml").write_text(
+            render(desc=f"Distillation arm (KL, temperature 2): {data_desc}; teacher scores scaled to the student.",
+                   norm="none", name=f"kl-fiqa-{data}-scaleauto", data=path, docreg="0.001",
+                   loss="sparse_distill_kl_div", extra=KL_EXTRA),
+            encoding="utf-8",
+        )
+        n += 1
     print(f"wrote {n} configs to {out_dir}")
 
 

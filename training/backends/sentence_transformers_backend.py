@@ -295,6 +295,152 @@ def _normalize_teacher_scores(pos_score: float, neg_scores: list[float], normali
     )
 
 
+def _teacher_margins_from_label(label: Any, label_layout: str) -> list[float]:
+    values = [float(value) for value in (label if isinstance(label, list) else [label])]
+    if label_layout == "scores":
+        return [values[0] - value for value in values[1:]]
+    return values
+
+
+def _fit_teacher_score_scale(student_margins: list[float], teacher_margins: list[float]) -> dict[str, float | int]:
+    """Least-squares factor alpha (through the origin) with student_margin ~ alpha * teacher_margin."""
+    pairs = list(zip(student_margins, teacher_margins))
+    if not pairs:
+        raise SentenceTransformersConfigError("'score_scale: auto' needs at least one (student, teacher) margin pair.")
+    count = len(pairs)
+    cross = sum(student * teacher for student, teacher in pairs)
+    teacher_sq = sum(teacher * teacher for _, teacher in pairs)
+    alpha = cross / teacher_sq if teacher_sq > 0 else 1.0
+    student_mean = sum(student for student, _ in pairs) / count
+    teacher_mean = sum(teacher for _, teacher in pairs) / count
+    student_var = sum((student - student_mean) ** 2 for student, _ in pairs)
+    teacher_var = sum((teacher - teacher_mean) ** 2 for _, teacher in pairs)
+    covariance = sum((student - student_mean) * (teacher - teacher_mean) for student, teacher in pairs)
+    pearson = covariance / (student_var * teacher_var) ** 0.5 if student_var > 0 and teacher_var > 0 else 0.0
+    return {
+        "alpha": alpha,
+        "pairs": count,
+        "student_margin_mean": student_mean,
+        "teacher_margin_mean": teacher_mean,
+        "pearson": pearson,
+    }
+
+
+def _calibrate_score_scale(
+    rows: list[dict[str, Any]],
+    score_fn: Any,
+    *,
+    sample_rows: int,
+    label_layout: str,
+) -> dict[str, float | int]:
+    """Fit alpha so that the initial student's margins match alpha * teacher margins on evenly spaced rows.
+
+    ``score_fn(queries, passages)`` returns, per row, the student scores of ``[positive, negative_1, ...]``.
+    """
+    if sample_rows <= 0:
+        raise SentenceTransformersConfigError("'sentence_transformers.score_scale_sample_rows' must be positive.")
+    step = max(1, len(rows) // sample_rows)
+    sample = rows[::step][:sample_rows]
+    queries = [row["anchor"] for row in sample]
+    passages: list[list[str]] = []
+    for row in sample:
+        negative_keys = sorted((key for key in row if key.startswith("negative_")), key=lambda key: int(key.split("_")[1]))
+        passages.append([row["positive"], *(row[key] for key in negative_keys)])
+    scores = score_fn(queries, passages)
+    student_margins: list[float] = []
+    teacher_margins: list[float] = []
+    for row, row_scores in zip(sample, scores):
+        teacher = _teacher_margins_from_label(row["label"], label_layout)
+        student = [float(row_scores[0]) - float(score) for score in row_scores[1:]]
+        if len(student) != len(teacher):
+            raise SentenceTransformersConfigError(
+                f"'score_scale: auto': {len(student)} student margins but {len(teacher)} teacher margins in a row."
+            )
+        student_margins.extend(student)
+        teacher_margins.extend(teacher)
+    fit = _fit_teacher_score_scale(student_margins, teacher_margins)
+    fit["sample_rows"] = len(sample)
+    return fit
+
+
+def _splade_score_fn(model: Any, *, batch_size: int) -> Any:
+    """Dot-product scores of the (untrained) sparse encoder, for the score-scale calibration."""
+    import torch
+
+    def score(queries: list[str], passages: list[list[str]]) -> list[list[float]]:
+        device = "cuda" if torch.cuda.is_available() else None
+        flat = [passage for row in passages for passage in row]
+        encode_kwargs = {
+            "batch_size": batch_size,
+            "convert_to_tensor": True,
+            "convert_to_sparse_tensor": False,
+            "show_progress_bar": False,
+            "device": device,
+        }
+        with torch.no_grad():
+            query_embeddings = model.encode(queries, **encode_kwargs)
+            passage_embeddings = model.encode(flat, **encode_kwargs)
+            result: list[list[float]] = []
+            offset = 0
+            for index, row in enumerate(passages):
+                block = passage_embeddings[offset : offset + len(row)]
+                offset += len(row)
+                result.append((block.float() @ query_embeddings[index].float()).tolist())
+        del query_embeddings, passage_embeddings
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return result
+
+    return score
+
+
+def _resolve_score_scale(backend_config: dict[str, Any]) -> float | str | None:
+    """'sentence_transformers.score_scale': a factor for the teacher labels, 'auto' to fit it, None when unset/1."""
+    raw = backend_config.get("score_scale")
+    if raw is None or isinstance(raw, bool):
+        if raw is None:
+            return None
+        raise SentenceTransformersConfigError("'sentence_transformers.score_scale' must be a number or 'auto'.")
+    if isinstance(raw, str):
+        text = raw.strip().lower()
+        if text in {"", "none", "1", "1.0"}:
+            return None
+        if text == "auto":
+            return "auto"
+        try:
+            value = float(text)
+        except ValueError as exc:
+            raise SentenceTransformersConfigError("'sentence_transformers.score_scale' must be a number or 'auto'.") from exc
+    else:
+        value = float(raw)
+    if value <= 0:
+        raise SentenceTransformersConfigError("'sentence_transformers.score_scale' must be positive.")
+    return None if value == 1.0 else value
+
+
+def _apply_score_scale(rows: list[dict[str, Any]], alpha: float) -> None:
+    for row in rows:
+        label = row.get("label")
+        if isinstance(label, list):
+            row["label"] = [float(value) * alpha for value in label]
+        elif label is not None:
+            row["label"] = float(label) * alpha
+
+
+def _load_sparse_kl_loss():
+    _require_sentence_transformers()
+    try:
+        from sentence_transformers.sparse_encoder.losses import SparseDistillKLDivLoss
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise BackendDependencyError(
+            "Loss 'sparse_distill_kl_div' needs sentence-transformers with SparseDistillKLDivLoss (>= 5.0)."
+        ) from exc
+    return SparseDistillKLDivLoss
+
+
+SPLADE_DISTILLATION_LOSSES = {"sparse_margin_mse", "sparse_distill_kl_div"}
+
+
 def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
     loss_name = str(backend_config.get("loss", "sparse_multiple_negatives_ranking")).strip().lower().replace("-", "_")
     aliases = {
@@ -304,11 +450,15 @@ def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
         "sparse_margin_mse_loss": "sparse_margin_mse",
         "margin_mse": "sparse_margin_mse",
         "distil_margin_mse": "sparse_margin_mse",
+        "kl_div": "sparse_distill_kl_div",
+        "distill_kl_div": "sparse_distill_kl_div",
+        "sparse_distill_kl_div_loss": "sparse_distill_kl_div",
     }
     loss_name = aliases.get(loss_name, loss_name)
-    if loss_name not in {"sparse_multiple_negatives_ranking", "sparse_margin_mse"}:
+    if loss_name not in {"sparse_multiple_negatives_ranking", *SPLADE_DISTILLATION_LOSSES}:
         raise SentenceTransformersConfigError(
-            "'sentence_transformers.loss' must be one of: sparse_multiple_negatives_ranking, sparse_margin_mse."
+            "'sentence_transformers.loss' must be one of: sparse_multiple_negatives_ranking, sparse_margin_mse, "
+            "sparse_distill_kl_div."
         )
     return loss_name
 
@@ -341,7 +491,10 @@ def load_flagembedding_jsonl_dataset(
     passage_prefix: str,
     use_score_labels: bool = False,
     score_normalization: str = "none",
+    label_layout: str = "margins",
 ) -> list[dict[str, Any]]:
+    if label_layout not in {"margins", "scores"}:
+        raise SentenceTransformersConfigError("label_layout must be 'margins' (pos - neg per negative) or 'scores'.")
     parsed_items: list[tuple[int, str, list[str], list[str], list[float] | None, list[float] | None]] = []
     min_negatives: int | None = None
 
@@ -409,8 +562,11 @@ def load_flagembedding_jsonl_dataset(
                     selected_neg_scores,
                     score_normalization,
                 )
-                labels = [pos_score - neg_score for neg_score in selected_neg_scores]
-                row["label"] = labels[0] if len(labels) == 1 else labels
+                if label_layout == "scores":
+                    row["label"] = [pos_score, *selected_neg_scores]
+                else:
+                    labels = [pos_score - neg_score for neg_score in selected_neg_scores]
+                    row["label"] = labels[0] if len(labels) == 1 else labels
             rows.append(row)
 
     return rows
@@ -1000,6 +1156,7 @@ def _load_training_rows(
     config_path: str | None = None,
     use_score_labels: bool = False,
     score_normalization: str = "none",
+    label_layout: str = "margins",
     default_negatives_per_query: int | None = None,
 ) -> LoadedTrainingRows:
     sources = _resolve_train_data_sources(config, backend_config, config_path=config_path)
@@ -1028,6 +1185,7 @@ def _load_training_rows(
             passage_prefix=passage_prefix,
             use_score_labels=use_score_labels,
             score_normalization=score_normalization,
+            label_layout=label_layout,
         )
         rows.extend(source_rows)
         dataset_ids.extend([source.name] * len(source_rows))
@@ -1300,19 +1458,44 @@ def run_splade_training(request: TrainingRequest) -> int:
     resume_from_checkpoint = resolve_resume_checkpoint(output_dir, config, backend_config, request.cli_args)
 
     loss_name = _splade_base_loss_name(backend_config)
+    distillation = loss_name in SPLADE_DISTILLATION_LOSSES
+    label_layout = "scores" if loss_name == "sparse_distill_kl_div" else "margins"
     loaded = _load_training_rows(
         config,
         backend_config,
         config_path=request.config_path,
-        use_score_labels=loss_name == "sparse_margin_mse",
+        use_score_labels=distillation,
         score_normalization=str(backend_config.get("score_normalization", "none")),
+        label_layout=label_layout,
     )
-    train_dataset = Dataset.from_list(loaded.rows)
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
+
+    score_scale = _resolve_score_scale(backend_config)
+    if score_scale is not None:
+        if not distillation:
+            raise SentenceTransformersConfigError(
+                "'sentence_transformers.score_scale' needs a distillation loss (sparse_margin_mse or sparse_distill_kl_div)."
+            )
+        if score_scale == "auto":
+            score_fn = _splade_score_fn(model, batch_size=int(backend_config.get("score_scale_batch_size", 16)))
+            fit = _calibrate_score_scale(
+                loaded.rows,
+                score_fn,
+                sample_rows=int(backend_config.get("score_scale_sample_rows", 128)),
+                label_layout=label_layout,
+            )
+        else:
+            fit = {"alpha": float(score_scale), "pairs": 0}
+        _apply_score_scale(loaded.rows, float(fit["alpha"]))
+        print(f"[INFO] Teacher score scale: {json.dumps(fit, sort_keys=True)}", flush=True)
+        (output_dir / "score_scale.json").write_text(json.dumps(fit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    train_dataset = Dataset.from_list(loaded.rows)
 
     args = _training_args(output_dir, _training_args_config_for_rows(backend_config, loaded), SparseEncoderTrainingArguments)
     if loss_name == "sparse_margin_mse":
         ranking_loss = SparseMarginMSELoss(model)
+    elif loss_name == "sparse_distill_kl_div":
+        ranking_loss = _load_sparse_kl_loss()(model, temperature=float(backend_config.get("kl_temperature", 2.0)))
     else:
         ranking_loss = SparseMultipleNegativesRankingLoss(
             model,
