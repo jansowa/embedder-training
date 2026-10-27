@@ -1,0 +1,12 @@
+{
+  "regime": "new-backend",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "heldout2_poquad",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-poquad": 19.4889
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 19.4889
+}
