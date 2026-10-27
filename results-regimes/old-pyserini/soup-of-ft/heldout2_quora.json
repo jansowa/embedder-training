@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "tasks": {
+    "quora-pl": 79.10616218242257
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 79.10616218242257
+}

@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout2_czywiesz",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-czy-wiesz-v2": 86.3051986593136
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 86.3051986593136
+}

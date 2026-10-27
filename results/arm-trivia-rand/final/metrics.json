@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-trivia-rand",
+  "scope": "tiny",
+  "created_at": "2026-10-27T15:03:29+01:00",
+  "git_commit": "4afdabe69cb9f61deae5f5b14863434891423a4c",
+  "epoch0/pirb_maupqa-gpt3-cc": 12.94439944486522,
+  "epoch0/pirb_maupqa-mkqa": 44.26395526536627,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 75.24522825685402,
+  "epoch0/pirb_maupqa-templates": 65.67795121209,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 52.269640287408514,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 46.949042014093834,
+  "epoch0/pirb_arguana-pl": 22.711395076879654,
+  "epoch0/pirb_nfcorpus-pl": 30.440844765034107,
+  "epoch0/pirb_scifact-pl": 54.35934172182425,
+  "epoch0/pirb_gpt-exams": 87.8307990192267,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/arm-trivia-rand",
+  "epoch0/pirb_ndcg_tasks": 492.69259706364255,
+  "epoch0/pirb_average_ndcg@10": 49.26925970636425,
+  "epoch0/pirb_datasets": 10
+}

@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout2_gpt35wiki",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-wiki": 91.5327881657934
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 91.5327881657934
+}

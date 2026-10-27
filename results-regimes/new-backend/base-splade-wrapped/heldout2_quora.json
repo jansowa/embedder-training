@@ -1,0 +1,12 @@
+{
+  "regime": "new-backend",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "tasks": {
+    "quora-pl": 76.5353
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 76.5353
+}

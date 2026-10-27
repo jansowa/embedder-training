@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-of-ft",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-of-ft",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "tasks": {
+    "trec-covid-pl": 68.56861883890457
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 68.56861883890457
+}

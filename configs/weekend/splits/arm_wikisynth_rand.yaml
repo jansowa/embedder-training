@@ -10,8 +10,6 @@ save_resolved_config: true
 
 train_data: datasets/arms/splits/wikisynth-rand.jsonl
 
-dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
-dataset_filter_cache_dir: cache/filtered_datasets
 
 architectures:
   - sdadas/polish-splade

@@ -1,0 +1,12 @@
+{
+  "regime": "new-backend",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "heldout2_czywiesz",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-czy-wiesz-v2": 85.7995
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 85.7995
+}

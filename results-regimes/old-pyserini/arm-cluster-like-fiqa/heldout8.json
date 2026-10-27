@@ -1,0 +1,19 @@
+{
+  "regime": "old-pyserini",
+  "label": "arm-cluster-like-fiqa",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-cluster-like-fiqa",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 19.963806328939196,
+    "maupqa-multilingual-NLI": 14.383691112391192,
+    "mfaq": 62.76771671522955,
+    "poleval-2022-test-A-legal-questions": 80.54341813566353,
+    "maupqa-wiki-def": 65.43806607302356,
+    "scidocs-pl": 14.092055853532601,
+    "maupqa-1z10": 47.68486205549494,
+    "fiqa-pl": 29.16885213868616
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 41.75530855162009
+}
