@@ -28,6 +28,13 @@ if [ "$SMOKE" -gt 0 ]; then
     ARM="$MINE_OUT/fiqa-smoke-v3.jsonl"; ARM_PLUS="$MINE_OUT/fiqa-smoke-v3-plus.jsonl"
     REPORT="$MINE_OUT/report-v3.json"; REPORT_PLUS="$MINE_OUT/report-v3-plus.json"
     TAG=fiqa-v3-smoke
+elif [ "${VARIANT:-}" = hard ]; then
+    # hard variant (27.10 night): the small reranker lets anything below the median of its
+    # positive scores through, v3 keeps negatives below the 5th percentile of its positives
+    export MINE_OUT="$REPO/datasets/arms/fiqa-v3hard-mine"
+    ARM="$REPO/datasets/arms/fiqa-2073-v3hard.jsonl"; ARM_PLUS="$REPO/datasets/arms/fiqa-2073-v3hard-plus.jsonl"
+    REPORT="$REPO/results/data/fiqa-2073-v3hard.json"; REPORT_PLUS="$REPO/results/data/fiqa-2073-v3hard-plus.json"
+    TAG=fiqa-v3hard
 else
     export MINE_OUT="$REPO/datasets/arms/fiqa-v3-mine"
     ARM="$REPO/datasets/arms/fiqa-2073-v3.jsonl"; ARM_PLUS="$REPO/datasets/arms/fiqa-2073-v3-plus.jsonl"
@@ -55,6 +62,7 @@ build_args=(--rows datasets/arms/fiqa-2073.jsonl --out-dir "$MINE_OUT")
 "$PY" scripts/fiqa_v3_build_mining_inputs.py "${build_args[@]}" || { log "building inputs FAILED"; exit 1; }
 
 set -a; source "$REPO/scripts/fiqa_v3_mine.env"; set +a
+if [ "${VARIANT:-}" = hard ]; then export CANDIDATE_U_FLOOR=0.5 FINAL_U_FLOOR=0.05; log "hard variant: CANDIDATE_U_FLOOR=0.5 FINAL_U_FLOOR=0.05"; fi
 cd "$MINE" || exit 1
 T0=$SECONDS
 step() {  # step LABEL DONE_FILE CMD...: skip when DONE_FILE exists (re-runs continue where they stopped)
