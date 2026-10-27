@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-fiqa-pool-gate-hard-2073",
+  "scope": "tiny",
+  "created_at": "2026-10-27T04:56:20+01:00",
+  "git_commit": "5fa4a8263c1fc522de6c7c894b16530b6c2583d7",
+  "epoch0/pirb_maupqa-gpt3-cc": 17.066279537465835,
+  "epoch0/pirb_maupqa-mkqa": 56.05839387176456,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 75.36886264779055,
+  "epoch0/pirb_maupqa-templates": 69.06326043989705,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 69.3014923289595,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 66.18719851438797,
+  "epoch0/pirb_arguana-pl": 39.40777014048811,
+  "epoch0/pirb_nfcorpus-pl": 31.35242619916542,
+  "epoch0/pirb_scifact-pl": 63.93094519723987,
+  "epoch0/pirb_gpt-exams": 97.73073305964942,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/arm-fiqa-pool-gate-hard-2073",
+  "epoch0/pirb_ndcg_tasks": 585.4673619368082,
+  "epoch0/pirb_average_ndcg@10": 58.546736193680815,
+  "epoch0/pirb_datasets": 10
+}

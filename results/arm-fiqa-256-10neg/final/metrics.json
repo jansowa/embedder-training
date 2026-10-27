@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-fiqa-256-10neg",
+  "scope": "tiny",
+  "created_at": "2026-10-26T23:16:33+01:00",
+  "git_commit": "5fa4a8263c1fc522de6c7c894b16530b6c2583d7",
+  "epoch0/pirb_maupqa-gpt3-cc": 18.052382339807195,
+  "epoch0/pirb_maupqa-mkqa": 60.767932371082324,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 79.67376522219641,
+  "epoch0/pirb_maupqa-templates": 72.76660393201556,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 75.39411974665722,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 71.37945416657185,
+  "epoch0/pirb_arguana-pl": 42.512096653804946,
+  "epoch0/pirb_nfcorpus-pl": 32.040060627454366,
+  "epoch0/pirb_scifact-pl": 65.18197386491292,
+  "epoch0/pirb_gpt-exams": 98.50234556864721,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/arm-fiqa-256-10neg",
+  "epoch0/pirb_ndcg_tasks": 616.2707344931499,
+  "epoch0/pirb_average_ndcg@10": 61.62707344931499,
+  "epoch0/pirb_datasets": 10
+}
