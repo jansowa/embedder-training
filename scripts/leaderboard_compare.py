@@ -91,18 +91,17 @@ def main() -> int:
     standalone = [e for e in entries if "standalone" in (e.get("tags") or []) and not set(e.get("tags") or []) & set(args.exclude_tag)]
 
     base = args.model[0]
-    grand: dict[str, list[float]] = {m: [] for m in args.model}
-    grand_pub: list[float] = []
+    blocks: list[str] = []                       # per-task tables, printed after the summary
+    set_means: dict[str, dict[str, float | None]] = {}   # taskset -> {"published"|model: mean}
+    set_sizes: dict[str, int] = {}
     for taskset in args.taskset:
         ours = {m: our_results(args.regime, m, taskset) for m in args.model}
         tasks = sorted(ours[base]) if ours[base] else sorted({t for r in ours.values() for t in r})
         if not tasks:
-            print(f"\n(no results for {taskset} in regime {args.regime})\n")
+            blocks.append(f"\n(no results for {taskset} in regime {args.regime})\n")
             continue
         head = ["task", "published polish-splade", f"ours {base}"] + [m for m in args.model[1:]] + [f"Δ {m} vs base" for m in args.model[1:]] + ["best standalone on PIRB"]
-        print(f"\n### {taskset} ({args.regime}, nDCG@10)\n")
-        print("| " + " | ".join(head) + " |")
-        print("|---|" + "---:|" * (len(head) - 2) + "---|")
+        lines = [f"\n### {taskset} ({args.regime}, nDCG@10)\n", "| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 2) + "---|"]
         sums: dict[str, list[float]] = {m: [] for m in args.model}
         pub_sum: list[float] = []
         for task in tasks:
@@ -112,41 +111,49 @@ def main() -> int:
             row += [fmt(ours[m].get(task)) for m in args.model[1:]]
             row += [delta(ours[m].get(task), ours[base].get(task)) for m in args.model[1:]]
             row.append(f"{best[0]:.2f} ({best[1].split('/')[-1]})")
-            print("| " + " | ".join(row) + " |")
+            lines.append("| " + " | ".join(row) + " |")
             if pub is not None:
                 pub_sum.append(pub)
             for m in args.model:
                 v = ours[m].get(task)
                 if v is not None:
                     sums[m].append(v)
-        mean_row = ["**mean**", fmt(sum(pub_sum) / len(pub_sum)) if pub_sum else ""]
-        mean_row.append(fmt(sum(sums[base]) / len(sums[base])) if sums[base] else "")
-        means = {m: (sum(sums[m]) / len(sums[m]) if sums[m] else None) for m in args.model}
+        # A model's mean counts only when it has the whole set.
+        means = {m: (sum(sums[m]) / len(sums[m]) if len(sums[m]) == len(tasks) else None) for m in args.model}
+        pub_mean = sum(pub_sum) / len(pub_sum) if len(pub_sum) == len(tasks) else None
+        mean_row = ["**mean**", fmt(pub_mean), fmt(means[base])]
         mean_row += [fmt(means[m]) for m in args.model[1:]]
         mean_row += [delta(means[m], means[base]) for m in args.model[1:]]
         mean_row.append("")
-        print("| " + " | ".join(mean_row) + " |")
-        for m in args.model:
-            grand[m] += sums[m]
-        grand_pub += pub_sum
-    # Grand means only over the tasks every listed model has, so a model with a
-    # task set still missing is not compared on a different mix of tasks.
+        lines.append("| " + " | ".join(mean_row) + " |")
+        blocks.append("\n".join(lines))
+        set_means[taskset] = {"published": pub_mean, **means}
+        set_sizes[taskset] = len(tasks)
+
+    # Summary: mean per task set for every model, plus the mean over the tasks
+    # every listed model has (so a model with a set still missing is not
+    # compared on a different mix of tasks).
     all_ours = {m: {} for m in args.model}
     for taskset in args.taskset:
         for m in args.model:
             all_ours[m].update(our_results(args.regime, m, taskset))
     common = sorted(set.intersection(*(set(r) for r in all_ours.values())))
-    print(f"\n### all listed tasks ({len(common)} tasks every model has)\n")
-    print("| model | mean nDCG@10 | Δ vs base |")
-    print("|---|---:|---:|")
     pub_common = [v for t in common if (v := ndcg(published, t)) is not None]
-    if pub_common:
-        print(f"| published polish-splade | {sum(pub_common) / len(pub_common):.2f} | |")
     base_mean = sum(all_ours[base][t] for t in common) / len(common) if common else None
+    sets = [t for t in args.taskset if t in set_means]
+    print(f"\n### Średnie per zestaw ({args.regime}, nDCG@10)\n")
+    head = ["model"] + [f"{t} ({set_sizes[t]})" for t in sets] + [f"wszystkie wspólne ({len(common)})", "Δ vs base (wspólne)"]
+    print("| " + " | ".join(head) + " |")
+    print("|---|" + "---:|" * (len(head) - 1))
+    pub_row = ["published polish-splade"] + [fmt(set_means[t]["published"]) for t in sets]
+    pub_row += [fmt(sum(pub_common) / len(pub_common)) if pub_common and len(pub_common) == len(common) else "", ""]
+    print("| " + " | ".join(pub_row) + " |")
     for m in args.model:
-        if common:
-            mean = sum(all_ours[m][t] for t in common) / len(common)
-            print(f"| {m} | {mean:.2f} | {delta(mean, base_mean) if m != base else ''} |")
+        mean = sum(all_ours[m][t] for t in common) / len(common) if common else None
+        row = [m] + [fmt(set_means[t][m]) for t in sets] + [fmt(mean), delta(mean, base_mean) if m != base else ""]
+        print("| " + " | ".join(row) + " |")
+    for block in blocks:
+        print(block)
     return 0
 
 

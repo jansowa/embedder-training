@@ -46,10 +46,22 @@ nie były liczone.
 
 ## 3. Wyniki per zadanie
 
-Kolumna „best standalone on PIRB” to najlepszy samodzielny model leaderboardu
-(bez hybryd i rerankerów) na danym zadaniu: sufit, do którego się odnosimy.
+Pierwsza tabela to średnie per zestaw (liczba zadań w nawiasie; kolumna
+„wszystkie wspólne” liczy średnią tylko z zadań, które mają wszystkie modele).
+Dalej tabele per zadanie; kolumna „best standalone on PIRB” to najlepszy
+samodzielny model leaderboardu (bez hybryd i rerankerów) na danym zadaniu:
+sufit, do którego się odnosimy.
 
 <!-- tables:start -->
+### Średnie per zestaw (old-pyserini, nDCG@10)
+
+| model | tiny10 (10) | heldout8 (8) | heldout2 (5) | wszystkie wspólne (19) | Δ vs base (wspólne) |
+|---|---:|---:|---:|---:|---:|
+| published polish-splade | 61.53 | 41.06 | 67.80 | 54.19 |  |
+| base-splade-wrapped | 61.59 | 41.03 | 67.53 | 54.21 |  |
+| soup-of-ft | 62.94 | 42.11 | 69.00 | 55.40 | +1.19 |
+| soup-v2b | 63.00 | 42.06 |  | 55.43 | +1.22 |
+
 ### tiny10 (old-pyserini, nDCG@10)
 
 | task | published polish-splade | ours base-splade-wrapped | soup-of-ft | soup-v2b | Δ soup-of-ft vs base | Δ soup-v2b vs base | best standalone on PIRB |
@@ -84,21 +96,12 @@ Kolumna „best standalone on PIRB” to najlepszy samodzielny model leaderboard
 
 | task | published polish-splade | ours base-splade-wrapped | soup-of-ft | soup-v2b | Δ soup-of-ft vs base | Δ soup-v2b vs base | best standalone on PIRB |
 |---|---:|---:|---:|---:|---:|---:|---|
-| maupqa-czy-wiesz-v2 | 85.97 | 85.80 | 86.31 |  | +0.51 |  | 89.05 (llama-embed-nemotron-8b) |
+| maupqa-czy-wiesz-v2 | 85.97 | 85.80 | 86.31 | 86.65 | +0.51 | +0.85 | 89.05 (llama-embed-nemotron-8b) |
 | maupqa-gpt3.5-wiki | 91.22 | 91.17 | 91.53 |  | +0.36 |  | 95.70 (llama-embed-nemotron-8b) |
 | maupqa-poquad | 19.57 | 19.49 | 19.48 |  | -0.01 |  | 20.44 (silver-retriever-base-v1) |
 | quora-pl | 76.76 | 76.56 | 79.11 |  | +2.54 |  | 86.26 (stella_pl_1etap) |
 | trec-covid-pl | 65.46 | 64.63 | 68.57 |  | +3.94 |  | 89.93 (Qwen3-Embedding-8B) |
 | **mean** | 67.80 | 67.53 | 69.00 |  | +1.47 |  |  |
-
-### all listed tasks (18 tasks every model has)
-
-| model | mean nDCG@10 | Δ vs base |
-|---|---:|---:|
-| published polish-splade | 52.43 | |
-| base-splade-wrapped | 52.45 |  |
-| soup-of-ft | 53.68 | +1.23 |
-| soup-v2b | 53.69 | +1.24 |
 <!-- tables:end -->
 
 ## 4. Gdzie stoją modele i gdzie jest największe pole do poprawy
