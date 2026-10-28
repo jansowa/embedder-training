@@ -49,13 +49,17 @@ def main() -> None:
 
     cand = pd.read_parquet(d / "negative_candidates.parquet", columns=["query_id", "document_id", "candidate_ranking", "retrieval_rank"])
     cand["tok"] = cand["document_id"].astype(str).map(tokens)
-    neg = pd.read_parquet(d / "negatives.parquet", columns=["query_id", "document_id", "final_selected"])
     pos = pd.read_parquet(d / "relevant_with_score.parquet")
     pos["tok"] = pos["document_id"].astype(str).map(tokens)
 
     best = pos.groupby("query_id")["positive_candidate_ranking"].max()
-    merged = cand.merge(neg, on=["query_id", "document_id"], how="left").merge(best.rename("best_pos"), left_on="query_id", right_index=True)
-    real_above = merged[(merged["candidate_ranking"] > merged["best_pos"]) & merged["final_selected"].fillna(False).astype(bool)]
+    merged = cand.merge(best.rename("best_pos"), left_on="query_id", right_index=True)
+    if (d / "negatives.parquet").exists():  # the teacher's verdicts (absent for a plain diagnostic mining)
+        neg = pd.read_parquet(d / "negatives.parquet", columns=["query_id", "document_id", "final_selected"])
+        merged = merged.merge(neg, on=["query_id", "document_id"], how="left")
+        real_above = merged[(merged["candidate_ranking"] > merged["best_pos"]) & merged["final_selected"].fillna(False).astype(bool)]
+    else:
+        real_above = merged[merged["candidate_ranking"] > merged["best_pos"]]
 
     def length_block(series: pd.Series) -> dict:
         return {"tokens": quantiles(series), "share_over_512": round(float((series > 512).mean()), 4), "share_over_256": round(float((series > 256).mean()), 4), "n": int(series.size)}
@@ -68,6 +72,7 @@ def main() -> None:
         "student_top100": length_block(cand["tok"]),
         "positives": length_block(pos["tok"]),
         "real_negatives_above_positive": length_block(real_above["tok"]),
+        "teacher_filtered": (d / "negatives.parquet").exists(),
         "spearman_score_vs_tokens_all_candidates": round(float(spearmanr(cand["candidate_ranking"], cand["tok"]).correlation), 4),
         "spearman_score_vs_tokens_within_query_median": round(float(cand.groupby("query_id").apply(lambda g: spearmanr(g["candidate_ranking"], g["tok"]).correlation).median()), 4),
     }
