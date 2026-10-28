@@ -1,0 +1,38 @@
+{
+  "source_rows": 2073,
+  "mined_rows": 2073,
+  "written": "datasets/arms/fiqa-2073-v3old.jsonl",
+  "rows_written": 2073,
+  "dropped": {},
+  "negatives_per_query_in_export": {
+    "10": 2073
+  },
+  "negative_tiers": {
+    "strict": 20371,
+    "relaxed_backfill": 359
+  },
+  "positives": 3161,
+  "synthetic_positives": 399,
+  "queries_with_synthetic_positive": 399,
+  "old_negatives_kept_share": 1.0,
+  "old_negatives_promoted_to_positive": 0,
+  "queries_where_a_negative_outscores_a_positive": 55,
+  "v3_pos_scores": {
+    "p10": 6.375,
+    "median": 8.438,
+    "p90": 10.188,
+    "mean": 8.351
+  },
+  "v3_neg_scores": {
+    "p10": -1.969,
+    "median": 1.375,
+    "p90": 4.219,
+    "mean": 1.235
+  },
+  "v3_min_pos_minus_max_neg": {
+    "p10": 1.406,
+    "median": 3.938,
+    "p90": 6.641,
+    "mean": 3.971
+  }
+}

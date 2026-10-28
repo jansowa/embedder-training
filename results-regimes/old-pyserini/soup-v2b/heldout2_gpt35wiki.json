@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-v2b",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v2b",
+  "taskset": "heldout2_gpt35wiki",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-wiki": 91.92126314037003
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 91.92126314037003
+}
