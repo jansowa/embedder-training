@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "n1-5070",
+  "model": "/home/jsowa/work/FlagEmbedding/models/n1-5070",
+  "taskset": "tiny10",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3-cc": 18.431128208078658,
+    "maupqa-mkqa": 64.16656748512273,
+    "maupqa-poleval2021-pairs": 82.88286805062718,
+    "maupqa-templates": 75.80301982865747,
+    "poleval-2022-test-A-allegro-faq": 75.95109632415627,
+    "poleval-2022-test-B-allegro-faq": 72.35910455766629,
+    "arguana-pl": 42.337903051367114,
+    "nfcorpus-pl": 32.47104907656815,
+    "scifact-pl": 66.7390136551701,
+    "gpt-exams": 98.64040761030718
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 62.97821578477211
+}

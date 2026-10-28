@@ -1,0 +1,39 @@
+{
+  "band": "above",
+  "spec": [
+    [
+      "margin",
+      0.0,
+      Infinity,
+      10
+    ]
+  ],
+  "rows_written": 2073,
+  "rows_short_of_negatives": 2,
+  "backfilled_negatives": 16178,
+  "negatives": 20727,
+  "splade_rank": {
+    "p10": 17.0,
+    "median": 93.0,
+    "p90": 99.0,
+    "mean": 80.039
+  },
+  "splade_margin_to_best_positive": {
+    "p10": -14.486,
+    "median": -7.565,
+    "p90": 1.703,
+    "mean": -7.016
+  },
+  "v3_neg_scores": {
+    "p10": -3.188,
+    "median": 0.445,
+    "p90": 2.594,
+    "mean": 0.034
+  },
+  "neg_chars": {
+    "p10": 391.0,
+    "median": 1378.0,
+    "p90": 3018.0,
+    "mean": 1584.182
+  }
+}
