@@ -3,7 +3,8 @@
   "old": "datasets/arms/fiqa-2073-v3.jsonl",
   "written": "datasets/arms/fiqa-2073-splade-mix.jsonl",
   "rows_written": 2073,
-  "per_source": 5,
+  "student_count": 5,
+  "old_count": 5,
   "negatives_by_source": {
     "student": 10365,
     "old": 10365,

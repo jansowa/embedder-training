@@ -83,6 +83,8 @@ DATA = {
     "splade-plus": "base polish-splade candidates over the own passages + the PIRB fiqa-pl corpus",
     "splade-soup-own": "soup-v2b candidates over the rows' own passages, v3 floor 0.005",
     "splade-mix": "5 student (splade-own) + 5 old v3 negatives per query",
+    "splade-mix2": "2 student (splade-own) + 8 old v3 negatives per query",
+    "splade-plusmix": "5 student (splade-plus, own + PIRB corpus) + 5 old v3 negatives per query",
 }
 RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),
