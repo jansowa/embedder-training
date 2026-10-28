@@ -91,6 +91,7 @@ DATA = {
     "splade-mix": "5 student (splade-own) + 5 old v3 negatives per query",
     "splade-mix2": "2 student (splade-own) + 8 old v3 negatives per query",
     "splade-plusmix": "5 student (splade-plus, own + PIRB corpus) + 5 old v3 negatives per query",
+    "splade-mix2-pp": "the mix2 file plus up to 2 promoted positives per query (scripts/build_fiqa_promoted_positives.py)",
 }
 RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),
