@@ -16,7 +16,7 @@ source scripts/queue_lib.sh
 echo $$ > "$LOGS/queue_v18.pid"
 
 waited=0
-until grep -qE '=== v17 done ===' logs/queue_v17.out 2>/dev/null; do
+until [ "${SKIP_WAIT:-0}" = 1 ] || grep -qE '=== v17 done ===' logs/queue_v17.out 2>/dev/null; do
     [ "$waited" -ge 21600 ] && { log "v18: v17 not finished after 6 h; exiting"; exit 1; }
     sleep 120; waited=$((waited + 120))
 done
