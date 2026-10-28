@@ -77,6 +77,7 @@ if [ "$VARIANT" = own-f02 ] && [ ! -f "$MINE_OUT/negative_candidates.parquet" ] 
     cp "$OWN_DIR/splade_mining_report.json" "$MINE_OUT/"
     log "reused the own candidates from $OWN_DIR"
 fi
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 step "mine candidates with $MODEL (top-100 by SPLADE)" "$MINE_OUT/negative_candidates.parquet" \
     "$PY" scripts/fiqa_splade_mine.py --source-dir "$SRC" --out-dir "$MINE_OUT" --model "$MODEL" --top-k 100 "${EXTRA[@]}" "${smoke_args[@]}"
 

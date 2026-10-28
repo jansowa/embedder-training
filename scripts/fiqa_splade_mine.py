@@ -42,8 +42,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--extra-corpus", default=None, help="jsonl with id + contents (or text) per line")
     parser.add_argument("--extra-id-prefix", default="pirb:")
     parser.add_argument("--top-k", type=int, default=100)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--chunk-size", type=int, default=2048, help="passages encoded and scored per step")
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--chunk-size", type=int, default=1024, help="passages encoded and scored per step")
+    parser.add_argument("--pooling-chunk", type=int, default=8,
+                        help="tokens per SpladePooling chunk (bounds the batch x tokens x vocab logits; 8 GB GPU)")
     parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--smoke", type=int, default=0, help="keep only the first N queries")
     parser.add_argument("--corpus-limit", type=int, default=0, help="keep only this many passages (positives first)")
@@ -144,6 +146,9 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SparseEncoder(args.model, device=device)
     model.max_seq_length = args.max_seq_length
+    for module in model.modules():
+        if type(module).__name__ == "SpladePooling" and hasattr(module, "chunk_size"):
+            module.chunk_size = args.pooling_chunk
     encode_kwargs = {
         "batch_size": args.batch_size,
         "convert_to_tensor": True,
