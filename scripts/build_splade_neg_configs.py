@@ -6,15 +6,25 @@
     splade-own-f02   the same candidates, v3 floor 0.02
     splade-plus      candidates over the own passages + the PIRB fiqa-pl corpus
     splade-soup-own  candidates from models/soup-v2b over the own passages
+    splade-mix       5 student negatives (splade-own) + 5 old v3 negatives per query
+                     (scripts/build_fiqa_mix_negatives.py)
   recipes
     mnrl   the arm-cluster-like-fiqa recipe (MNRL + FLOPS, lr 2e-5, 2 epochs, 512 tokens, 10
-           negatives, batch 2 x 16, docreg 0.001) without its dataset filter: the rows already
-           passed the gate and their pos_scores are now roberta-v3 logits, not the gate's scale
+           negatives, docreg 0.001) without its dataset filter: the rows already passed the
+           gate and their pos_scores are now roberta-v3 logits, not the gate's scale
     kl     sparse_distill_kl_div at temperature 2 with score_scale auto (the v13 recipe)
+  batch regimes
+    (none)  train_batch_size 2 x 16 accumulation, as arm-cluster-like-fiqa. Out of memory on
+            the student files in queue v14: the student negatives are 2.5x longer than the old
+            ones (median 1477 vs 424 characters), so every batch fills the 512 tokens
+    -b1     train_batch_size 1 x 32 accumulation (same effective batch of 32 queries)
+  control
+    mnrl-fiqa-ctrl-b1  the cluster-like recipe on the old rows with its filter at 1 x 32,
+                       to measure the batch change itself against arm-cluster-like-fiqa
 
-Files: configs/next/3060/<recipe>_fiqa_<variant with _>[_scaleauto].yaml, arms
-mnrl-fiqa-<variant> and kl-fiqa-<variant>-scaleauto (queue_v14 maps an arm name to its
-config by replacing '-' with '_').
+Files: configs/next/3060/<recipe>_fiqa_<variant with _>[_scaleauto][_b1].yaml, arms
+mnrl-fiqa-<variant>[-b1] and kl-fiqa-<variant>-scaleauto[-b1] (queue_v14/v15 map an arm
+name to its config by replacing '-' with '_').
 """
 
 from __future__ import annotations
@@ -31,7 +41,7 @@ timestamp_output_dir: true
 save_resolved_config: true
 
 train_data: {data}
-
+{filter}
 architectures:
   - sdadas/polish-splade
 
@@ -45,9 +55,9 @@ sentence_transformers:
   max_seq_length: 512
   warmup_ratio: 0.1
   lr_scheduler_type: linear
-  train_batch_size: 2
+  train_batch_size: {batch}
   batch_sampler: no_duplicates
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: {accum}
   gradient_checkpointing: true
   fp16: true
   splade_pooling_chunk_size: 8
@@ -72,11 +82,23 @@ DATA = {
     "splade-own-f02": "base polish-splade candidates over the rows' own passages, v3 floor 0.02",
     "splade-plus": "base polish-splade candidates over the own passages + the PIRB fiqa-pl corpus",
     "splade-soup-own": "soup-v2b candidates over the rows' own passages, v3 floor 0.005",
+    "splade-mix": "5 student (splade-own) + 5 old v3 negatives per query",
 }
 RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),
     "kl": ("sparse_distill_kl_div", {"score_normalization": "none", "score_scale": "auto", "kl_temperature": "2.0"}, "-scaleauto"),
 }
+BATCHES = {"": (2, 16), "-b1": (1, 32)}
+CONTROL_FILTER = ("dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml\n"
+                  "dataset_filter_cache_dir: cache/filtered_datasets\n")
+
+
+def write_config(out_dir: Path, name: str, desc: str, data: str, loss: str, extra: dict, batch: int, accum: int, filter_lines: str = "") -> None:
+    extra_lines = "".join(f"  {key}: {value}\n" for key, value in extra.items())
+    (out_dir / f"{name.replace('-', '_')}.yaml").write_text(
+        TEMPLATE.format(desc=desc, name=name, data=data, filter=filter_lines, loss=loss, extra=extra_lines, batch=batch, accum=accum),
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
@@ -85,14 +107,16 @@ def main() -> None:
     n = 0
     for variant, data_desc in DATA.items():
         for recipe, (loss, extra, suffix) in RECIPES.items():
-            name = f"{recipe}-fiqa-{variant}{suffix}"
-            extra_lines = "".join(f"  {key}: {value}\n" for key, value in extra.items())
-            (out_dir / f"{name.replace('-', '_')}.yaml").write_text(
-                TEMPLATE.format(desc=f"Student-mined negatives: {data_desc}; recipe {recipe}.", name=name,
-                                data=f"datasets/arms/fiqa-2073-{variant}.jsonl", loss=loss, extra=extra_lines),
-                encoding="utf-8",
-            )
-            n += 1
+            for bsuffix, (batch, accum) in BATCHES.items():
+                name = f"{recipe}-fiqa-{variant}{suffix}{bsuffix}"
+                write_config(out_dir, name, f"Student-mined negatives: {data_desc}; recipe {recipe}, batch {batch} x {accum}.",
+                             f"datasets/arms/fiqa-2073-{variant}.jsonl", loss, extra, batch, accum)
+                n += 1
+    loss, extra, _ = RECIPES["mnrl"]
+    batch, accum = BATCHES["-b1"]
+    write_config(out_dir, "mnrl-fiqa-ctrl-b1", "Batch control: the arm-cluster-like-fiqa recipe (old rows, gate filter) at batch 1 x 32.",
+                 "datasets/arms/fiqa-2073.jsonl", loss, extra, batch, accum, CONTROL_FILTER)
+    n += 1
     print(f"wrote {n} configs to {out_dir}")
 
 
