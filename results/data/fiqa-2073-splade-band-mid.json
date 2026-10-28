@@ -1,0 +1,41 @@
+{
+  "band": "mid",
+  "spec": [
+    [
+      "margin",
+      -5.0,
+      -2.0,
+      10
+    ]
+  ],
+  "rows_written": 2073,
+  "rows_dropped": 0,
+  "rows_short_in_band": 2,
+  "negatives_from_base_row": 3,
+  "backfilled_negatives": 11992,
+  "negatives": 20727,
+  "splade_rank": {
+    "p10": 12.0,
+    "median": 91.0,
+    "p90": 99.0,
+    "mean": 71.313
+  },
+  "splade_margin_to_best_positive": {
+    "p10": -14.478,
+    "median": -4.684,
+    "p90": -0.597,
+    "mean": -6.747
+  },
+  "v3_neg_scores": {
+    "p10": -3.062,
+    "median": 0.504,
+    "p90": 2.625,
+    "mean": 0.108
+  },
+  "neg_chars": {
+    "p10": 403.0,
+    "median": 1400.0,
+    "p90": 3084.0,
+    "mean": 1614.664
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "band": "cap3",
+  "spec": [
+    [
+      "margin-top",
+      -Infinity,
+      -3.0,
+      10
+    ]
+  ],
+  "rows_written": 2073,
+  "rows_dropped": 0,
+  "rows_short_in_band": 2,
+  "negatives_from_base_row": 3,
+  "backfilled_negatives": 3999,
+  "negatives": 20727,
+  "splade_rank": {
+    "p10": 5.0,
+    "median": 19.0,
+    "p90": 94.0,
+    "mean": 34.899
+  },
+  "splade_margin_to_best_positive": {
+    "p10": -10.488,
+    "median": -4.478,
+    "p90": -0.597,
+    "mean": -5.175
+  },
+  "v3_neg_scores": {
+    "p10": -2.5,
+    "median": 0.898,
+    "p90": 2.734,
+    "mean": 0.459
+  },
+  "neg_chars": {
+    "p10": 427.0,
+    "median": 1517.0,
+    "p90": 3195.0,
+    "mean": 1707.664
+  }
+}

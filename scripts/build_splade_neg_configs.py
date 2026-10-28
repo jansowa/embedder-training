@@ -103,6 +103,10 @@ DATA = {
     "splade-band-above": "negatives the student scores above the best positive",
     "splade-band-near": "negatives within 3 points below the best positive",
     "splade-band-far": "negatives more than 3 points below the best positive, within the top-100",
+    "splade-band-cap3": "the 10 hardest teacher-safe negatives at least 3 points below the best positive",
+    # length-decorrelated, student-easy negatives (scripts/build_fiqa_length_negatives.py + the teacher pass)
+    "splade-long-easy": "passages outside the SPLADE top-100, longer than the query's longest positive",
+    "splade-short-easy": "passages outside the SPLADE top-100, shorter than the query's shortest positive",
 }
 RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),

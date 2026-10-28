@@ -10,6 +10,9 @@
 #   own-full  the own candidates, roberta-v3 scores all top-100 of every query (fixed budget
 #             100 instead of 20/+10/80): the input of scripts/build_fiqa_band_negatives.py
 #   soup-own  own corpus, candidates from models/soup-v2b (hard for the current best model)
+#   long-easy, short-easy  length-chosen, student-easy candidates prepared beforehand by
+#             scripts/build_fiqa_length_negatives.py in the variant's mine directory
+#             (the mining step is skipped because negative_candidates.parquet exists)
 # MODEL overrides the SPLADE model directory. SMOKE=N: N queries and 2000 passages into
 # datasets/arms/fiqa-splade-smoke/ (nothing under datasets/arms/*.jsonl is touched).
 # Outputs: datasets/arms/fiqa-2073-splade-<variant>.jsonl and, in results/data/,
@@ -35,7 +38,8 @@ case "$VARIANT" in
     own-f02) FLOOR=0.02 ;;
     own-full) FULL=1 ;;
     soup-own) [ -n "$MODEL" ] || MODEL=models/soup-v2b ;;
-    *) echo "unknown VARIANT=$VARIANT (own, plus, own-f02, own-full, soup-own)" >&2; exit 1 ;;
+    long-easy|short-easy) ;;  # candidates prepared by scripts/build_fiqa_length_negatives.py; only the teacher pass + export run
+    *) echo "unknown VARIANT=$VARIANT (own, plus, own-f02, own-full, soup-own, long-easy, short-easy)" >&2; exit 1 ;;
 esac
 [ -n "$MODEL" ] || MODEL=models/base-splade-wrapped
 smoke_args=()

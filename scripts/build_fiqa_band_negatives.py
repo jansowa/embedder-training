@@ -20,7 +20,12 @@ of the top-10, so the first band is 20 wide to hold 10 strict negatives per quer
   above    score above the best positive (the student is wrong; only 49 % of the queries
            have such passages, the rest is backfilled from the deepest strict ones)
   near     score within 3 below the best positive (the student is right by little)
+  mid      score 2 to 5 below the best positive (an absolute-margin middle band)
   far      score more than 3 below the best positive, still in the top-100
+  cap3     the 10 hardest strict negatives (highest score) among those more than 3 below
+           the best positive: hard in absolute terms, never next to the positive
+Only far and cap3 fill 10 per query for most queries (80 %); above, near and mid are
+mostly backfilled from the deepest strict candidates and are kept for the record.
 
     python scripts/build_fiqa_band_negatives.py --mine-dir datasets/arms/fiqa-splade-own-full-mine \
         --base datasets/arms/fiqa-2073-splade-own.jsonl --band all --out-dir datasets/arms --report-dir results/data
@@ -46,7 +51,9 @@ BANDS: dict[str, list[tuple[str, float, float, int]]] = {
     "mixed": [("rank", 1, 20, 3), ("rank", 21, 50, 4), ("rank", 51, 100, 3)],
     "above": [("margin", 0.0, math.inf, 10)],
     "near": [("margin", -3.0, 0.0, 10)],
+    "mid": [("margin", -5.0, -2.0, 10)],
     "far": [("margin", -math.inf, -3.0, 10)],
+    "cap3": [("margin-top", -math.inf, -3.0, 10)],  # the 10 hardest strict negatives at least 3 below the best positive
 }
 
 
@@ -62,6 +69,15 @@ def in_band(frame: pd.DataFrame, kind: str, low: float, high: float) -> pd.DataF
     if kind == "rank":
         return frame[(frame["retrieval_rank"] >= low) & (frame["retrieval_rank"] <= high)]
     return frame[(frame["margin"] > low) & (frame["margin"] <= high)]
+
+
+def pick(pool: pd.DataFrame, kind: str, count: int, rng: random.Random) -> pd.DataFrame:
+    """Random within the band, or the hardest (highest margin) first for a *-top band."""
+    if not len(pool):
+        return pool
+    if kind.endswith("-top"):
+        return pool.sort_values("margin", ascending=False).head(count)
+    return pool.sample(n=min(count, len(pool)), random_state=rng.randrange(1 << 30))
 
 
 def build(band: str, strict: pd.DataFrame, rows: list[dict], text_of: dict[str, str], seed: int, out: Path, report: Path) -> None:
@@ -85,8 +101,7 @@ def build(band: str, strict: pd.DataFrame, rows: list[dict], text_of: dict[str, 
                 for kind, low, high, count in spec:
                     pool = in_band(g, kind, low, high)
                     pool = pool[~pool["document_id"].isin(taken)]
-                    pick = pool.sample(n=min(count, len(pool)), random_state=rng.randrange(1 << 30)) if len(pool) else pool
-                    for _, r in pick.iterrows():
+                    for _, r in pick(pool, kind, count, rng).iterrows():
                         chosen.append(r)
                         taken.add(r["document_id"])
                 if len(chosen) < total:  # backfill: deeper first, then anything strict
