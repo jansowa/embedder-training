@@ -1,0 +1,38 @@
+{
+  "source_rows": 2073,
+  "mined_rows": 2073,
+  "written": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-2073-splade-own.jsonl",
+  "rows_written": 2073,
+  "dropped": {},
+  "negatives_per_query_in_export": {
+    "10": 2073
+  },
+  "negative_tiers": {
+    "strict": 20712,
+    "relaxed_backfill": 18
+  },
+  "positives": 3161,
+  "synthetic_positives": 0,
+  "queries_with_synthetic_positive": 0,
+  "old_negatives_kept_share": 0.005,
+  "old_negatives_promoted_to_positive": 0,
+  "queries_where_a_negative_outscores_a_positive": 9,
+  "v3_pos_scores": {
+    "p10": 6.375,
+    "median": 8.438,
+    "p90": 10.188,
+    "mean": 8.351
+  },
+  "v3_neg_scores": {
+    "p10": -0.404,
+    "median": 1.633,
+    "p90": 2.844,
+    "mean": 1.401
+  },
+  "v3_min_pos_minus_max_neg": {
+    "p10": 3.359,
+    "median": 5.5,
+    "p90": 6.688,
+    "mean": 5.218
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "model": "models/base-splade-wrapped",
+  "source_dir": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-v3-mine",
+  "queries": 2073,
+  "corpus_own": 11627,
+  "corpus_extra": 57189,
+  "top_k": 100,
+  "candidate_rows": 207300,
+  "positive_pairs": 3161,
+  "positive_splade_scores": {
+    "p10": 12.059242248535156,
+    "median": 19.28014373779297,
+    "p90": 26.529857635498047,
+    "mean": 19.37633379887494
+  },
+  "candidate_score_at_rank1": {
+    "p10": 17.98355026245117,
+    "median": 22.613590240478516,
+    "p90": 28.266196823120115,
+    "mean": 23.005893458390776
+  },
+  "candidate_score_at_rank10": {
+    "p10": 14.628457832336426,
+    "median": 18.376110076904297,
+    "p90": 22.744335174560547,
+    "mean": 18.580210834324678
+  },
+  "positive_is_first_share": 0.16197405884213856,
+  "positive_in_top10_share": 0.5618475166086682,
+  "positive_beyond_topk_share": 0.20658019614046189,
+  "candidates_above_positive": {
+    "p10": 0.0,
+    "median": 6.0,
+    "p90": 100.0,
+    "mean": 30.05852578298007
+  },
+  "extra_share_top10": 0.7811384466956103,
+  "extra_share_topk": 0.7760250844187169,
+  "elapsed_s": 369.0
+}

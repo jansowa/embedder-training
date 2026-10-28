@@ -1,0 +1,23 @@
+{
+  "candidates": 207300,
+  "scored_by_teacher": 57810,
+  "top10_scored_share": 1.0,
+  "top10_rejected_by_teacher_share": 0.5362,
+  "top20_scored_share": 1.0,
+  "top20_rejected_by_teacher_share": 0.4703,
+  "queries": 2073,
+  "final_budget_histogram": {
+    "20": 1154,
+    "30": 523,
+    "40": 215,
+    "50": 108,
+    "60": 34,
+    "70": 12,
+    "80": 27
+  },
+  "teacher_score_of_rejected_top10": {
+    "0.1": 3.484,
+    "0.5": 5.062,
+    "0.9": 7.375
+  }
+}

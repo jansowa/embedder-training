@@ -1,0 +1,40 @@
+{
+  "model": "models/base-splade-wrapped",
+  "source_dir": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-v3-mine",
+  "queries": 2073,
+  "corpus_own": 11627,
+  "corpus_extra": 0,
+  "top_k": 100,
+  "candidate_rows": 207300,
+  "positive_pairs": 3161,
+  "positive_splade_scores": {
+    "p10": 12.059242248535156,
+    "median": 19.28014373779297,
+    "p90": 26.529857635498047,
+    "mean": 19.376333779566124
+  },
+  "candidate_score_at_rank1": {
+    "p10": 15.707230949401856,
+    "median": 20.0170841217041,
+    "p90": 25.003581237792968,
+    "mean": 20.323146538520515
+  },
+  "candidate_score_at_rank10": {
+    "p10": 12.52801742553711,
+    "median": 16.17166519165039,
+    "p90": 20.107851409912108,
+    "mean": 16.2795157522265
+  },
+  "positive_is_first_share": 0.43119266055045874,
+  "positive_in_top10_share": 0.7209743751977222,
+  "positive_beyond_topk_share": 0.10914267636823789,
+  "candidates_above_positive": {
+    "p10": 0.0,
+    "median": 1.0,
+    "p90": 100.0,
+    "mean": 17.62037329958874
+  },
+  "extra_share_top10": 0.0,
+  "extra_share_topk": 0.0,
+  "elapsed_s": 60.1
+}
