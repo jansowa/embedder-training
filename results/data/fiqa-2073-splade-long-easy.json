@@ -1,0 +1,38 @@
+{
+  "source_rows": 2073,
+  "mined_rows": 2073,
+  "written": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-2073-splade-long-easy.jsonl",
+  "rows_written": 2073,
+  "dropped": {},
+  "negatives_per_query_in_export": {
+    "10": 2073
+  },
+  "negative_tiers": {
+    "strict": 20724,
+    "relaxed_backfill": 6
+  },
+  "positives": 3161,
+  "synthetic_positives": 0,
+  "queries_with_synthetic_positive": 0,
+  "old_negatives_kept_share": 0.001,
+  "old_negatives_promoted_to_positive": 0,
+  "queries_where_a_negative_outscores_a_positive": 5,
+  "v3_pos_scores": {
+    "p10": 6.375,
+    "median": 8.438,
+    "p90": 10.188,
+    "mean": 8.351
+  },
+  "v3_neg_scores": {
+    "p10": -3.688,
+    "median": -0.812,
+    "p90": 1.867,
+    "mean": -0.877
+  },
+  "v3_min_pos_minus_max_neg": {
+    "p10": 4.203,
+    "median": 6.422,
+    "p90": 9.398,
+    "mean": 6.628
+  }
+}

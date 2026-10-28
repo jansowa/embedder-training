@@ -1,0 +1,27 @@
+{
+  "variant": "long-easy",
+  "source_mine_dir": "datasets/arms/fiqa-splade-own-full-mine",
+  "queries": 2073,
+  "candidate_rows": 41460,
+  "per_query": 20,
+  "filled_by_closest_length": 72,
+  "candidate_tokens": {
+    "p10": 155.0,
+    "median": 375.0,
+    "p90": 821.0,
+    "mean": 448.5812831644959
+  },
+  "positive_bound_tokens": {
+    "p10": 85.0,
+    "median": 229.0,
+    "p90": 529.8,
+    "mean": 275.50844187168354
+  },
+  "candidates_over_512_share": 0.3092,
+  "corpus_tokens": {
+    "p10": 51.0,
+    "median": 114.0,
+    "p90": 344.0,
+    "mean": 165.7896275909521
+  }
+}
