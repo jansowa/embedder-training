@@ -17,7 +17,13 @@
     (none)  train_batch_size 2 x 16 accumulation, as arm-cluster-like-fiqa. Out of memory on
             the student files in queue v14: the student negatives are 2.5x longer than the old
             ones (median 1477 vs 424 characters), so every batch fills the 512 tokens
-    -b1     train_batch_size 1 x 32 accumulation (same effective batch of 32 queries)
+    -b1     train_batch_size 1 x 32 accumulation (same effective batch of 32 queries). Costs
+            on its own: the control below scored 61.49 against 62.27 at 2 x 16, with 348
+            active dims per document instead of 436 (the FLOPS term over a batch of one
+            query's documents acts like an L2 penalty on each document)
+    -c2     train_batch_size 2 x 16 with splade_pooling_chunk_size 2 instead of 8: the MLM
+            logits chunk shrinks from 8 x 512 x 50k to 2 x 512 x 50k, which is what the
+            2 x 16 arms lacked (OOM at 192 MiB short of 7.77 GiB)
   control
     mnrl-fiqa-ctrl-b1  the cluster-like recipe on the old rows with its filter at 1 x 32,
                        to measure the batch change itself against arm-cluster-like-fiqa
@@ -60,7 +66,7 @@ sentence_transformers:
   gradient_accumulation_steps: {accum}
   gradient_checkpointing: true
   fp16: true
-  splade_pooling_chunk_size: 8
+  splade_pooling_chunk_size: {chunk}
   negatives_per_query: 10
 {extra}  save_strategy: "no"
   keep_epoch_checkpoints: false
@@ -90,15 +96,15 @@ RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),
     "kl": ("sparse_distill_kl_div", {"score_normalization": "none", "score_scale": "auto", "kl_temperature": "2.0"}, "-scaleauto"),
 }
-BATCHES = {"": (2, 16), "-b1": (1, 32)}
+BATCHES = {"": (2, 16, 8), "-b1": (1, 32, 8), "-c2": (2, 16, 2)}  # suffix -> (train_batch_size, accumulation, pooling chunk)
 CONTROL_FILTER = ("dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml\n"
                   "dataset_filter_cache_dir: cache/filtered_datasets\n")
 
 
-def write_config(out_dir: Path, name: str, desc: str, data: str, loss: str, extra: dict, batch: int, accum: int, filter_lines: str = "") -> None:
+def write_config(out_dir: Path, name: str, desc: str, data: str, loss: str, extra: dict, batch: int, accum: int, chunk: int, filter_lines: str = "") -> None:
     extra_lines = "".join(f"  {key}: {value}\n" for key, value in extra.items())
     (out_dir / f"{name.replace('-', '_')}.yaml").write_text(
-        TEMPLATE.format(desc=desc, name=name, data=data, filter=filter_lines, loss=loss, extra=extra_lines, batch=batch, accum=accum),
+        TEMPLATE.format(desc=desc, name=name, data=data, filter=filter_lines, loss=loss, extra=extra_lines, batch=batch, accum=accum, chunk=chunk),
         encoding="utf-8",
     )
 
@@ -109,15 +115,15 @@ def main() -> None:
     n = 0
     for variant, data_desc in DATA.items():
         for recipe, (loss, extra, suffix) in RECIPES.items():
-            for bsuffix, (batch, accum) in BATCHES.items():
+            for bsuffix, (batch, accum, chunk) in BATCHES.items():
                 name = f"{recipe}-fiqa-{variant}{suffix}{bsuffix}"
-                write_config(out_dir, name, f"Student-mined negatives: {data_desc}; recipe {recipe}, batch {batch} x {accum}.",
-                             f"datasets/arms/fiqa-2073-{variant}.jsonl", loss, extra, batch, accum)
+                write_config(out_dir, name, f"Student-mined negatives: {data_desc}; recipe {recipe}, batch {batch} x {accum}, pooling chunk {chunk}.",
+                             f"datasets/arms/fiqa-2073-{variant}.jsonl", loss, extra, batch, accum, chunk)
                 n += 1
     loss, extra, _ = RECIPES["mnrl"]
-    batch, accum = BATCHES["-b1"]
+    batch, accum, chunk = BATCHES["-b1"]
     write_config(out_dir, "mnrl-fiqa-ctrl-b1", "Batch control: the arm-cluster-like-fiqa recipe (old rows, gate filter) at batch 1 x 32.",
-                 "datasets/arms/fiqa-2073.jsonl", loss, extra, batch, accum, CONTROL_FILTER)
+                 "datasets/arms/fiqa-2073.jsonl", loss, extra, batch, accum, chunk, CONTROL_FILTER)
     n += 1
     print(f"wrote {n} configs to {out_dir}")
 

@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# 28.10, replaces the tail of queue_v15 after its mix-b1 arm. v15 showed that ten
-# student-mined negatives per query cost 2.7 points on tiny (arm-mnrl-fiqa-splade-own-b1
-# 59.53 vs arm-cluster-like-fiqa 62.27, uniformly over the 10 tasks, 369 active dims/doc
-# vs 436; the final MNRL loss stays 4x higher than with the old negatives). The remaining
-# v15 arms (kl on the pure student file, pure plus, pure own-f02) would repeat that, so this
-# queue takes over with a dose-response on the share of student negatives per query:
-#   0  arm-cluster-like-fiqa (old negatives only)  2  mix2-b1  5  mix-b1 (v15)  10  own-b1 (v15)
-# and the user's combined-corpus experiment in the same 5 + 5 form (plusmix-b1), with the
-# pure plus-b1 arm last. Blocks:
+# 28.10, replaces the tail of queue_v15 after its mix-b1 arm. v15 so far: ten student-mined
+# negatives per query cost 2 points on tiny at the same batch regime (arm-mnrl-fiqa-splade-
+# own-b1 59.53 vs the batch control arm-mnrl-fiqa-ctrl-b1 61.49, uniformly over the 10
+# tasks; the final MNRL loss stays 4x higher than with the old negatives), and the batch
+# regime 1 x 32 itself costs 0.8 (ctrl-b1 61.49 vs arm-cluster-like-fiqa 62.27 at 2 x 16)
+# while sparsifying the model (348 active dims/doc vs 436). The remaining v15 arms (kl on
+# the pure student file, pure plus, pure own-f02) would repeat the first finding, so this
+# queue takes over with milder doses of student negatives, back in the 2 x 16 regime when
+# it fits: the -c2 configs keep batch 2 x 16 with splade_pooling_chunk_size 2 (the OOM of
+# v14 was 192 MiB short; the chunk saves ~0.9 GB), falling back to -b1 when a -c2 arm dies.
 #   W   wait for the tiny result of arm-mnrl-fiqa-splade-mix-b1 in logs/queue_v15.out, then
 #       stop queue v15 (its pid file) together with the training it has just started
-#   T1  mix2-b1, plusmix-b1, plus-b1
+#   T1  mix2 (2 student + 8 old), plusmix (5 plus + 5 old), own (10, the dose-response at
+#       2 x 16), plus (10 from the combined corpus)
 #   H   held-out-8 for the best arm on student negatives when it reaches the base on tiny;
 #       leaderboard regime when within 0.3 of the reference; ctrl-b1 on held-out then too
 #   S   soups soup-v5a (best + soup-v2b) and soup-v5b (+ n1-5070) when the best reaches the base
@@ -19,6 +21,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 export QUEUE_TAG=v16 MIN_RAM_GB=6
 export WANDB_MODE=offline
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 source scripts/queue_lib.sh
 echo $$ > "$LOGS/queue_v16.pid"
 
@@ -51,6 +54,16 @@ arm() {  # arm NAME: train configs/next/3060/<NAME with _>.yaml, tiny, sparsity
     train "$1" "$cfg" && { bench "arm-$1" "models/arm-$1"; sparsity "arm-$1" "models/arm-$1"; }
     log "  arm-$1: tiny $(tiny "arm-$1")"
 }
+C2_OK=""  # set once a -c2 arm trains; "no" once one dies
+arm_fit() {  # arm_fit NAME: NAME-c2 (batch 2 x 16, pooling chunk 2) unless -c2 is known to die, else NAME-b1
+    if [ "$C2_OK" != no ]; then
+        arm "$1-c2"
+        if [ -d "models/arm-$1-c2" ]; then C2_OK=yes; return 0; fi
+        C2_OK=no; log "  arm-$1-c2 did not train (logs/arm_$1-c2.log); -c2 arms off, falling back to batch 1 x 32"
+    fi
+    [ -d "models/arm-$1-b1" ] && { log "  arm-$1-b1 already trained (tiny $(tiny "arm-$1-b1"))"; return 0; }
+    arm "$1-b1"
+}
 best_arm() {  # best_arm NAME...: the name with the highest tiny result (empty when none has one)
     local c v best="" best_v=""
     for c in "$@"; do
@@ -74,11 +87,13 @@ soup() {  # soup NAME MODEL... : equal-weight soup into models/NAME, then tiny +
 REF=$(tiny arm-cluster-like-fiqa); BASE=$(tiny base-splade-wrapped); NEAR=$(fsub "$REF" 0.3)
 log "=== v16 start: reference ${REF:-?}, base ${BASE:-?}, batch control $(tiny arm-mnrl-fiqa-ctrl-b1), own-b1 $(tiny arm-mnrl-fiqa-splade-own-b1), mix-b1 $(tiny arm-mnrl-fiqa-splade-mix-b1), $(free_gb) GB free on / ==="
 
-log "=== v16 block T1: milder doses of student negatives ==="
-for a in mnrl-fiqa-splade-mix2-b1 mnrl-fiqa-splade-plusmix-b1 mnrl-fiqa-splade-plus-b1; do arm "$a"; done
-log "dose-response (student negatives per query -> tiny): 0 ${REF:-?} | 2 $(tiny arm-mnrl-fiqa-splade-mix2-b1) | 5 $(tiny arm-mnrl-fiqa-splade-mix-b1) | 10 $(tiny arm-mnrl-fiqa-splade-own-b1) || plus 5+5 $(tiny arm-mnrl-fiqa-splade-plusmix-b1), plus 10 $(tiny arm-mnrl-fiqa-splade-plus-b1)"
+log "=== v16 block T1: milder doses of student negatives, batch 2 x 16 when it fits ==="
+for a in mnrl-fiqa-splade-mix2 mnrl-fiqa-splade-plusmix mnrl-fiqa-splade-own mnrl-fiqa-splade-plus; do arm_fit "$a"; done
+log "dose-response at 2 x 16 (student negatives per query -> tiny): 0 ${REF:-?} | 2 $(tiny arm-mnrl-fiqa-splade-mix2-c2) | 10 $(tiny arm-mnrl-fiqa-splade-own-c2) || plus 5+5 $(tiny arm-mnrl-fiqa-splade-plusmix-c2), plus 10 $(tiny arm-mnrl-fiqa-splade-plus-c2)"
+log "dose-response at 1 x 32: 0 $(tiny arm-mnrl-fiqa-ctrl-b1) | 2 $(tiny arm-mnrl-fiqa-splade-mix2-b1) | 5 $(tiny arm-mnrl-fiqa-splade-mix-b1) | 10 $(tiny arm-mnrl-fiqa-splade-own-b1) || plus 5+5 $(tiny arm-mnrl-fiqa-splade-plusmix-b1), plus 10 $(tiny arm-mnrl-fiqa-splade-plus-b1)"
 
-names=(arm-mnrl-fiqa-splade-own-b1 arm-mnrl-fiqa-splade-mix-b1 arm-mnrl-fiqa-splade-mix2-b1 arm-mnrl-fiqa-splade-plusmix-b1 arm-mnrl-fiqa-splade-plus-b1)
+names=()
+for a in own-b1 mix-b1 mix2-c2 mix2-b1 plusmix-c2 plusmix-b1 own-c2 plus-c2 plus-b1; do [ -d "models/arm-mnrl-fiqa-splade-$a" ] && names+=("arm-mnrl-fiqa-splade-$a"); done
 top=$(best_arm "${names[@]}")
 log "=== v16 block H: best arm on student negatives ${top:-none} (tiny $(tiny "${top:-x}")); reference ${REF:-?}, base ${BASE:-?} ==="
 if [ -n "$top" ] && reaches "$top" "$BASE"; then
