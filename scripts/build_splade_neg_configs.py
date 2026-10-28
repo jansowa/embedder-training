@@ -92,6 +92,14 @@ DATA = {
     "splade-mix2": "2 student (splade-own) + 8 old v3 negatives per query",
     "splade-plusmix": "5 student (splade-plus, own + PIRB corpus) + 5 old v3 negatives per query",
     "splade-mix2-pp": "the mix2 file plus up to 2 promoted positives per query (scripts/build_fiqa_promoted_positives.py)",
+    # difficulty bands for the student (scripts/build_fiqa_band_negatives.py, teacher-filtered, random within the band)
+    "splade-band-r1-20": "negatives at SPLADE ranks 1-20",
+    "splade-band-r21-50": "negatives at SPLADE ranks 21-50",
+    "splade-band-r51-100": "negatives at SPLADE ranks 51-100",
+    "splade-band-mixed": "3 negatives from ranks 1-20, 4 from 21-50, 3 from 51-100",
+    "splade-band-above": "negatives the student scores above the best positive",
+    "splade-band-near": "negatives within 3 points below the best positive",
+    "splade-band-far": "negatives more than 3 points below the best positive, within the top-100",
 }
 RECIPES = {
     "mnrl": ("sparse_multiple_negatives_ranking", {}, ""),

@@ -7,6 +7,8 @@
 #   own       corpus = the rows' own 11.6k passages, candidates from base polish-splade (default)
 #   plus      corpus = own passages + the 57.6k PIRB fiqa-pl passages (clarin-knext translation)
 #   own-f02   the own candidates, FINAL_U_FLOOR 0.02 instead of 0.005 (looser teacher floor)
+#   own-full  the own candidates, roberta-v3 scores all top-100 of every query (fixed budget
+#             100 instead of 20/+10/80): the input of scripts/build_fiqa_band_negatives.py
 #   soup-own  own corpus, candidates from models/soup-v2b (hard for the current best model)
 # MODEL overrides the SPLADE model directory. SMOKE=N: N queries and 2000 passages into
 # datasets/arms/fiqa-splade-smoke/ (nothing under datasets/arms/*.jsonl is touched).
@@ -26,12 +28,14 @@ SRC="$REPO/datasets/arms/fiqa-v3-mine"
 MODEL="${MODEL:-}"
 EXTRA=()
 FLOOR=""
+FULL=""
 case "$VARIANT" in
     own) ;;
     plus) EXTRA=(--extra-corpus third_party/pirb/data/fiqa-pl/passages/passages.jsonl --extra-id-prefix pirb:) ;;
     own-f02) FLOOR=0.02 ;;
+    own-full) FULL=1 ;;
     soup-own) [ -n "$MODEL" ] || MODEL=models/soup-v2b ;;
-    *) echo "unknown VARIANT=$VARIANT (own, plus, own-f02, soup-own)" >&2; exit 1 ;;
+    *) echo "unknown VARIANT=$VARIANT (own, plus, own-f02, own-full, soup-own)" >&2; exit 1 ;;
 esac
 [ -n "$MODEL" ] || MODEL=models/base-splade-wrapped
 smoke_args=()
@@ -70,9 +74,9 @@ step() {  # step LABEL DONE_FILE CMD...: skip when DONE_FILE exists (re-runs con
     log "$label done in $((SECONDS - s))s"
 }
 
-# own-f02 differs from own only in the teacher floor: reuse the own candidates when present
+# own-f02 / own-full differ from own only in the teacher pass: reuse the own candidates when present
 OWN_DIR="$REPO/datasets/arms/fiqa-splade-own-mine"
-if [ "$VARIANT" = own-f02 ] && [ ! -f "$MINE_OUT/negative_candidates.parquet" ] && [ -f "$OWN_DIR/negative_candidates.parquet" ]; then
+if { [ "$VARIANT" = own-f02 ] || [ "$VARIANT" = own-full ]; } && [ ! -f "$MINE_OUT/negative_candidates.parquet" ] && [ -f "$OWN_DIR/negative_candidates.parquet" ]; then
     for f in queries corpus relevant relevant_with_candidate_score relevant_with_score negative_candidates; do cp "$OWN_DIR/$f.parquet" "$MINE_OUT/"; done
     cp "$OWN_DIR/splade_mining_report.json" "$MINE_OUT/"
     log "reused the own candidates from $OWN_DIR"
@@ -83,6 +87,7 @@ step "mine candidates with $MODEL (top-100 by SPLADE)" "$MINE_OUT/negative_candi
 
 set -a; source "$REPO/scripts/fiqa_v3_mine.env"; set +a
 [ -n "$FLOOR" ] && { export FINAL_U_FLOOR="$FLOOR"; log "FINAL_U_FLOOR=$FLOOR"; }
+[ -n "$FULL" ] && { export FINAL_RERANK_INITIAL_BUDGET=100 FINAL_RERANK_MAX_BUDGET=100; log "teacher scores all top-100 candidates (FINAL_RERANK_INITIAL_BUDGET=100)"; }
 cd "$MINE" || exit 1
 step "final rerank, roberta-v3 (adaptive, student order)" "$MINE_OUT/negatives.parquet" "$MPY" app_code/rerank_negative_candidates.py
 step "export (no synthetic positives)" "$MINE_OUT/output.jsonl" "$MPY" app_code/create_flag_embedding_jsonl.py \

@@ -6,11 +6,14 @@
 # regime 1 x 32 itself costs 0.8 (ctrl-b1 61.49 vs arm-cluster-like-fiqa 62.27 at 2 x 16)
 # while sparsifying the model (348 active dims/doc vs 436). The remaining v15 arms (kl on
 # the pure student file, pure plus, pure own-f02) would repeat the first finding.
-# The main dose-response arms at 2 x 16 (mix2, plusmix, own, plus: configs
-# configs/next/3060/mnrl_fiqa_splade_{mix2,plusmix,own,plus}.yaml) run on the user's
+# The 2 x 16 arms (mix2, plusmix, own, plus, then the difficulty bands) run on the user's
 # 5070 Ti (16 GB), so this queue does the non-overlapping work on the 3060:
 #   W   wait for the tiny result of arm-mnrl-fiqa-splade-mix-b1 in logs/queue_v15.out, then
 #       stop queue v15 (its pid file) together with the training it has just started
+#   R   roberta-v3 scores all top-100 candidates of the own mining (VARIANT=own-full of
+#       scripts/fiqa_splade_mine.sh, fixed budget 100; ~35 min), then
+#       scripts/build_fiqa_band_negatives.py writes the difficulty-band files and they are
+#       packed for the other machine (datasets/transfer/fiqa-2073-splade-bands-<date>.tar.gz)
 #   L   leaderboard regime (quantized tiny10 + heldout8) for n1-5070, the best held-out model
 #   T1  kl-fiqa-splade-mix-scaleauto (KL on the 5 + 5 mix) and mnrl-fiqa-splade-mix2-pp
 #       (the mix2 file plus up to 2 promoted positives per query, the separate "missing
@@ -96,6 +99,22 @@ soup() {  # soup NAME MODEL... : equal-weight soup into models/NAME, then tiny +
 
 REF=$(tiny arm-cluster-like-fiqa); BASE=$(tiny base-splade-wrapped); NEAR=$(fsub "$REF" 0.3)
 log "=== v16 start: reference ${REF:-?}, base ${BASE:-?}, batch control $(tiny arm-mnrl-fiqa-ctrl-b1), own-b1 $(tiny arm-mnrl-fiqa-splade-own-b1), mix-b1 $(tiny arm-mnrl-fiqa-splade-mix-b1), $(free_gb) GB free on / ==="
+
+log "=== v16 block R: teacher scores for all top-100 own candidates, difficulty bands ==="
+FULL=datasets/arms/fiqa-splade-own-full-mine
+s=$SECONDS
+if [ -f "$FULL/negatives.parquet" ]; then log "own-full already scored"; else
+    VARIANT=own-full bash scripts/fiqa_splade_mine.sh > "$LOGS/fiqa_splade_own-full.out" 2>&1 \
+        && log "own-full done in $((SECONDS - s))s" || log "own-full FAILED after $((SECONDS - s))s (logs/fiqa_splade_own-full.out)"
+fi
+if [ -f "$FULL/negatives.parquet" ]; then
+    "$PY" scripts/build_fiqa_band_negatives.py --mine-dir "$FULL" --base datasets/arms/fiqa-2073-splade-own.jsonl --band all \
+        --out-dir datasets/arms --report-dir results/data > "$LOGS/fiqa_bands.log" 2>&1 \
+        && { grep -vE 'Warning' "$LOGS/fiqa_bands.log" | cut -c1-200 | while read -r line; do log "  $line"; done
+             tar -czf "datasets/transfer/fiqa-2073-splade-bands-$(date +%Y%m%d).tar.gz" -C datasets/arms $(cd datasets/arms && ls fiqa-2073-splade-band-*.jsonl) \
+                 && log "bands packed: datasets/transfer/fiqa-2073-splade-bands-$(date +%Y%m%d).tar.gz"; } \
+        || log "band files FAILED (logs/fiqa_bands.log)"
+fi
 
 log "=== v16 block L: leaderboard regime for n1-5070 ==="
 [ -d models/n1-5070 ] && leaderboard n1-5070 || log "models/n1-5070 absent"
