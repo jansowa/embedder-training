@@ -72,6 +72,8 @@ def build(band: str, strict: pd.DataFrame, rows: list[dict], text_of: dict[str, 
     stats = {"rank": [], "margin": [], "v3": [], "chars": []}
     backfilled = 0
     short_rows = 0
+    from_base = 0
+    dropped = 0
     written = 0
     with out.open("w", encoding="utf-8") as handle:
         for row in rows:
@@ -93,10 +95,6 @@ def build(band: str, strict: pd.DataFrame, rows: list[dict], text_of: dict[str, 
                         chosen.append(r)
                         taken.add(r["document_id"])
                         backfilled += 1
-            if len(chosen) < total:
-                short_rows += 1
-            if not chosen:
-                continue
             new_row = {k: v for k, v in row.items() if k not in NEG_KEYS}
             new_row["neg"] = [text_of[r["document_id"]] for r in chosen]
             new_row["neg_scores"] = [round(float(r["final_ranking"]), 4) for r in chosen]
@@ -109,14 +107,34 @@ def build(band: str, strict: pd.DataFrame, rows: list[dict], text_of: dict[str, 
             for r in chosen:
                 stats["rank"].append(float(r["retrieval_rank"])); stats["margin"].append(float(r["margin"]))
                 stats["v3"].append(float(r["final_ranking"])); stats["chars"].append(float(len(text_of[r["document_id"]])))
+            if len(chosen) < total:  # the strict pool ran out: complete from the base row's own negatives
+                short_rows += 1
+                for i, text in enumerate(row["neg"]):
+                    if len(new_row["neg"]) >= total:
+                        break
+                    if text in new_row["neg"] or str(row["neg_id"][i]) in taken:
+                        continue
+                    new_row["neg"].append(text)
+                    new_row["neg_scores"].append(row["neg_scores"][i])
+                    new_row["neg_id"].append(row["neg_id"][i])
+                    new_row["neg_selection_tier"].append(row.get("neg_selection_tier", ["strict"] * len(row["neg"]))[i])
+                    new_row["original_neg_scores"].append(row.get("original_neg_scores", [None] * len(row["neg"]))[i])
+                    new_row["neg_source"].append("base-row")
+                    new_row["neg_splade_rank"].append(-1)
+                    new_row["neg_splade_margin"].append(None)
+                    from_base += 1
+            if len(new_row["neg"]) < total:
+                dropped += 1
+                continue
             handle.write(json.dumps(new_row, ensure_ascii=False) + "\n")
             written += 1
-    rep = {"band": band, "spec": [list(s) for s in spec], "rows_written": written, "rows_short_of_negatives": short_rows,
+    rep = {"band": band, "spec": [list(s) for s in spec], "rows_written": written, "rows_dropped": dropped,
+           "rows_short_in_band": short_rows, "negatives_from_base_row": from_base,
            "backfilled_negatives": backfilled, "negatives": len(stats["rank"]),
            "splade_rank": quantiles(stats["rank"]), "splade_margin_to_best_positive": quantiles(stats["margin"]),
            "v3_neg_scores": quantiles(stats["v3"]), "neg_chars": quantiles(stats["chars"])}
     report.write_text(json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"{band}: rows {written} (short {short_rows}, backfilled {backfilled}) rank {rep['splade_rank']} margin {rep['splade_margin_to_best_positive']} v3 {rep['v3_neg_scores']} chars {rep['neg_chars']}")
+    print(f"{band}: rows {written} (dropped {dropped}, short in band {short_rows}, from base row {from_base}, backfilled {backfilled}) rank {rep['splade_rank']} margin {rep['splade_margin_to_best_positive']} v3 {rep['v3_neg_scores']} chars {rep['neg_chars']}")
 
 
 def main() -> None:

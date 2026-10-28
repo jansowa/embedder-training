@@ -92,6 +92,9 @@ DATA = {
     "splade-mix2": "2 student (splade-own) + 8 old v3 negatives per query",
     "splade-plusmix": "5 student (splade-plus, own + PIRB corpus) + 5 old v3 negatives per query",
     "splade-mix2-pp": "the mix2 file plus up to 2 promoted positives per query (scripts/build_fiqa_promoted_positives.py)",
+    # the promoted-positives test without student negatives: the v3 file (old negatives rescored by roberta-v3) and the same plus promotions
+    "v3": "the fiqa-2073-v3 file (old-style negatives, roberta-v3 scores), no promotions",
+    "v3-pp": "the fiqa-2073-v3 file plus up to 2 promoted positives per query",
     # difficulty bands for the student (scripts/build_fiqa_band_negatives.py, teacher-filtered, random within the band)
     "splade-band-r1-20": "negatives at SPLADE ranks 1-20",
     "splade-band-r21-50": "negatives at SPLADE ranks 21-50",

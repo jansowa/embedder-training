@@ -1,0 +1,31 @@
+{
+  "base": "datasets/arms/fiqa-2073-v3.jsonl",
+  "mine_dir": "datasets/arms/fiqa-splade-own-mine",
+  "written": "datasets/arms/fiqa-2073-v3-pp.jsonl",
+  "rows_written": 2073,
+  "max_promoted_per_query": 2,
+  "eligible_pairs": 791,
+  "eligible_queries": 288,
+  "promoted_pairs": 416,
+  "queries_touched": 288,
+  "skipped_among_negatives": 0,
+  "positives_per_row": {
+    "1": 1179,
+    "2": 504,
+    "3": 271,
+    "4": 81,
+    "5": 12,
+    "6": 12,
+    "7": 5,
+    "8": 3,
+    "9": 3,
+    "10": 1,
+    "11": 1,
+    "14": 1
+  },
+  "promoted_v3_scores": {
+    "0.1": 5.844,
+    "0.5": 7.75,
+    "0.9": 9.125
+  }
+}

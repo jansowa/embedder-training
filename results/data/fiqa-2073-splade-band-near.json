@@ -9,7 +9,9 @@
     ]
   ],
   "rows_written": 2073,
-  "rows_short_of_negatives": 2,
+  "rows_dropped": 0,
+  "rows_short_in_band": 2,
+  "negatives_from_base_row": 3,
   "backfilled_negatives": 13934,
   "negatives": 20727,
   "splade_rank": {

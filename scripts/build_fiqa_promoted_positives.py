@@ -6,9 +6,10 @@ SPLADE candidates in 288 queries because they score at or above the query's best
 (a FiQA question usually has several good answers, only some of them annotated). This
 script adds up to --max-promoted of them per query as extra positives of a base file
 (default the mix2 file, so the arm compares with arm-mnrl-fiqa-splade-mix2): the same
-query, pos_scores = the roberta-v3 score, pos_is_synthetic = True, neg_source untouched.
-A promoted passage that sits among the row's negatives is removed from them. Nothing is
-assumed about whether this helps: it is one arm against its base.
+query, pos_scores = the roberta-v3 score, pos_is_synthetic = True, negatives untouched (a
+candidate that sits among the row's negatives is skipped, because the trainer wants all 10
+negatives of every row). Nothing is assumed about whether this helps: it is one arm
+against its base.
 
     python scripts/build_fiqa_promoted_positives.py --base datasets/arms/fiqa-2073-splade-mix2.jsonl \
         --mine-dir datasets/arms/fiqa-splade-own-mine --max-promoted 2 \
@@ -68,12 +69,10 @@ def main() -> None:
                     text = text_of.get(doc_id)
                     if text is None or text in existing or doc_id in existing:
                         continue
-                    if text in row["neg"]:
-                        i = row["neg"].index(text)
-                        for key in NEG_KEYS:
-                            if key in row and i < len(row[key]):
-                                del row[key][i]
+                    if text in row["neg"] or doc_id in {str(n) for n in row.get("neg_id", [])}:
+                        # among the row's negatives: leave it (the trainer wants all 10 negatives) and count it
                         negatives_removed += 1
+                        continue
                     row["pos"].append(text)
                     row.setdefault("pos_scores", []).append(round(float(score), 4))
                     row.setdefault("pos_id", []).append(doc_id)
@@ -89,7 +88,7 @@ def main() -> None:
     report = {
         "base": str(args.base), "mine_dir": str(d), "written": str(args.out), "rows_written": rows_out,
         "max_promoted_per_query": args.max_promoted, "eligible_pairs": int(len(promote)), "eligible_queries": int(promote["query_id"].nunique()),
-        "promoted_pairs": promoted, "queries_touched": queries_touched, "negatives_removed": negatives_removed,
+        "promoted_pairs": promoted, "queries_touched": queries_touched, "skipped_among_negatives": negatives_removed,
         "positives_per_row": {str(k): v for k, v in sorted(pos_count.items())},
         "promoted_v3_scores": {k: round(float(v), 3) for k, v in promote.groupby("query_id").head(args.max_promoted)["final_ranking"].quantile([0.1, 0.5, 0.9]).items()},
     }
