@@ -62,6 +62,7 @@ BANDS: dict[str, list[tuple[str, float, float, int]]] = {
     "mid": [("margin", -5.0, -2.0, 10)],
     "far": [("margin", -math.inf, -3.0, 10)],
     "cap3": [("margin-top", -math.inf, -3.0, 10)],  # the 10 hardest strict negatives at least 3 below the best positive
+    "hard": [("margin-top", -math.inf, math.inf, 10)],  # the 10 hardest strict negatives, no cap (with --len-window: the hardest inside the window)
 }
 
 

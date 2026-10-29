@@ -10,7 +10,7 @@
 #      diagnostic; held-out-8 for every arm at tiny >= 61.5; the best by held-out gets the
 #      leaderboard regime (tiny10 + heldout8) and trec-covid.
 #   3  ctrl-cb32 held-out-8 when within 0.3 of the reference on tiny.
-#   4  lenmatch-r1-20, lenmatch-far, lenmatch-r1-20-mix2: student negatives drawn inside the
+#   4  lenmatch-hard, lenmatch-far, lenmatch-hard-mix2: student negatives drawn inside the
 #      length window 0.7-1.4 x the positives (hard vs long): tiny, sparsity, diagnostic;
 #      held-out-8 when within 0.3 of the reference.
 #   5  soup-v8a = n1 + n3 + n4 + best dose arm (soup-v7a with long-easy replaced): tiny,
@@ -125,15 +125,15 @@ if [ -d "models/$m" ]; then
 fi
 
 log "=== v22 step 4: length-matched student negatives ==="
-for v in r1-20 far r1-20-mix2; do arm "mnrl-fiqa-lenmatch-$v" "$C/mnrl_fiqa_lenmatch_${v//-/_}.yaml" "$C/mnrl_fiqa_lenmatch_${v//-/_}_cb32.yaml"; done
+for v in hard far hard-mix2; do arm "mnrl-fiqa-lenmatch-$v" "$C/mnrl_fiqa_lenmatch_${v//-/_}.yaml" "$C/mnrl_fiqa_lenmatch_${v//-/_}_cb32.yaml"; done
 LEN=""
-for v in r1-20 far r1-20-mix2; do
+for v in hard far hard-mix2; do
     m="arm-mnrl-fiqa-lenmatch-$v"; [ -d "models/$m" ] || continue
     if reaches "$m" "$NEAR"; then step holdout "$m" "models/$m" && LEN="$LEN $m"; else log "  $m: tiny $(tiny "$m") below $NEAR; no held-out"; fi
 done
 # shellcheck disable=SC2086
 BESTLEN=$(best_by_hold $LEN)
-log "  lenmatch: r1-20 $(tiny arm-mnrl-fiqa-lenmatch-r1-20) (full-length r1-20 60.32, own 60.13), far $(tiny arm-mnrl-fiqa-lenmatch-far) (full-length far 62.23), mix2 $(tiny arm-mnrl-fiqa-lenmatch-r1-20-mix2) (full-length mix2 60.41); best by held-out: ${BESTLEN:-none}"
+log "  lenmatch: hard $(tiny arm-mnrl-fiqa-lenmatch-hard) (full-length r1-20 60.32, own 60.13), far $(tiny arm-mnrl-fiqa-lenmatch-far) (full-length far 62.23), hard-mix2 $(tiny arm-mnrl-fiqa-lenmatch-hard-mix2) (full-length mix2 60.41); best by held-out: ${BESTLEN:-none}"
 
 log "=== v22 step 5: soup-v8a (n1 + n3 + n4 + best dose arm) ==="
 if [ -n "$BESTDOSE" ]; then

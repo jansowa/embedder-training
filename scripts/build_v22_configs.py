@@ -14,10 +14,12 @@ All arms use the arm-cluster-like-fiqa recipe (MNRL + FLOPS, lr 2e-5, 2 epochs, 
                    (scripts/build_fiqa_mix_negatives.py). The moderate length correction:
                    long-easy-5070 alone wins arguana-pl by 10 and loses fiqa-pl by 8.
   lenmatch-*       student-mined negatives drawn inside a length window around the positives
-                   (scripts/build_fiqa_band_negatives.py --len-window 0.7 1.4): r1-20 (hardest
-                   for the student), far (teacher margin > 3), and r1-20 x2 + 8 old (mix2).
-                   Separates "hard" from "long": every earlier band was 3x longer than the
-                   old negatives.
+                   (scripts/build_fiqa_band_negatives.py --len-window 0.7 1.4): hard (the 10
+                   hardest for the student inside the window), far (more than 3 below the
+                   best positive, random), and hard x2 + 8 old (mix2). Separates "hard" from
+                   "long": every earlier band was 3x longer than the old negatives. (Ranks
+                   1-20 inside the window hold only 3-4 negatives per query, so a rank band
+                   would be backfilled to the depth of far.)
   *_cb32           fallback of the same arm with CachedSpladeLoss (batch 32, mini-batch 2),
                    used by the queue only when the 2 x 16 run fails (CUDA OOM on long
                    negatives). Same runs_dir, so the queue finds the checkpoint either way.
@@ -99,9 +101,9 @@ def main() -> None:
         "ldose1": ("1 long-easy + 9 old v3 negatives per query (moderate length correction)", "datasets/arms/fiqa-2073-ldose1.jsonl"),
         "ldose2": ("2 long-easy + 8 old v3 negatives per query (moderate length correction)", "datasets/arms/fiqa-2073-ldose2.jsonl"),
         "ldose4": ("4 long-easy + 6 old v3 negatives per query (moderate length correction)", "datasets/arms/fiqa-2073-ldose4.jsonl"),
-        "lenmatch-r1-20": ("student negatives from SPLADE ranks 1-20 inside the length window 0.7-1.4 x the positives", "datasets/arms/fiqa-2073-splade-band-r1-20-lenmatch.jsonl"),
-        "lenmatch-far": ("student negatives with teacher margin > 3 below the best positive, inside the length window 0.7-1.4 x the positives", "datasets/arms/fiqa-2073-splade-band-far-lenmatch.jsonl"),
-        "lenmatch-r1-20-mix2": ("2 length-matched rank 1-20 student negatives + 8 old v3 negatives per query", "datasets/arms/fiqa-2073-splade-lenmatch-r1-20-mix2.jsonl"),
+        "lenmatch-hard": ("the 10 hardest student negatives (highest SPLADE margin) inside the length window 0.7-1.4 x the positives", "datasets/arms/fiqa-2073-splade-band-hard-lenmatch.jsonl"),
+        "lenmatch-far": ("student negatives more than 3 below the best positive (random), inside the length window 0.7-1.4 x the positives", "datasets/arms/fiqa-2073-splade-band-far-lenmatch.jsonl"),
+        "lenmatch-hard-mix2": ("the 2 hardest length-matched student negatives + 8 old v3 negatives per query", "datasets/arms/fiqa-2073-splade-lenmatch-hard-mix2.jsonl"),
     }
     for name, (desc, data) in arms.items():
         tag = f"mnrl-fiqa-{name}"

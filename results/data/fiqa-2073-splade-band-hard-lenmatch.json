@@ -1,0 +1,67 @@
+{
+  "band": "hard",
+  "suffix": "-lenmatch",
+  "spec": [
+    [
+      "margin-top",
+      -Infinity,
+      Infinity,
+      10
+    ]
+  ],
+  "rows_written": 2073,
+  "rows_dropped": 0,
+  "rows_short_in_band": 2,
+  "negatives_from_base_row": 3,
+  "backfilled_negatives": 0,
+  "negatives": 20727,
+  "splade_rank": {
+    "p10": 9.0,
+    "median": 36.0,
+    "p90": 92.0,
+    "mean": 42.843
+  },
+  "splade_margin_to_best_positive": {
+    "p10": -12.508,
+    "median": -5.955,
+    "p90": 1.106,
+    "mean": -5.878
+  },
+  "v3_neg_scores": {
+    "p10": -2.234,
+    "median": 1.0,
+    "p90": 2.719,
+    "mean": 0.581
+  },
+  "neg_chars": {
+    "p10": 446.0,
+    "median": 1089.0,
+    "p90": 2333.0,
+    "mean": 1277.002
+  },
+  "len_window": [
+    0.7,
+    1.4
+  ],
+  "backfilled_outside_window": 2402,
+  "share_outside_window": 0.1159,
+  "share_backfilled_outside_or_base": 0.116,
+  "neg_tokens": {
+    "p10": 97.0,
+    "median": 223.0,
+    "p90": 488.0,
+    "mean": 264.004
+  },
+  "pos_tokens": {
+    "p10": 80.0,
+    "median": 197.0,
+    "p90": 438.0,
+    "mean": 235.224
+  },
+  "neg_to_pos_token_ratio": {
+    "p10": 0.761,
+    "median": 1.058,
+    "p90": 1.404,
+    "mean": 1.53
+  }
+}
