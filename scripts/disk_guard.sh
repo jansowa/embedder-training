@@ -40,6 +40,8 @@ for path in glob.glob("results/*/*/metrics.json") + glob.glob("results-holdout/*
         if not key.startswith("epoch0/pirb_") or not isinstance(value, float):
             continue
         task = key.replace("epoch0/pirb_", "")
+        # poleval-2022 tasks are named test-A-/test-B-<set> but share one cache dir per set
+        task = task.replace("test-A-", "").replace("test-B-", "")
         if "@" in task or task in {"ndcg_tasks", "datasets", "model"}:
             continue
         d = (cache / task / slug).resolve()

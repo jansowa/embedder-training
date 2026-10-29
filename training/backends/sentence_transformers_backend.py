@@ -438,6 +438,37 @@ def _load_sparse_kl_loss():
     return SparseDistillKLDivLoss
 
 
+def _load_sparse_cached_splade_loss():
+    _require_sentence_transformers()
+    try:
+        from sentence_transformers.sparse_encoder.losses import CachedSpladeLoss
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise BackendDependencyError(
+            "'sentence_transformers.cached_loss' needs sentence-transformers with CachedSpladeLoss (>= 5.3)."
+        ) from exc
+    return CachedSpladeLoss
+
+
+def _splade_cached_loss_mini_batch(backend_config: dict[str, Any]) -> int | None:
+    """Mini-batch size of the GradCache SPLADE loss, or None when the plain loss is used.
+
+    ``cached_loss: true`` wraps the ranking loss in ``CachedSpladeLoss``: the batch is embedded in
+    mini-batches of ``mini_batch_size`` rows per column, so the in-batch negatives and the FLOPS
+    terms see the whole ``train_batch_size`` while the GPU holds one mini-batch at a time. This
+    is how an 8 GB card trains at a true batch of 32 queries instead of 2 x 16 accumulation.
+    """
+    if not _as_bool(backend_config.get("cached_loss", False)):
+        return None
+    mini_batch_size = backend_config.get("mini_batch_size", 32)
+    try:
+        mini_batch_size = int(mini_batch_size)
+    except (TypeError, ValueError) as exc:
+        raise SentenceTransformersConfigError("'sentence_transformers.mini_batch_size' must be a positive integer.") from exc
+    if mini_batch_size < 1:
+        raise SentenceTransformersConfigError("'sentence_transformers.mini_batch_size' must be a positive integer.")
+    return mini_batch_size
+
+
 SPLADE_DISTILLATION_LOSSES = {"sparse_margin_mse", "sparse_distill_kl_div"}
 
 
@@ -1502,12 +1533,18 @@ def run_splade_training(request: TrainingRequest) -> int:
             scale=float(backend_config.get("scale", 1.0)),
             gather_across_devices=bool(backend_config.get("gather_across_devices", False)),
         )
-    loss = SpladeLoss(
-        model,
-        loss=ranking_loss,
-        document_regularizer_weight=float(backend_config.get("document_regularizer_weight", 3e-5)),
-        query_regularizer_weight=float(backend_config.get("query_regularizer_weight", 5e-5)),
-    )
+    splade_loss_kwargs = {
+        "document_regularizer_weight": float(backend_config.get("document_regularizer_weight", 3e-5)),
+        "query_regularizer_weight": float(backend_config.get("query_regularizer_weight", 5e-5)),
+    }
+    cached_mini_batch = _splade_cached_loss_mini_batch(backend_config)
+    if cached_mini_batch is None:
+        loss = SpladeLoss(model, loss=ranking_loss, **splade_loss_kwargs)
+    else:
+        loss = _load_sparse_cached_splade_loss()(
+            model, loss=ranking_loss, mini_batch_size=cached_mini_batch, **splade_loss_kwargs
+        )
+        print(f"[INFO] CachedSpladeLoss (GradCache) with mini_batch_size={cached_mini_batch}.", flush=True)
     trainer = SparseEncoderTrainer(
         model=model,
         args=args,

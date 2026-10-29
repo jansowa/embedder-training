@@ -1,0 +1,44 @@
+{
+  "student": "datasets/arms/fiqa-2073-splade-long-easy.jsonl",
+  "old": "datasets/arms/fiqa-2073-v3.jsonl",
+  "written": "datasets/arms/fiqa-2073-ldose4.jsonl",
+  "rows_written": 2073,
+  "student_count": 4,
+  "old_count": 6,
+  "negatives_by_source": {
+    "student": 8292,
+    "old": 12438,
+    "student_backfill": 0,
+    "old_backfill": 0
+  },
+  "dropped_duplicates": 12,
+  "queries_missing_in_old": 0,
+  "neg_chars": {
+    "student": {
+      "p10": 655.0,
+      "median": 1574.0,
+      "p90": 3856.0,
+      "mean": 1993.053
+    },
+    "old": {
+      "p10": 251.0,
+      "median": 529.0,
+      "p90": 1410.0,
+      "mean": 729.997
+    }
+  },
+  "v3_neg_scores": {
+    "student": {
+      "p10": -2.25,
+      "median": 0.645,
+      "p90": 2.5,
+      "mean": 0.363
+    },
+    "old": {
+      "p10": 1.266,
+      "median": 2.297,
+      "p90": 3.094,
+      "mean": 2.218
+    }
+  }
+}
