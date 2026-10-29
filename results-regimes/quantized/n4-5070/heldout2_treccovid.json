@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "n4-5070",
+  "model": "/home/jsowa/work/FlagEmbedding/models/n4-5070",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "tasks": {
+    "trec-covid-pl": 67.46092318844231
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 67.46092318844231
+}

@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "n4-5070",
+  "model": "/home/jsowa/work/FlagEmbedding/models/n4-5070",
+  "taskset": "heldout2_poquad",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-poquad": 19.85383732393734
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 19.85383732393734
+}

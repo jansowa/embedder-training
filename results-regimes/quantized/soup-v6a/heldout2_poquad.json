@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "soup-v6a",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v6a",
+  "taskset": "heldout2_poquad",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-poquad": 19.85902301785231
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 19.85902301785231
+}

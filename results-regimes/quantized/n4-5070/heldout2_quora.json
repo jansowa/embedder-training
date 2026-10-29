@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "n4-5070",
+  "model": "/home/jsowa/work/FlagEmbedding/models/n4-5070",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "tasks": {
+    "quora-pl": 78.72514263373937
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 78.72514263373937
+}

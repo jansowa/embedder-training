@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "n4-5070",
+  "model": "/home/jsowa/work/FlagEmbedding/models/n4-5070",
+  "taskset": "heldout2_gpt35wiki",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-wiki": 92.13463827236772
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 92.13463827236772
+}
