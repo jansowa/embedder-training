@@ -1,0 +1,101 @@
+{
+  "mine_dir": "datasets/arms/diag-n1-5070",
+  "tokenizer": "models/base-splade-wrapped",
+  "corpus": {
+    "tokens": {
+      "p10": 51,
+      "p50": 114,
+      "p90": 344
+    },
+    "share_over_512": 0.0379,
+    "share_over_256": 0.172,
+    "n": 11627
+  },
+  "student_top1": {
+    "tokens": {
+      "p10": 71,
+      "p50": 194,
+      "p90": 418
+    },
+    "share_over_512": 0.055,
+    "share_over_256": 0.3333,
+    "n": 2073
+  },
+  "student_top10": {
+    "tokens": {
+      "p10": 72,
+      "p50": 203,
+      "p90": 447
+    },
+    "share_over_512": 0.0721,
+    "share_over_256": 0.3539,
+    "n": 20730
+  },
+  "student_top100": {
+    "tokens": {
+      "p10": 70,
+      "p50": 197,
+      "p90": 454
+    },
+    "share_over_512": 0.0742,
+    "share_over_256": 0.3431,
+    "n": 207300
+  },
+  "positives": {
+    "tokens": {
+      "p10": 70,
+      "p50": 189,
+      "p90": 455
+    },
+    "share_over_512": 0.0737,
+    "share_over_256": 0.3255,
+    "n": 3161
+  },
+  "real_negatives_above_positive": {
+    "tokens": {
+      "p10": 72,
+      "p50": 199,
+      "p90": 446
+    },
+    "share_over_512": 0.0751,
+    "share_over_256": 0.3469,
+    "n": 13394
+  },
+  "teacher_filtered": false,
+  "spearman_score_vs_tokens_all_candidates": 0.0564,
+  "spearman_score_vs_tokens_within_query_median": 0.0189,
+  "positives_by_token_bucket": {
+    "<=128": {
+      "pairs": 953,
+      "positive_first": 0.408,
+      "positive_in_top10": 0.731,
+      "positive_beyond_top100": 0.071,
+      "splade_score_median": 24.16,
+      "score_minus_top1_median": -1.41
+    },
+    "129-256": {
+      "pairs": 1179,
+      "positive_first": 0.547,
+      "positive_in_top10": 0.848,
+      "positive_beyond_top100": 0.022,
+      "splade_score_median": 26.1,
+      "score_minus_top1_median": 0.58
+    },
+    "257-512": {
+      "pairs": 796,
+      "positive_first": 0.543,
+      "positive_in_top10": 0.877,
+      "positive_beyond_top100": 0.009,
+      "splade_score_median": 26.18,
+      "score_minus_top1_median": 0.47
+    },
+    ">512": {
+      "pairs": 233,
+      "positive_first": 0.485,
+      "positive_in_top10": 0.867,
+      "positive_beyond_top100": 0.009,
+      "splade_score_median": 24.63,
+      "score_minus_top1_median": -0.11
+    }
+  }
+}
