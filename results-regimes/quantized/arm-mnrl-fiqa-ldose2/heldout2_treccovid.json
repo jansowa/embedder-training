@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "arm-mnrl-fiqa-ldose2",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-mnrl-fiqa-ldose2",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "tasks": {
+    "trec-covid-pl": 69.86728171216026
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 69.86728171216026
+}
