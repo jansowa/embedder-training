@@ -19,3 +19,7 @@ results/base_loss/
 results/judge/
 results/lexical_difficulty/
 results/leaderboard_data.json
+
+# session handoff notes, never tracked
+/HANDOFF.md
+/NEXT-SESSION.md
