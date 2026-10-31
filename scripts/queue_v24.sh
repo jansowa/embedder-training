@@ -40,7 +40,8 @@ train2() {  # train2 TAG CFG [FALLBACK]: train; when the 2 x 16 run fails, retry
     train "$tag" "$fb"
 }
 probe() {  # probe TAG CFG: one GradCache speed probe (3 steps); appends a line to the probe log
-    local tag="$1" cfg="$2" out="$LOGS/smoke_$tag.log" mem="$LOGS/smoke_$tag.mem" s e peak t
+    local tag="$1" cfg="$2" out mem s e peak t
+    out="$LOGS/smoke_$tag.log"; mem="$LOGS/smoke_$tag.mem"
     grep -q "^$tag " "$PROBES" 2>/dev/null && return 0
     wait_gpu_free; wait_ram
     rm -rf "runs/smoke-$tag"
