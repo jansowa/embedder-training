@@ -1,0 +1,19 @@
+{
+  "regime": "quantized",
+  "label": "soup-v9c",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9c",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.28992315957656,
+    "maupqa-multilingual-NLI": 14.491155701964825,
+    "mfaq": 63.07119503459605,
+    "poleval-2022-test-A-legal-questions": 82.85651695503824,
+    "maupqa-wiki-def": 66.34241813819322,
+    "scidocs-pl": 14.46187521667024,
+    "maupqa-1z10": 48.55932208704676,
+    "fiqa-pl": 30.31553418215443
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 42.54849255940504
+}
