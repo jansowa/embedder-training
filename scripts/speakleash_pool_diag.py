@@ -120,7 +120,19 @@ def main() -> None:
 
     summary = {"student": a.student, "teacher": None if a.no_teacher else a.teacher, "tail_margin": a.tail_margin,
                "reference_v3_positives": {"file": str(a.reference_v3), **ref_pct}, "files": {}}
+    # resume: keep the files an earlier (interrupted) run finished
+    if a.out.exists():
+        try:
+            earlier = json.load(a.out.open(encoding="utf-8")).get("files", {})
+        except (OSError, ValueError):
+            earlier = {}
+        for stem, s in earlier.items():
+            if (a.per_row_dir / f"{stem}.jsonl").exists():
+                summary["files"][stem] = s
     for path in a.input:
+        if path.stem in summary["files"]:
+            print(f"{path.stem}: done earlier, skipped", flush=True)
+            continue
         t0 = time.time()
         rows = load_rows(path, a.n)
         recs = []
