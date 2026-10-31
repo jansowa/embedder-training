@@ -1,0 +1,5 @@
+Zapytanie:
+{query}
+
+Pasaż:
+{passage}
