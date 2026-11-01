@@ -28,6 +28,9 @@ HOLDOUT_TASKS="maupqa-gpt3.5-cc,maupqa-multilingual-NLI,mfaq,poleval-2022-test-A
 HOLDOUT2_TASKS=(maupqa-czy-wiesz-v2 maupqa-gpt3.5-wiki quora-pl maupqa-poquad trec-covid-pl)
 QUEUE_TAG="${QUEUE_TAG:-q}"
 MIN_RAM_GB="${MIN_RAM_GB:-6}"
+# Wall-clock limit of one train() call in seconds; a GradCache (cb32) run of
+# 2073 rows needs ~3.7 h on the 3060, more than the default.
+TRAIN_TIMEOUT="${TRAIN_TIMEOUT:-7200}"
 mkdir -p "$LOGS" "$RESULTS_ROOT/base_loss" "$HOLDOUT2_DIR" "$REGIMES_ROOT"
 
 log()    { echo "[$(date +%H:%M:%S)] [$QUEUE_TAG] $*" | tee -a "$LOGS/queue.log"; }
@@ -138,7 +141,7 @@ train() {  # train NAME CONFIG: train and copy final/ to models/arm-NAME
     [ -f "$cfg" ] || { log "train arm-$tag: config $cfg missing"; record "train:arm-$tag" SKIPPED "no config"; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram
     log "train arm-$tag"; local s=$SECONDS
-    timeout -k 60 7200 "$PY" run_experiments.py --grid-configuration-file "$cfg" \
+    timeout -k 60 "$TRAIN_TIMEOUT" "$PY" run_experiments.py --grid-configuration-file "$cfg" \
         --backend sentence-transformers --training-type splade > "$LOGS/arm_$tag.log" 2>&1
     local e=$((SECONDS - s)) ck
     ck=$(ls -1dt "runs/arm-$tag/sentence-transformers/splade"/*/final 2>/dev/null | head -1)
