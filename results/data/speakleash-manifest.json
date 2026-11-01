@@ -1,0 +1,289 @@
+{
+  "fever": {
+    "source": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/fever/train_pl.jsonl",
+    "gate_field": "pos_scores_stronger_reranker",
+    "threshold": 23.5,
+    "rows_total": 109810,
+    "rows_gated_10neg": 105466,
+    "rows_gated_share": 0.9604,
+    "positives_total": 142571,
+    "positives_pass": 116748,
+    "positives_pass_share": 0.8189,
+    "gated_rows_with_one_positive_share": 0.8995,
+    "gate_score_percentiles": {
+      "p5": 19.75,
+      "p25": 25.125,
+      "p50": 27.625,
+      "p75": 29.25,
+      "p95": 30.0,
+      "n": 142571
+    },
+    "query_metricx": {
+      "p5": 0.0,
+      "p25": 0.534,
+      "p50": 1.36,
+      "p75": 3.129,
+      "p95": 8.665,
+      "n": 109810
+    },
+    "pos_metricx": {
+      "p5": 1.545,
+      "p25": 4.14,
+      "p50": 6.186,
+      "p75": 8.489,
+      "p95": 15.578,
+      "n": 142571
+    },
+    "candidates_sampled": 24000,
+    "dropped_positive_over_512": 6580,
+    "dropped_more_than_2_long_negatives": 5058,
+    "survivors": 12362,
+    "survivor_share_of_candidates": 0.5151,
+    "cut_rows": 2073,
+    "cut_training_examples": 2226,
+    "cut_positives_per_row": {
+      "1": 1924,
+      "2": 146,
+      "3": 2,
+      "4": 1
+    },
+    "cut_synthetic_positives": 50,
+    "cut_tokens_query": {
+      "p5": 8.0,
+      "p25": 11.0,
+      "p50": 13.0,
+      "p75": 16.0,
+      "p95": 22.0,
+      "n": 2073
+    },
+    "cut_tokens_pos": {
+      "p5": 77.0,
+      "p25": 154.0,
+      "p50": 260.0,
+      "p75": 377.0,
+      "p95": 479.0,
+      "n": 2226
+    },
+    "cut_tokens_neg": {
+      "p5": 37.0,
+      "p25": 69.0,
+      "p50": 115.0,
+      "p75": 248.0,
+      "p95": 578.0,
+      "n": 20730
+    },
+    "cut_long_negatives_per_row": {
+      "0": 814,
+      "1": 746,
+      "2": 513
+    },
+    "cut_median_neg_len_over_max_pos_len": {
+      "p5": 0.17,
+      "p25": 0.297,
+      "p50": 0.491,
+      "p75": 0.878,
+      "p95": 1.822,
+      "n": 2073
+    },
+    "cut_share_negs_longer_than_longest_pos": 0.3058,
+    "cut_gate_score_percentiles": {
+      "p5": 24.625,
+      "p25": 26.875,
+      "p50": 28.375,
+      "p75": 29.625,
+      "p95": 30.0,
+      "n": 2226
+    },
+    "pool_rows": 8000,
+    "mix": {
+      "file": "fiqa-squadv2-fever-6219.jsonl",
+      "rows": 6219,
+      "training_examples": 7476
+    }
+  },
+  "hotpotqa": {
+    "source": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/hotpotqa/train_pl.jsonl",
+    "gate_field": "pos_scores_stronger_reranker",
+    "threshold": 23.5,
+    "rows_total": 85000,
+    "rows_gated_10neg": 80140,
+    "rows_gated_share": 0.9428,
+    "positives_total": 170312,
+    "positives_pass": 130371,
+    "positives_pass_share": 0.7655,
+    "gated_rows_with_one_positive_share": 0.3756,
+    "gate_score_percentiles": {
+      "p5": 19.5,
+      "p25": 23.875,
+      "p50": 26.5,
+      "p75": 28.75,
+      "p95": 30.0,
+      "n": 170312
+    },
+    "query_metricx": {
+      "p5": 0.52,
+      "p25": 1.456,
+      "p50": 2.825,
+      "p75": 5.056,
+      "p95": 10.005,
+      "n": 85000
+    },
+    "pos_metricx": {
+      "p5": 0.553,
+      "p25": 1.393,
+      "p50": 2.452,
+      "p75": 4.046,
+      "p95": 7.23,
+      "n": 170312
+    },
+    "candidates_sampled": 24000,
+    "dropped_positive_over_512": 5,
+    "dropped_more_than_2_long_negatives": 0,
+    "survivors": 23995,
+    "survivor_share_of_candidates": 0.9998,
+    "cut_rows": 2073,
+    "cut_training_examples": 3329,
+    "cut_positives_per_row": {
+      "1": 819,
+      "2": 1252,
+      "3": 2
+    },
+    "cut_synthetic_positives": 6,
+    "cut_tokens_query": {
+      "p5": 14.0,
+      "p25": 18.0,
+      "p50": 23.0,
+      "p75": 30.0,
+      "p95": 52.0,
+      "n": 2073
+    },
+    "cut_tokens_pos": {
+      "p5": 34.0,
+      "p25": 63.0,
+      "p50": 95.0,
+      "p75": 134.0,
+      "p95": 204.6,
+      "n": 3329
+    },
+    "cut_tokens_neg": {
+      "p5": 13.0,
+      "p25": 26.0,
+      "p50": 63.0,
+      "p75": 102.0,
+      "p95": 173.0,
+      "n": 20730
+    },
+    "cut_long_negatives_per_row": {
+      "0": 2066,
+      "1": 7
+    },
+    "cut_median_neg_len_over_max_pos_len": {
+      "p5": 0.15,
+      "p25": 0.333,
+      "p50": 0.543,
+      "p75": 0.851,
+      "p95": 1.577,
+      "n": 2073
+    },
+    "cut_share_negs_longer_than_longest_pos": 0.2396,
+    "cut_gate_score_percentiles": {
+      "p5": 24.125,
+      "p25": 25.75,
+      "p50": 27.5,
+      "p75": 29.0,
+      "p95": 30.0,
+      "n": 3329
+    },
+    "pool_rows": 8000,
+    "mix": {
+      "file": "fiqa-squadv2-hotpotqa-6219.jsonl",
+      "rows": 6219,
+      "training_examples": 8579
+    }
+  },
+  "nq": {
+    "source": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/nq/train_pl.jsonl",
+    "gate_field": "pos_scores",
+    "threshold": 23.5,
+    "rows_total": 100211,
+    "rows_gated_10neg": 71911,
+    "rows_gated_share": 0.7176,
+    "positives_total": 103176,
+    "positives_pass": 71911,
+    "positives_pass_share": 0.697,
+    "gated_rows_with_one_positive_share": 1.0,
+    "gate_score_percentiles": {
+      "p5": 20.625,
+      "p25": 23.375,
+      "p50": 25.0,
+      "p75": 26.25,
+      "p95": 27.75,
+      "n": 100211
+    },
+    "query_metricx": {},
+    "pos_metricx": {},
+    "candidates_sampled": 24000,
+    "dropped_positive_over_512": 50,
+    "dropped_more_than_2_long_negatives": 14,
+    "survivors": 23936,
+    "survivor_share_of_candidates": 0.9973,
+    "cut_rows": 2073,
+    "cut_training_examples": 2073,
+    "cut_positives_per_row": {
+      "1": 2073
+    },
+    "cut_synthetic_positives": 0,
+    "cut_tokens_query": {
+      "p5": 8.0,
+      "p25": 10.0,
+      "p50": 11.0,
+      "p75": 14.0,
+      "p95": 17.0,
+      "n": 2073
+    },
+    "cut_tokens_pos": {
+      "p5": 51.0,
+      "p25": 91.0,
+      "p50": 129.0,
+      "p75": 176.0,
+      "p95": 276.4,
+      "n": 2073
+    },
+    "cut_tokens_neg": {
+      "p5": 42.0,
+      "p25": 62.0,
+      "p50": 83.0,
+      "p75": 124.0,
+      "p95": 221.0,
+      "n": 20730
+    },
+    "cut_long_negatives_per_row": {
+      "0": 2049,
+      "1": 19,
+      "2": 5
+    },
+    "cut_median_neg_len_over_max_pos_len": {
+      "p5": 0.285,
+      "p25": 0.466,
+      "p50": 0.681,
+      "p75": 1.03,
+      "p95": 1.99,
+      "n": 2073
+    },
+    "cut_share_negs_longer_than_longest_pos": 0.3032,
+    "cut_gate_score_percentiles": {
+      "p5": 23.875,
+      "p25": 24.75,
+      "p50": 25.625,
+      "p75": 26.625,
+      "p95": 27.75,
+      "n": 2073
+    },
+    "pool_rows": 8000,
+    "mix": {
+      "file": "fiqa-squadv2-nq-6219.jsonl",
+      "rows": 6219,
+      "training_examples": 7323
+    }
+  }
+}

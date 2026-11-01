@@ -1,0 +1,6 @@
+cb32-mb4-gc ok 95 3464 27.73
+cb32-mb4-nogc ok 91 3820 26.87
+cb32-mb8-gc ok 92 4872 26.97
+cb32-mb8-nogc ok 89 5612 26.23
+cb32-mb16-gc OOM 14 6986 -
+cb32-mb16-nogc OOM 13 6920 -

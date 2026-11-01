@@ -1,0 +1,47 @@
+{
+  "recipe": "cluster-like, true batch 32, 512 tokens, 10 negatives, fp16, pooling chunk 8, 3 optimizer steps",
+  "probes": [
+    {
+      "probe": "cb32-mb4-gc",
+      "status": "ok",
+      "total_s": 95,
+      "peak_mib": 3464,
+      "s_per_step": 27.73
+    },
+    {
+      "probe": "cb32-mb4-nogc",
+      "status": "ok",
+      "total_s": 91,
+      "peak_mib": 3820,
+      "s_per_step": 26.87
+    },
+    {
+      "probe": "cb32-mb8-gc",
+      "status": "ok",
+      "total_s": 92,
+      "peak_mib": 4872,
+      "s_per_step": 26.97
+    },
+    {
+      "probe": "cb32-mb8-nogc",
+      "status": "ok",
+      "total_s": 89,
+      "peak_mib": 5612,
+      "s_per_step": 26.23
+    },
+    {
+      "probe": "cb32-mb16-gc",
+      "status": "OOM",
+      "total_s": 14,
+      "peak_mib": 6986,
+      "s_per_step": null
+    },
+    {
+      "probe": "cb32-mb16-nogc",
+      "status": "OOM",
+      "total_s": 13,
+      "peak_mib": 6920,
+      "s_per_step": null
+    }
+  ]
+}
