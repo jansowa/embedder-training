@@ -4,7 +4,7 @@
 
 This repository trains and evaluates embedding models through a backend-selectable Python CLI. Core code lives in `training/`: `train.py` is the main entry point, `config_grid.py` expands YAML grids, `checkpoints.py` handles resume logic, and `backends/` contains `flagembedding`, `sentence-transformers`, and `pylate` integrations. Dataset filtering helpers are in `training/dataset_filters/`.
 
-Configuration files live in `configs/` and `training_dataset_configs/`; prefer adding new smoke or experiment YAMLs there. Tests are under `tests/`, docs under `docs/`, utility scripts under `scripts/`, and vendored benchmark code under `third_party/pirb/`. Treat `runs/`, `cache/`, `wandb/`, `.venv*`, and `dataset-*` directories as generated artifacts, not source.
+Generic configuration files live in `configs/` (smoke configs, dataset filter profiles, PIRB task sets); prefer adding new smoke YAMLs there. An experiment series keeps its own configs, queues, results and notes under `experiments/<series>/` (currently `experiments/polish-splade-2026-10/`); put new experiment YAMLs there, not in `configs/`. Tests are under `tests/`, docs under `docs/`, generic utility scripts (queue helpers, evaluation regimes, result tables, guards) under `scripts/`, and vendored benchmark code under `third_party/pirb/`. Dataset building and annotation tools belong to the separate data kitchen repository, not here. Treat `runs/`, `models/`, `datasets/`, `logs/`, `cache/`, `wandb/`, `.venv*`, and `dataset-*` directories as generated artifacts, not source.
 
 ## Build, Test, and Development Commands
 
