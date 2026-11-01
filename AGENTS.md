@@ -12,7 +12,7 @@ Create the recommended environment:
 
 ```bash
 uv venv --python 3.10.4 .venv
-uv pip sync requirements.lock --extra-index-url https://download.pytorch.org/whl/cu126 --index-url https://pypi.org/simple --index-strategy unsafe-best-match
+uv pip sync requirements.lock --extra-index-url https://download.pytorch.org/whl/cu128 --index-url https://pypi.org/simple --index-strategy unsafe-best-match
 ```
 
 Install only one backend when working narrowly:

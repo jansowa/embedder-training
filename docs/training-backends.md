@@ -133,7 +133,7 @@ Use all visible GPUs:
 python -m training.train \
   --backend sentence-transformers \
   --training-type splade \
-  --config configs/polish_splade_dataset_small_multiple_lr.yaml
+  --config configs/smoke_sentence_transformers_splade.yaml
 ```
 
 Use specific GPU ids:
@@ -142,7 +142,7 @@ Use specific GPU ids:
 python -m training.train \
   --backend sentence-transformers \
   --training-type splade \
-  --config configs/polish_splade_dataset_small_multiple_lr.yaml \
+  --config configs/smoke_sentence_transformers_splade.yaml \
   --gpus 2,3
 ```
 
@@ -162,7 +162,7 @@ Disable automatic distributed launch:
 python -m training.train \
   --backend sentence-transformers \
   --training-type splade \
-  --config configs/polish_splade_dataset_small_multiple_lr.yaml \
+  --config configs/smoke_sentence_transformers_splade.yaml \
   --no-distributed
 ```
 
@@ -734,7 +734,7 @@ uv venv --python 3.10.4 .venv-flagembedding
 source .venv-flagembedding/bin/activate
 
 uv pip install -r requirements/requirements-flagembedding.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --extra-index-url https://download.pytorch.org/whl/cu128 \
   --index-url https://pypi.org/simple \
   --index-strategy unsafe-best-match
 
@@ -755,7 +755,7 @@ uv venv --python 3.10.4 .venv-sentence-transformers
 source .venv-sentence-transformers/bin/activate
 
 uv pip install -r requirements/requirements-sentence-transformers.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --extra-index-url https://download.pytorch.org/whl/cu128 \
   --index-url https://pypi.org/simple \
   --index-strategy unsafe-best-match
 
@@ -787,7 +787,7 @@ uv venv --python 3.10.4 .venv-sentence-transformers-matryoshka
 source .venv-sentence-transformers-matryoshka/bin/activate
 
 uv pip install -r requirements/requirements-sentence-transformers.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --extra-index-url https://download.pytorch.org/whl/cu128 \
   --index-url https://pypi.org/simple \
   --index-strategy unsafe-best-match
 
@@ -808,7 +808,7 @@ uv venv --python 3.10.4 .venv-sentence-transformers-splade
 source .venv-sentence-transformers-splade/bin/activate
 
 uv pip install -r requirements/requirements-sentence-transformers.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --extra-index-url https://download.pytorch.org/whl/cu128 \
   --index-url https://pypi.org/simple \
   --index-strategy unsafe-best-match
 
@@ -834,7 +834,7 @@ uv venv --python 3.10.4 .venv-pylate-colbert
 source .venv-pylate-colbert/bin/activate
 
 uv pip install -r requirements/requirements-pylate.txt \
-  --extra-index-url https://download.pytorch.org/whl/cu126 \
+  --extra-index-url https://download.pytorch.org/whl/cu128 \
   --index-url https://pypi.org/simple \
   --index-strategy unsafe-best-match
 
