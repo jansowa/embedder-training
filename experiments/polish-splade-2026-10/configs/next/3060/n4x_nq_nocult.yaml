@@ -1,0 +1,45 @@
+backend: sentence-transformers
+training_type: splade
+
+# n4 pattern with nq-nocult as the third component (queue v26): fiqa-2073 + squadv2-2073 + nq-nocult-rel3-2073, mixed by the kitchen's cut/mix.py --seed 42. Control arm-n4-3060. Recipe mnrl (cluster-like), 512 tokens, 10 negatives, batch 2 x 16, pooling chunk 8, gate filter.
+runs_dir: runs/arm-n4x-nq-nocult
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-squadv2-nq-nocult-6219.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
