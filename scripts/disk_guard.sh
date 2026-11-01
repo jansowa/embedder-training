@@ -9,6 +9,8 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 PY="$(pwd)/.venv/bin/python"
+export EXP_ROOT="${EXP_ROOT:-experiments/polish-splade-2026-10}"
+export RESULTS_ROOT="${RESULTS_ROOT:-$EXP_ROOT/results}" HOLDOUT_ROOT="${HOLDOUT_ROOT:-$EXP_ROOT/results-holdout}"
 LOG="logs/disk_guard.log"
 THRESHOLD_GB=20
 INTERVAL=300
@@ -21,13 +23,13 @@ while true; do
     if [ "${free_gb:-999}" -lt "$THRESHOLD_GB" ]; then
         log "free space ${free_gb} GB - pruning indexes whose results are saved"
         "$PY" - <<'PYEOF' 2>&1 | tee -a "$LOG"
-import glob, json, shutil
+import glob, json, os, shutil
 from pathlib import Path
 
 cache = Path("third_party/pirb/cache").resolve()
 freed = 0
 removed = 0
-for path in glob.glob("results/*/*/metrics.json") + glob.glob("results-holdout/*/*/metrics.json"):
+for path in glob.glob(os.environ["RESULTS_ROOT"] + "/*/*/metrics.json") + glob.glob(os.environ["HOLDOUT_ROOT"] + "/*/*/metrics.json"):
     try:
         m = json.load(open(path))
     except Exception:

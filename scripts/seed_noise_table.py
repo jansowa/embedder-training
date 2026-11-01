@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Per-task table of the same recipe trained with different seeds: mean, spread and std.
 
-Reads results/<model>/final/metrics.json (tiny) and results-holdout/<model>/final/metrics.json
+Reads $RESULTS_ROOT/<model>/final/metrics.json (tiny) and $HOLDOUT_ROOT/<model>/final/metrics.json
 (held-out-8) and prints one Markdown table per regime. Models without a result are skipped.
 Usage: scripts/seed_noise_table.py --models arm-cluster-like-fiqa arm-mnrl-fiqa-seed1 ...
 """
@@ -13,8 +13,10 @@ import json
 import statistics
 from pathlib import Path
 
+from result_roots import HOLDOUT_ROOT, RESULTS_ROOT
 
-def load(root: str, model: str) -> dict[str, float]:
+
+def load(root: Path, model: str) -> dict[str, float]:
     path = Path(root) / model / "final" / "metrics.json"
     if not path.exists():
         return {}
@@ -30,7 +32,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", nargs="+", required=True)
     args = parser.parse_args()
-    for root, title in (("results", "tiny"), ("results-holdout", "held-out-8")):
+    for root, title in ((RESULTS_ROOT, "tiny"), (HOLDOUT_ROOT, "held-out-8")):
         rows = {m: load(root, m) for m in args.models}
         rows = {m: r for m, r in rows.items() if r}
         if len(rows) < 2:

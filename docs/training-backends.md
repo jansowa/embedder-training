@@ -387,7 +387,7 @@ benchmark:
 
 ```bash
 python -m training.train --backend sentence-transformers --training-type splade \
-  --config configs/weekend/ft_rehearsal_grid.yaml --run-pirb --pirb-tasks quick6
+  --config experiments/polish-splade-2026-10/configs/weekend/ft_rehearsal_grid.yaml --run-pirb --pirb-tasks quick6
 
 python run_experiments.py --mode benchmark --run_pirb --pirb-tasks maupqa \
   --benchmark-target "./runs/weekend/ft-lr-1e-5/final::" \
@@ -656,15 +656,15 @@ After filtering, the console reports the profile name, input path, output path, 
 
 ## Weekend Workflow
 
-`configs/weekend/` holds two rehearsal fine-tunes of `sdadas/polish-splade`: `ft_rehearsal_grid.yaml` sweeps three learning rates (`1e-5`, `2e-5`, `5e-6`) over a subsampled mix, and `ft_rehearsal_overnight.yaml` repeats the winner on the full mix. Both still need their dataset paths filled in, and the overnight config needs the learning rate the sweep picked. Each grid entry runs sequentially into its own run directory and writes its own `metrics.json`.
+`experiments/polish-splade-2026-10/configs/weekend/` holds two rehearsal fine-tunes of `sdadas/polish-splade`: `ft_rehearsal_grid.yaml` sweeps three learning rates (`1e-5`, `2e-5`, `5e-6`) over a subsampled mix, and `ft_rehearsal_overnight.yaml` repeats the winner on the full mix. Both still need their dataset paths filled in, and the overnight config needs the learning rate the sweep picked. Each grid entry runs sequentially into its own run directory and writes its own `metrics.json`.
 
 ```bash
 # 1. Sweep the learning rates, then repeat the best one overnight.
 python -m training.train --backend sentence-transformers --training-type splade \
-  --config configs/weekend/ft_rehearsal_grid.yaml
+  --config experiments/polish-splade-2026-10/configs/weekend/ft_rehearsal_grid.yaml
 
 python -m training.train --backend sentence-transformers --training-type splade \
-  --config configs/weekend/ft_rehearsal_overnight.yaml
+  --config experiments/polish-splade-2026-10/configs/weekend/ft_rehearsal_overnight.yaml
 ```
 
 Benchmark anything that was not just trained, including a weight-averaged model:

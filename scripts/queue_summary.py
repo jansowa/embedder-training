@@ -4,14 +4,17 @@
 Columns: tiny (10 tasks) and its delta vs base, held-out-8 and delta, the
 second held-out set (5 tasks) and delta, index cost (doc active dims and
 postings/query relative to base) where a profile exists. Reads
-results/<model>/final/metrics.json, results-holdout/<model>/final/metrics.json,
-results-holdout2/<model>/summary.json and results/index_cost*.json.
+$RESULTS_ROOT/<model>/final/metrics.json, $HOLDOUT_ROOT/<model>/final/metrics.json,
+$HOLDOUT2_ROOT/<model>/summary.json and $RESULTS_ROOT/index_cost*.json (defaults
+in scripts/result_roots.py).
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+
+from result_roots import HOLDOUT2_ROOT, HOLDOUT_ROOT, RESULTS_ROOT
 
 KEY = "epoch0/pirb_average_ndcg@10"
 
@@ -24,14 +27,14 @@ def avg(path: Path) -> float | None:
 
 
 def main() -> None:
-    tiny = {p.parent.parent.name: avg(p) for p in Path("results").glob("*/final/metrics.json")}
-    hold = {p.parent.parent.name: avg(p) for p in Path("results-holdout").glob("*/final/metrics.json")}
+    tiny = {p.parent.parent.name: avg(p) for p in RESULTS_ROOT.glob("*/final/metrics.json")}
+    hold = {p.parent.parent.name: avg(p) for p in HOLDOUT_ROOT.glob("*/final/metrics.json")}
     hold2 = {}
-    for p in Path("results-holdout2").glob("*/summary.json"):
+    for p in HOLDOUT2_ROOT.glob("*/summary.json"):
         d = json.loads(p.read_text())
         hold2[p.parent.name] = (d.get("mean_ndcg@10"), d.get("n_tasks"))
     cost = {}
-    for p in sorted(Path("results").glob("index_cost*.json")):
+    for p in sorted(RESULTS_ROOT.glob("index_cost*.json")):
         try:
             for k, v in json.loads(p.read_text())["models"].items():
                 cost[k] = v

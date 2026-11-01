@@ -18,7 +18,8 @@
 #               (256 for everything trained at 256, 512 for the soups and the
 #               base), which is why the two regimes can disagree on arguana-pl.
 #
-# Writes results-regimes/<REGIME>/<LABEL>/<TASKSET>.json
+# Writes $REGIMES_ROOT/<REGIME>/<LABEL>/<TASKSET>.json (default
+# experiments/polish-splade-2026-10/results-regimes, relative to the repository root)
 #   {"regime","model","taskset","max_seq_length","tasks":{task_id: ndcg@10},"mean_ndcg@10","n_tasks"}
 # and the raw log under logs/regimes/. Indexes are removed after the run.
 set -uo pipefail
@@ -29,7 +30,9 @@ BENCH="$REPO/configs/pirb_tasks/$TASKSET.json"
 [ -f "$BENCH" ] || { echo "no task set $BENCH"; exit 1; }
 [ -e "$MODEL" ] || { echo "model $MODEL missing"; exit 1; }
 MODEL_ABS="$(cd "$MODEL" && pwd)"
-OUT_DIR="$REPO/results-regimes/$REGIME/$LABEL"; mkdir -p "$OUT_DIR" "$REPO/logs/regimes"
+REGIMES_ROOT="${REGIMES_ROOT:-experiments/polish-splade-2026-10/results-regimes}"
+case "$REGIMES_ROOT" in /*) ;; *) REGIMES_ROOT="$REPO/$REGIMES_ROOT" ;; esac
+OUT_DIR="$REGIMES_ROOT/$REGIME/$LABEL"; mkdir -p "$OUT_DIR" "$REPO/logs/regimes"
 OUT="$OUT_DIR/$TASKSET.json"
 LOG="$REPO/logs/regimes/${REGIME}_${LABEL}_${TASKSET}.log"
 CACHE="$REPO/cache/regimes/${REGIME}_${LABEL}_${TASKSET}"; mkdir -p "$CACHE"

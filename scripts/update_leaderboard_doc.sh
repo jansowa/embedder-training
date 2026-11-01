@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Regenerates the per-task tables of docs/benchmark-vs-leaderboard.md (between
-# the tables:start / tables:end markers) from results-regimes/old-pyserini.
+# Regenerates the per-task tables of $EXP_ROOT/docs/benchmark-vs-leaderboard.md
+# (between the tables:start / tables:end markers) from $REGIMES_ROOT/old-pyserini.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-DOC=docs/benchmark-vs-leaderboard.md
+DOC="${EXP_ROOT:-experiments/polish-splade-2026-10}/docs/benchmark-vs-leaderboard.md"
 TMP=$(mktemp)
 python3 scripts/leaderboard_compare.py --regime old-pyserini \
     --model base-splade-wrapped --model soup-of-ft --model soup-v2b \

@@ -7,7 +7,8 @@ training.train, run_benchmark.py) is reparented and keeps the 8 GB card, so the
 next job OOMs. Every 20 s this scans for python workers of this repository and
 terminates those that
 
-  * have no ancestor that is one of our shell scripts (bash scripts/*.sh),
+  * have no ancestor that is one of our shell scripts (bash scripts/*.sh or a
+    queue under experiments/*/queues/*.sh),
   * have no controlling terminal (so a run started by hand in a terminal is
     never touched),
   * are older than 30 s (so a worker whose parent is still exec-ing is left),
@@ -27,7 +28,7 @@ from pathlib import Path
 
 WORKER = re.compile(r"(\.venv|venv-[a-z0-9-]+)/bin/python.*(training\.train|run_experiments\.py|run_benchmark\.py|"
                     r"compare_splade_sparsity|splade_index_cost|splade_pair_loss|merge_splade_weights)")
-LEGIT_ANCESTOR = re.compile(r"bash .*scripts/\S+\.sh")
+LEGIT_ANCESTOR = re.compile(r"bash .*(scripts|queues)/\S+\.sh")
 LOG = Path("logs/orphan_guard.log")
 CLK = os.sysconf("SC_CLK_TCK")
 

@@ -2,9 +2,9 @@
 """Markdown table of the non-zero weights (active dimensions) of SPLADE models.
 
 Two sources, both with the usual quantisation (round(w*100) > 0 = active):
-  results/sparsity/<name>.json   documents only: 300 passages from each of the
+  $RESULTS_ROOT/sparsity/<name>.json   documents only: 300 passages from each of the
                                  10 tiny tasks, written by compare_splade_sparsity.py
-  results/index_cost*.json       documents and queries on one PIRB sample
+  $RESULTS_ROOT/index_cost*.json       documents and queries on one PIRB sample
                                  (150 passages + 150 queries per task), written by
                                  splade_index_cost.py; also postings per query
 
@@ -18,10 +18,12 @@ import glob
 import json
 from pathlib import Path
 
+from result_roots import RESULTS_ROOT
+
 
 def doc_stats(name: str) -> tuple[float | None, float | None]:
     """Mean over tasks of the per-task mean and p95 active dims per passage."""
-    for path in sorted(glob.glob("results/sparsity/*.json")):
+    for path in sorted(glob.glob(str(RESULTS_ROOT / "sparsity" / "*.json"))):
         payload = json.load(open(path))
         per_task = payload.get(name)
         if not isinstance(per_task, dict):
@@ -56,7 +58,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", action="append", required=True,
                         help="NAME or NAME=LABEL where LABEL is the key in index_cost json; first = base")
-    parser.add_argument("--cost-json", action="append", default=["results/index_cost_best.json", "results/index_cost.json"],
+    parser.add_argument("--cost-json", action="append", default=[str(RESULTS_ROOT / "index_cost_best.json"), str(RESULTS_ROOT / "index_cost.json")],
                         help="index-cost files, first match wins")
     args = parser.parse_args()
 

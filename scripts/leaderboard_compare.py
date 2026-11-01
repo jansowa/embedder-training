@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 """Per-task comparison of our models with the published PIRB leaderboard.
 
-Reads the leaderboard export (results/leaderboard_data.json, the data.json of
+Reads the leaderboard export ($RESULTS_ROOT/leaderboard_data.json, the data.json of
 sdadas/pirb-leaderboard) and our leaderboard-regime results
-(results-regimes/<regime>/<model>/<taskset>.json) and prints Markdown tables,
+($REGIMES_ROOT/<regime>/<model>/<taskset>.json) and prints Markdown tables,
 one per task set, with the published polish-splade number, our re-measurement
 of it, the fine-tuned models, their deltas, and the best standalone model of the
 leaderboard on that task (the ceiling we are measured against).
 
   python scripts/leaderboard_compare.py --regime old-pyserini \
       --model base-splade-wrapped --model soup-of-ft --model soup-v2b \
-      --taskset tiny10 --taskset heldout8 --taskset heldout2 > results/leaderboard_tables.md
+      --taskset tiny10 --taskset heldout8 --taskset heldout2 > leaderboard_tables.md
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ import glob
 import json
 from pathlib import Path
 
-LEADERBOARD = Path("results/leaderboard_data.json")
+from result_roots import REGIMES_ROOT, RESULTS_ROOT
+
+LEADERBOARD = RESULTS_ROOT / "leaderboard_data.json"
 PUBLISHED_ID = "./models/polish-splade"
 HELDOUT2 = ["heldout2_czywiesz", "heldout2_gpt35wiki", "heldout2_quora", "heldout2_poquad", "heldout2_treccovid"]
 
@@ -51,8 +53,8 @@ def ndcg(entry: dict, task: str) -> float | None:
 
 
 def our_results(regime: str, model: str, taskset: str) -> dict[str, float]:
-    files = [f"results-regimes/{regime}/{model}/{t}.json" for t in HELDOUT2] if taskset == "heldout2" \
-        else [f"results-regimes/{regime}/{model}/{taskset}.json"]
+    files = [f"{REGIMES_ROOT}/{regime}/{model}/{t}.json" for t in HELDOUT2] if taskset == "heldout2" \
+        else [f"{REGIMES_ROOT}/{regime}/{model}/{taskset}.json"]
     tasks: dict[str, float] = {}
     for path in files:
         if not Path(path).exists():
@@ -78,7 +80,7 @@ def delta(value: float | None, ref: float | None) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--regime", default="old-pyserini")
-    parser.add_argument("--model", action="append", required=True, help="label under results-regimes/<regime>/; first = base")
+    parser.add_argument("--model", action="append", required=True, help="label under $REGIMES_ROOT/<regime>/; first = base")
     parser.add_argument("--taskset", action="append", required=True)
     parser.add_argument("--exclude-tag", action="append", default=[], help="leaderboard tags to skip when picking the best model (default: none)")
     args = parser.parse_args()

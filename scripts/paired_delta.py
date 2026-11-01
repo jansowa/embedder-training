@@ -6,8 +6,8 @@ differences against the base, a 95% bootstrap CI over tasks (10 000 resamples,
 seeded), and how many tasks improved. Only tasks present in every file count,
 so a held-out table and a tiny table are never mixed.
 
-    .venv/bin/python scripts/paired_delta.py --base results/base-splade-wrapped/final/metrics.json \
-        results/*/final/metrics.json
+    .venv/bin/python scripts/paired_delta.py --base $RESULTS_ROOT/base-splade-wrapped/final/metrics.json \
+        $RESULTS_ROOT/*/final/metrics.json
 """
 
 from __future__ import annotations

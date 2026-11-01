@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from result_roots import RESULTS_ROOT
+
 TINY = ["maupqa-gpt3-cc", "maupqa-mkqa", "maupqa-poleval2021-pairs", "maupqa-templates",
         "arguana-pl", "nfcorpus-pl", "scifact-pl", "gpt-exams"]
 POLEVAL = ["allegro-faq"]  # test-A and test-B share one passages/queries dir
@@ -52,7 +54,7 @@ def main() -> None:
     ap.add_argument("--max-seq-length", type=int, default=512)
     ap.add_argument("--quantization-factor", type=int, default=100)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--output-json", type=Path, default=Path("results/index_cost.json"))
+    ap.add_argument("--output-json", type=Path, default=RESULTS_ROOT / "index_cost.json")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--batch-size", type=int, default=4)
     args = ap.parse_args()

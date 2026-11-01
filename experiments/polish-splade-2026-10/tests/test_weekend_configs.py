@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+EXP_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = EXP_ROOT.parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -16,8 +17,8 @@ from training.multi_dataset import normalize_train_data_specs  # noqa: E402
 from training.train import load_config  # noqa: E402
 
 
-GRID_CONFIG = REPO_ROOT / "configs" / "weekend" / "ft_rehearsal_grid.yaml"
-OVERNIGHT_CONFIG = REPO_ROOT / "configs" / "weekend" / "ft_rehearsal_overnight.yaml"
+GRID_CONFIG = EXP_ROOT / "configs" / "weekend" / "ft_rehearsal_grid.yaml"
+OVERNIGHT_CONFIG = EXP_ROOT / "configs" / "weekend" / "ft_rehearsal_overnight.yaml"
 
 
 def _expand(config_path):
@@ -122,7 +123,7 @@ def test_weekend_configs_use_a_sampler_the_mix_strategy_accepts(config_path):
 @pytest.mark.parametrize("config_path", [GRID_CONFIG, OVERNIGHT_CONFIG])
 def test_weekend_configs_reuse_the_optimized_dataset_filter(config_path):
     config, _ = _expand(config_path)
-    optimized = load_config(str(REPO_ROOT / "configs" / "splade_hf_dataset_comparison_optimized.yaml"))
+    optimized = load_config(str(EXP_ROOT / "configs" / "splade_hf_dataset_comparison_optimized.yaml"))
     assert config["dataset_filter"] == optimized["dataset_filter"]
     assert (REPO_ROOT / config["dataset_filter"]).is_file()
 

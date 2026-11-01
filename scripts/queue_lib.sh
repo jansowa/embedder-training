@@ -14,18 +14,26 @@ export PATH="$JAVA_HOME/bin:$PATH"
 PY="$(pwd)/.venv/bin/python"
 LOGS="$(pwd)/logs"
 STATE="$LOGS/queue_state.tsv"
-HOLDOUT_DIR="$(pwd)/results-holdout"
-HOLDOUT2_DIR="$(pwd)/results-holdout2"
+# Where results are read and written, relative to the repository root (the
+# queue's working directory) or absolute. Exported so the table scripts called
+# by a queue (scripts/queue_summary.py and friends) read the same places.
+export EXP_ROOT="${EXP_ROOT:-experiments/polish-splade-2026-10}"
+export RESULTS_ROOT="${RESULTS_ROOT:-$EXP_ROOT/results}"
+export REGIMES_ROOT="${REGIMES_ROOT:-$EXP_ROOT/results-regimes}"
+export HOLDOUT_ROOT="${HOLDOUT_ROOT:-$EXP_ROOT/results-holdout}"
+export HOLDOUT2_ROOT="${HOLDOUT2_ROOT:-$EXP_ROOT/results-holdout2}"
+HOLDOUT_DIR="$HOLDOUT_ROOT"
+HOLDOUT2_DIR="$HOLDOUT2_ROOT"
 HOLDOUT_TASKS="maupqa-gpt3.5-cc,maupqa-multilingual-NLI,mfaq,poleval-2022-test-A-legal-questions,maupqa-wiki-def,scidocs-pl,maupqa-1z10,fiqa-pl"
 HOLDOUT2_TASKS=(maupqa-czy-wiesz-v2 maupqa-gpt3.5-wiki quora-pl maupqa-poquad trec-covid-pl)
 QUEUE_TAG="${QUEUE_TAG:-q}"
 MIN_RAM_GB="${MIN_RAM_GB:-6}"
-mkdir -p "$LOGS" results/base_loss "$HOLDOUT2_DIR" results-regimes
+mkdir -p "$LOGS" "$RESULTS_ROOT/base_loss" "$HOLDOUT2_DIR" "$REGIMES_ROOT"
 
 log()    { echo "[$(date +%H:%M:%S)] [$QUEUE_TAG] $*" | tee -a "$LOGS/queue.log"; }
 record() { printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$STATE"; }
 avg_of() { "$PY" -c "import json;print(round(json.load(open('$1'))['epoch0/pirb_average_ndcg@10'],2))" 2>/dev/null; }
-tiny()   { avg_of "results/$1/final/metrics.json"; }
+tiny()   { avg_of "$RESULTS_ROOT/$1/final/metrics.json"; }
 hold()   { avg_of "$HOLDOUT_DIR/$1/final/metrics.json"; }
 ge()     { "$PY" -c "import sys;a,b=sys.argv[1:3];print(int(bool(a) and bool(b) and float(a)>=float(b)))" "$1" "$2"; }
 fsub()   { "$PY" -c "import sys;print(round(float(sys.argv[1])-float(sys.argv[2]),2))" "$1" "$2"; }
@@ -66,25 +74,25 @@ sparsity_mean() {  # sparsity_mean FILE LABEL: mean over tasks of the mean activ
 }
 sparsity() {  # sparsity NAME MODEL: active document dims (round(w*100) > 0) on 300 passages of each tiny task, next to base
     local name="$1" model="$2"
-    [ -f "results/sparsity/$name.json" ] && return 0
+    [ -f "$RESULTS_ROOT/sparsity/$name.json" ] && return 0
     [ -e "$model" ] || { log "sparsity $name: $model missing"; return 1; }
     wait_gpu_free; wait_ram
     log "sparsity $name"; local s=$SECONDS
     timeout -k 60 1800 "$PY" scripts/compare_splade_sparsity.py --model "base=models/base-splade-wrapped" --model "$name=$model" \
         --scope tiny --max-docs-per-task 300 --device cuda --batch-size 16 \
-        --output-json "results/sparsity/$name.json" > "$LOGS/sparsity_$name.log" 2>&1
+        --output-json "$RESULTS_ROOT/sparsity/$name.json" > "$LOGS/sparsity_$name.log" 2>&1
     local e=$((SECONDS - s))
-    if [ -f "results/sparsity/$name.json" ]; then
-        log "sparsity $name -> $(sparsity_mean "results/sparsity/$name.json" "$name") active dims/doc (base $(sparsity_mean "results/sparsity/$name.json" base)) in ${e}s"
-        record "sparsity:$name" ok "$(sparsity_mean "results/sparsity/$name.json" "$name")" "${e}s"
+    if [ -f "$RESULTS_ROOT/sparsity/$name.json" ]; then
+        log "sparsity $name -> $(sparsity_mean "$RESULTS_ROOT/sparsity/$name.json" "$name") active dims/doc (base $(sparsity_mean "$RESULTS_ROOT/sparsity/$name.json" base)) in ${e}s"
+        record "sparsity:$name" ok "$(sparsity_mean "$RESULTS_ROOT/sparsity/$name.json" "$name")" "${e}s"
     else log "sparsity $name FAILED after ${e}s"; record "sparsity:$name" FAILED "-" "${e}s"; return 1; fi
 }
 sparsity_missing() {  # sparsity for every model with a tiny result and no sparsity file (base itself excluded)
     local f name
-    for f in results/*/final/metrics.json; do
+    for f in "$RESULTS_ROOT"/*/final/metrics.json; do
         name=$(basename "$(dirname "$(dirname "$f")")")
         [ "$name" = base-splade-wrapped ] && continue
-        [ -d "models/$name" ] && [ ! -f "results/sparsity/$name.json" ] && sparsity "$name" "models/$name"
+        [ -d "models/$name" ] && [ ! -f "$RESULTS_ROOT/sparsity/$name.json" ] && sparsity "$name" "models/$name"
     done
 }
 
@@ -98,15 +106,15 @@ drop_indexes() {  # drop_indexes MODEL: remove the PIRB index dirs of a model wh
 
 bench() {  # bench NAME MODEL [extra args]: tiny, truncated-query regime (as every number so far)
     local name="$1" model="$2"; shift 2
-    [ -f "results/$name/final/metrics.json" ] && { log "bench $name: already present ($(tiny "$name"))"; return 0; }
+    [ -f "$RESULTS_ROOT/$name/final/metrics.json" ] && { log "bench $name: already present ($(tiny "$name"))"; return 0; }
     [ -e "$model" ] || { log "bench $name: $model missing"; record "bench:$name" SKIPPED "missing"; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram
     log "bench $name"; local s=$SECONDS
     timeout -k 60 5400 "$PY" run_experiments.py --mode benchmark --run_pirb --pirb_scope tiny \
         --pirb-max-seq-length 512 --remove-pirb-indexes "$@" \
-        --benchmark-target "${model}::" --benchmark-output-dir "results/$name" > "$LOGS/bench_$name.log" 2>&1
+        --benchmark-target "${model}::" --benchmark-output-dir "$RESULTS_ROOT/$name" > "$LOGS/bench_$name.log" 2>&1
     local e=$((SECONDS - s))
-    if [ -f "results/$name/final/metrics.json" ]; then
+    if [ -f "$RESULTS_ROOT/$name/final/metrics.json" ]; then
         log "bench $name -> ndcg=$(tiny "$name") in ${e}s"; record "bench:$name" ok "$(tiny "$name")" "${e}s"
     else log "bench $name FAILED after ${e}s"; record "bench:$name" FAILED "-" "${e}s"; drop_indexes "$model"; return 1; fi
 }
@@ -143,8 +151,8 @@ split_block() {  # split_block SRC TAG...: train all, tiny all, held-out for con
     local tag name best="" best_v="" v
     for tag in "$@"; do
         name="$src-$tag"
-        [ -f "configs/weekend/splits/arm_${src}_${tag}.yaml" ] || { log "split $name: not built"; continue; }
-        train "$name" "configs/weekend/splits/arm_${src}_${tag}.yaml"
+        [ -f "$EXP_ROOT/configs/weekend/splits/arm_${src}_${tag}.yaml" ] || { log "split $name: not built"; continue; }
+        train "$name" "$EXP_ROOT/configs/weekend/splits/arm_${src}_${tag}.yaml"
     done
     for tag in "$@"; do
         name="$src-$tag"; [ -d "models/arm-$name" ] || continue
@@ -161,7 +169,7 @@ split_block() {  # split_block SRC TAG...: train all, tiny all, held-out for con
 }
 regime_mean() { "$PY" -c "import json;d=json.load(open('$1'));print(round(d['mean_ndcg@10'],2) if d['mean_ndcg@10'] is not None else '', d['n_tasks'])" 2>/dev/null; }
 regime() {  # regime REGIME LABEL MODEL TASKSET [BATCH] [MAXLEN]: scripts/pirb_regime_eval.sh with the usual guards
-    local reg="$1" label="$2" model="$3" ts="$4" bs="${5:-16}" maxlen="${6:-}" out="results-regimes/$1/$2/$4.json"
+    local reg="$1" label="$2" model="$3" ts="$4" bs="${5:-16}" maxlen="${6:-}" out="$REGIMES_ROOT/$1/$2/$4.json"
     [ -f "$out" ] && [ "$(regime_mean "$out" | awk '{print $2}')" != "0" ] && { log "regime $reg/$label/$ts: already present ($(regime_mean "$out"))"; return 0; }
     [ -e "$model" ] || { log "regime $reg/$label/$ts: $model missing"; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram

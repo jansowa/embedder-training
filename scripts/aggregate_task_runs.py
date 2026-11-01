@@ -4,9 +4,9 @@
 Used for the second held-out set, which is run one task per process so that an
 OOM on the biggest corpus cannot take the other tasks down with it.
 
-  python scripts/aggregate_task_runs.py results-holdout2/soup-of-ft
-      -> results-holdout2/soup-of-ft/summary.json  (per-task nDCG@10 + mean)
-  python scripts/aggregate_task_runs.py results-holdout2/soup-of-ft --base results-holdout2/base
+  python scripts/aggregate_task_runs.py $HOLDOUT2_ROOT/soup-of-ft
+      -> $HOLDOUT2_ROOT/soup-of-ft/summary.json  (per-task nDCG@10 + mean)
+  python scripts/aggregate_task_runs.py $HOLDOUT2_ROOT/soup-of-ft --base $HOLDOUT2_ROOT/base
       -> also prints the per-task deltas against the base
 """
 
