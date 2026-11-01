@@ -53,7 +53,7 @@ def main() -> None:
             s += f" ({v - b:+.2f})"
         return s
 
-    names = sorted(set(tiny) | set(hold) | set(hold2), key=lambda n: -(tiny.get(n) or 0))
+    names = sorted(set(tiny) | set(hold) | set(hold2), key=lambda n: (-(tiny.get(n) or 0), n))
     print("| model | tiny (Δ) | held-out-8 (Δ) | held-out-2 (Δ) | doc dims ×base | postings/query ×base |")
     print("|---|---:|---:|---:|---:|---:|")
     for n in names:
