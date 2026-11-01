@@ -15,10 +15,10 @@ dataset-*/
 models/
 datasets/
 logs/
-results/base_loss/
-results/judge/
-results/lexical_difficulty/
-results/leaderboard_data.json
+experiments/*/results/base_loss/
+experiments/*/results/judge/
+experiments/*/results/lexical_difficulty/
+experiments/*/results/leaderboard_data.json
 
 # session handoff notes, never tracked
 /HANDOFF.md
