@@ -1,0 +1,44 @@
+{
+  "name": "msmarco-clean-nofn",
+  "input": "/home/jsowa/work/FlagEmbedding/datasets/arms/msmarco-clean-2073.jsonl",
+  "source": "msmarco-clean-2073",
+  "input_rows": 2073,
+  "dropped": {
+    "reject_negative_match": 385
+  },
+  "rows": 1688,
+  "examples": 1688,
+  "positives_per_row": {
+    "1": 1688
+  },
+  "annotation_records": 128253,
+  "rows_with_unannotated_negatives_kept": 0,
+  "strata": null,
+  "recipe": {
+    "name": "msmarco-clean-nofn",
+    "input": "${TRAINER_ROOT}/datasets/arms/msmarco-clean-2073.jsonl",
+    "source": "msmarco-clean-2073",
+    "output": "${TRAINER_ROOT}/datasets/arms/msmarco-clean-nofn.jsonl",
+    "seed": 42,
+    "order": "input",
+    "annotations": {
+      "files": [
+        "data/annotation/pairs_v1.llm.jsonl",
+        "data/annotation/pairs_v2_negatives.llm.jsonl"
+      ],
+      "model": null,
+      "prompt_version": null
+    },
+    "reject_rows": {
+      "negative": {
+        "relevance": [
+          2,
+          3
+        ]
+      },
+      "unannotated_negatives": "keep"
+    }
+  },
+  "recipe_file": "cut/recipes/msmarco-clean-nofn.yaml",
+  "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/msmarco-clean-nofn.jsonl"
+}

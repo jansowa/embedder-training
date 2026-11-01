@@ -1,0 +1,20 @@
+{
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-mnrl-nq-nocult-2073",
+  "scope": "tiny",
+  "created_at": "2026-11-01T14:52:48+01:00",
+  "git_commit": "466704bd455416b4e73bbc1c0616935d3d87b6de",
+  "epoch0/pirb_maupqa-gpt3-cc": 17.717173842891967,
+  "epoch0/pirb_maupqa-mkqa": 59.805862495206355,
+  "epoch0/pirb_maupqa-poleval2021-pairs": 78.9978789555484,
+  "epoch0/pirb_maupqa-templates": 73.29911070515067,
+  "epoch0/pirb_poleval-2022-test-A-allegro-faq": 69.91094945696273,
+  "epoch0/pirb_poleval-2022-test-B-allegro-faq": 65.0442565767292,
+  "epoch0/pirb_arguana-pl": 36.70696791606927,
+  "epoch0/pirb_nfcorpus-pl": 29.995801773718107,
+  "epoch0/pirb_scifact-pl": 63.24672397368912,
+  "epoch0/pirb_gpt-exams": 97.93109498340773,
+  "epoch0/pirb_model": "/home/jsowa/work/FlagEmbedding/models/arm-mnrl-nq-nocult-2073",
+  "epoch0/pirb_ndcg_tasks": 592.6558206793736,
+  "epoch0/pirb_average_ndcg@10": 59.26558206793736,
+  "epoch0/pirb_datasets": 10
+}

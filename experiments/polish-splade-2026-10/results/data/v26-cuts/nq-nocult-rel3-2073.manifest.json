@@ -1,0 +1,105 @@
+{
+  "name": "nq-nocult-rel3-2073",
+  "input": "/home/jsowa/work/FlagEmbedding/datasets/arms/pool/nq-pool-8000.jsonl",
+  "source": "nq-pool-8000",
+  "input_rows": 8000,
+  "dropped": {
+    "positives_require": 1487,
+    "reject_negative_match": 143,
+    "stratum_full": 2358,
+    "after_dose": 1939
+  },
+  "rows": 2073,
+  "examples": 2073,
+  "positives_per_row": {
+    "1": 2073
+  },
+  "annotation_records": 128253,
+  "rows_with_unannotated_negatives_kept": 4827,
+  "strata": {
+    "history": 468,
+    "geography_travel": 373,
+    "science_nature": 278,
+    "politics_society": 170,
+    "law_administration": 155,
+    "medicine_health": 116,
+    "technology_it": 104,
+    "education_language": 99,
+    "religion_philosophy": 95,
+    "everyday_shopping_home": 90,
+    "business_work": 64,
+    "finance_economy": 61
+  },
+  "recipe": {
+    "name": "nq-nocult-rel3-2073",
+    "input": "${TRAINER_ROOT}/datasets/arms/pool/nq-pool-8000.jsonl",
+    "source": "nq-pool-8000",
+    "output": "${TRAINER_ROOT}/datasets/arms/nq-nocult-rel3-2073.jsonl",
+    "seed": 42,
+    "order": "input",
+    "gate": {
+      "field": "pos_scores",
+      "min": 23.5
+    },
+    "negatives": {
+      "min": 10,
+      "sort": "longest_first"
+    },
+    "lengths": {
+      "tokenizer": "${TRAINER_ROOT}/models/base-splade-wrapped",
+      "max_tokens": 512,
+      "max_positive_tokens": 512,
+      "max_long_negatives": 2
+    },
+    "annotations": {
+      "files": [
+        "data/annotation/pairs_v1.llm.jsonl",
+        "data/annotation/pairs_v2_negatives.llm.jsonl"
+      ],
+      "model": null,
+      "prompt_version": null
+    },
+    "sidecars": {
+      "diag": "${TRAINER_ROOT}/experiments/polish-splade-2026-10/results/data/speakleash-diag/nq-pool-8000.jsonl"
+    },
+    "positives": {
+      "require": {
+        "relevance": [
+          3
+        ],
+        "query_polish": [
+          "natural",
+          "awkward_but_clear"
+        ],
+        "passage_polish": [
+          "natural",
+          "awkward_but_clear"
+        ]
+      },
+      "max_per_row": 1
+    },
+    "reject_rows": {
+      "negative": {
+        "relevance": [
+          2,
+          3
+        ]
+      },
+      "unannotated_negatives": "keep"
+    },
+    "stratify": {
+      "field": "domain",
+      "quotas": {
+        "culture_entertainment": 0,
+        "sport": 0
+      },
+      "other": null,
+      "unannotated": "drop"
+    },
+    "dose": {
+      "rows": 2073
+    }
+  },
+  "recipe_file": "cut/recipes/nq-nocult-rel3-2073.yaml",
+  "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/nq-nocult-rel3-2073.jsonl"
+}

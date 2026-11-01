@@ -1,0 +1,24 @@
+{
+ "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-squadv2-fever-short-6219.jsonl",
+ "seed": 42,
+ "parts": [
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-2073.jsonl",
+   "rows": 2073,
+   "positives": 3161
+  },
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/squadv2-2073.jsonl",
+   "rows": 2073,
+   "positives": 2089
+  },
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/fever-short-rel3-2073.jsonl",
+   "rows": 2073,
+   "positives": 2073
+  }
+ ],
+ "rows": 6219,
+ "positives": 7323,
+ "duplicate_queries": 0
+}

@@ -1,0 +1,95 @@
+{
+  "name": "fever-short-rel3-2073",
+  "input": "/home/jsowa/work/FlagEmbedding/datasets/arms/pool/fever-pool-8000.jsonl",
+  "source": "fever-pool-8000",
+  "input_rows": 8000,
+  "dropped": {
+    "positive_too_long": 3861,
+    "too_many_long_negatives": 879,
+    "reject_negative_match": 34,
+    "positives_require": 304,
+    "after_dose": 849
+  },
+  "rows": 2073,
+  "examples": 2073,
+  "positives_per_row": {
+    "1": 2073
+  },
+  "annotation_records": 128253,
+  "rows_with_unannotated_negatives_kept": 2231,
+  "strata": null,
+  "recipe": {
+    "name": "fever-short-rel3-2073",
+    "input": "${TRAINER_ROOT}/datasets/arms/pool/fever-pool-8000.jsonl",
+    "source": "fever-pool-8000",
+    "output": "${TRAINER_ROOT}/datasets/arms/fever-short-rel3-2073.jsonl",
+    "seed": 42,
+    "order": "input",
+    "gate": {
+      "field": "pos_scores_stronger_reranker",
+      "min": 23.5
+    },
+    "negatives": {
+      "min": 10,
+      "sort": "longest_first"
+    },
+    "lengths": {
+      "tokenizer": "${TRAINER_ROOT}/models/base-splade-wrapped",
+      "max_tokens": 512,
+      "max_positive_tokens": 256,
+      "max_long_negatives": 1
+    },
+    "annotations": {
+      "files": [
+        "data/annotation/pairs_v1.llm.jsonl",
+        "data/annotation/pairs_v2_negatives.llm.jsonl"
+      ],
+      "model": null,
+      "prompt_version": null
+    },
+    "sidecars": {
+      "diag": "${TRAINER_ROOT}/experiments/polish-splade-2026-10/results/data/speakleash-diag/fever-pool-8000.jsonl"
+    },
+    "positives": {
+      "require": {
+        "relevance": [
+          3
+        ],
+        "query_polish": [
+          "natural",
+          "awkward_but_clear"
+        ],
+        "passage_polish": [
+          "natural",
+          "awkward_but_clear"
+        ]
+      },
+      "prefer": [
+        {
+          "sidecar": "diag",
+          "field": "v3_pos",
+          "desc": true
+        },
+        {
+          "field": "pos_scores_stronger_reranker",
+          "desc": true
+        }
+      ],
+      "max_per_row": 1
+    },
+    "reject_rows": {
+      "negative": {
+        "relevance": [
+          2,
+          3
+        ]
+      },
+      "unannotated_negatives": "keep"
+    },
+    "dose": {
+      "rows": 2073
+    }
+  },
+  "recipe_file": "cut/recipes/fever-short-rel3-2073.yaml",
+  "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/fever-short-rel3-2073.jsonl"
+}
