@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Queue v27 (planned 1.11.2026 23:00, 3060 Ti, after v26b; deadline 2.11 20:00). Three open questions:
+# Queue v27 (planned 1.11.2026 23:00, reordered 23:40; 3060 Ti, after v26b; deadline 2.11 20:00).
+# Order: 1 trivia screen, 2 n4-msrand, 4 SQuAD dose ladder + its soups, 1b n4x-trivia, 3 n4 seeds,
+# then the gated soups. Four open questions:
 #   1  trivia by content or by dose? trivia-2073 (55.15 truncated tiny) trained on ~18.9k examples
 #      (~9 gated positives per row), 9 x every other single-set arm. Screen trivia-1pos-2073 (same rows,
 #      best positive only) at 2 x 16: truncated tiny + sparsity, threshold SINGLE_MIN 60.0; the n4 arm
@@ -10,6 +12,11 @@
 #   3  how noisy is the n4 control in the leaderboard regime, and does a seed soup help? Seeds 1 and 2 of
 #      arm-n4-3060 (seed 42), then soup-n4seeds = the three, uniform. Every arm of v25-v27 was compared
 #      with the single control 62.89 / 42.01; the seeds give the band.
+#   4  does more SQuAD keep paying? arm-n5-squad16k = fiqa-2073 + 16000 fresh gated SQuAD-v2 rows (n3-5070's
+#      8000 + the next 8000 of the same draw; 18073 rows, ~1200 steps, TRAIN_TIMEOUT 14400). n3 (8000) is
+#      a v9b ingredient although its own leaderboard tiny10 (62.72) is below the n4 control, so n5 is
+#      souped regardless of its own score: soup-v10-squad16k = v9b + n5, soup-v9b-n5for3 = v9b with n5 in
+#      place of n3; held-out-2 for either when heldout8 >= soup-v9b.
 # Every new arm: train, sparsity, leaderboard tiny10 + heldout8 (no truncated bench / held-out except the
 # screen). Soups soup-v10-<x> = the five v9b ingredients + x for every x of steps 1-3 with leaderboard
 # tiny10 >= arm-n4-3060 (62.89); held-out-2 when heldout8 >= soup-v9b (42.56). Then summary_v27.md,
@@ -87,6 +94,28 @@ log "  arm-mnrl-trivia-1pos-2073: tiny ${TRIVIA:-missing} (arm-trivia-2073 $(tin
 log "=== v27 step 2: arm-n4-msrand (equal-step control of n4-msclean) ==="
 n4_arm n4-msrand "$C/n4_msrand.yaml"
 
+CTRL=$(lbv arm-n4-3060 tiny10); CTRL=${CTRL:-62.89}
+V9B_H8=$(lbv soup-v9b heldout8); V9B_H8=${V9B_H8:-42.56}
+soup_h2() {  # soup_h2 NAME MODEL...: soup, leaderboard, held-out-2 when heldout8 >= soup-v9b
+    local name="$1" h
+    merge_lb "$@" || return 1
+    h=$(lbv "$name" heldout8)
+    if [ -n "$h" ] && [ "$(ge "$h" "$V9B_H8")" = 1 ]; then
+        log "  $name heldout8 $h >= soup-v9b $V9B_H8: held-out-2"; heldout2 "$name"
+    else
+        log "  $name heldout8 ${h:-missing} below soup-v9b $V9B_H8; no held-out-2"
+    fi
+}
+
+log "=== v27 step 4: SQuAD dose ladder, arm-n5-squad16k and its soups ==="
+TRAIN_TIMEOUT=14400 n4_arm n5-squad16k "$C/n5_squad16k.yaml"
+log "  ladder (leaderboard): n1-5070 $(lbs n1-5070) (squad 2073), n3-5070 $(lbs n3-5070) (8000), arm-n5-squad16k $(lbs arm-n5-squad16k) (16000)"
+if [ -d models/arm-n5-squad16k ]; then
+    # shellcheck disable=SC2086
+    soup_h2 soup-v10-squad16k $V9B models/arm-n5-squad16k
+    soup_h2 soup-v9b-n5for3 models/n1-5070 models/arm-n5-squad16k models/n4-5070 models/long-easy-5070 models/arm-mnrl-fiqa-lenmatch-far
+fi
+
 log "=== v27 step 1b: n4 arm of trivia-1pos when the screen passed ==="
 CANDS=(arm-n4-msrand)
 if [ -n "$TRIVIA" ] && [ "$(ge "$TRIVIA" "$SINGLE_MIN")" = 1 ]; then
@@ -108,9 +137,7 @@ EOF
     merge_lb soup-n4seeds models/arm-n4-3060 models/arm-n4-3060-seed1 models/arm-n4-3060-seed2 && CANDS+=(soup-n4seeds)
 fi
 
-log "=== v27 step 4: soups v9b + x for the candidates with leaderboard tiny10 >= arm-n4-3060 ==="
-CTRL=$(lbv arm-n4-3060 tiny10); CTRL=${CTRL:-62.89}
-V9B_H8=$(lbv soup-v9b heldout8); V9B_H8=${V9B_H8:-42.56}
+log "=== v27 step 5: soups v9b + x for the candidates with leaderboard tiny10 >= arm-n4-3060 ==="
 SOUPS=()
 for m in "${CANDS[@]}"; do
     [ -d "models/$m" ] || continue
@@ -118,28 +145,21 @@ for m in "${CANDS[@]}"; do
     if [ -n "$v" ] && [ "$(ge "$v" "$CTRL")" = 1 ]; then
         name="soup-v10-${m#arm-}"; name=${name/soup-v10-n4x-/soup-v10-}; name=${name/soup-v10-n4-/soup-v10-}; name=${name/soup-v10-soup-/soup-v10-}
         # shellcheck disable=SC2086
-        merge_lb "$name" $V9B "models/$m" && SOUPS+=("$name")
+        soup_h2 "$name" $V9B "models/$m"; SOUPS+=("$name")
     else
         log "  $m: leaderboard tiny10 ${v:-missing} below arm-n4-3060 $CTRL; no soup"
     fi
 done
-for name in "${SOUPS[@]}"; do
-    h=$(lbv "$name" heldout8)
-    if [ -n "$h" ] && [ "$(ge "$h" "$V9B_H8")" = 1 ]; then
-        log "  $name heldout8 $h >= soup-v9b $V9B_H8: held-out-2"; heldout2 "$name"
-    else
-        log "  $name heldout8 ${h:-missing} below soup-v9b $V9B_H8; no held-out-2"
-    fi
-done
 
-log "=== v27 step 5: summary, commit, push ==="
+log "=== v27 step 6: summary, commit, push ==="
 SUM="$RESULTS_ROOT/summary_v27.md"
 mkdir -p "$RESULTS_ROOT/data/v27-cuts"
-for f in trivia-1pos-2073 msmarco-clean-rand1688 fiqa-squadv2-trivia-1pos-6219 fiqa-squadv2-msmarco-rand-5834; do
+for f in trivia-1pos-2073 msmarco-clean-rand1688 fiqa-squadv2-trivia-1pos-6219 fiqa-squadv2-msmarco-rand-5834 \
+         squadv2-fresh-16000 fiqa-plus-squadv2-18k; do
     cp -f "datasets/arms/$f.jsonl.manifest.json" "$RESULTS_ROOT/data/v27-cuts/$f.manifest.json" 2>/dev/null
 done
-ALL=(arm-n4-msclean arm-n4-msrand arm-n4-3060-seed1 arm-n4-3060-seed2)
-for m in arm-n4x-trivia-1pos soup-n4seeds "${SOUPS[@]}"; do [ -d "models/$m" ] && ALL+=("$m"); done
+ALL=(arm-n4-msclean arm-n4-msrand n3-5070 arm-n5-squad16k arm-n4-3060-seed1 arm-n4-3060-seed2)
+for m in soup-v10-squad16k soup-v9b-n5for3 arm-n4x-trivia-1pos soup-n4seeds "${SOUPS[@]}"; do [ -d "models/$m" ] && ALL+=("$m"); done
 "$PY" scripts/queue_summary.py > "$SUM" 2>> "$LOGS/queue_summary.log" && log "summary written ($SUM)"
 {
     echo; echo "## Per-task, leaderboard regime (queue v27)"; echo
