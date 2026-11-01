@@ -46,3 +46,20 @@ All read `$RESULTS_ROOT`, `$REGIMES_ROOT`, `$HOLDOUT_ROOT`, `$HOLDOUT2_ROOT`
 | script | purpose |
 |---|---|
 | `merge_splade_weights.py` | weight-averaged soup of SPLADE checkpoints (`--models ... --weights ... --output models/<name>`) |
+
+## Moved out
+
+On 1.11.2026 the data scripts moved, with their history, to the data kitchen
+repository (`github.com/jansowa/retrieval-data-kitchen`, locally
+`~/work/speakleash/retrieval-data-kitchen`):
+
+| here until 1.11.2026 | now in the kitchen |
+|---|---|
+| `judge_pairs.py`, `judge_arms.sh`, `judge_merge_agents.py`, `judge_queue.sh`, `lexical_difficulty.py`, `lexical_cpu_job*.sh`, `speakleash_pool_diag.py`, `splade_pair_loss.py`, `fiqa_splade_length_bias.py`, `fiqa_splade_mine.py`, `fiqa_splade_mine.sh` | `annotate/` |
+| `build_speakleash_cuts.py`, `build_clean_arms.py`, `build_fiqa_*_negatives.py`, `build_fiqa_promoted_positives.py`, `build_pool_arms.py`, `build_split_arms.py`, `build_hf_metric_files.py` | `cut/` |
+| `fiqa_v3_build_mining_inputs.py`, `fiqa_v3_finalize.py`, `fiqa_v3_mine.sh`, `fiqa_v3_mine.env`, `synth_*` | `bridge/` |
+| `docs/judge_prompts/`, `docs/llm_judge_prompts.md` | `docs/` (same paths) |
+
+The historical queues under `experiments/polish-splade-2026-10/queues/` still
+call them as `scripts/<name>`; use a checkout of commit `61cf632` to rerun those
+exactly.
