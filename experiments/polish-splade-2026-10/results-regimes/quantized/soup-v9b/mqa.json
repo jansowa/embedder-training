@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "soup-v9b",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9b",
+  "taskset": "mqa",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-mqa": 19.391807009819637
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 19.391807009819637
+}

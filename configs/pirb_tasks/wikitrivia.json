@@ -1,0 +1,5 @@
+[
+  {"split": "dev-0", "domain": "wiki-trivia", "type": "poleval"},
+  {"split": "test-A", "domain": "wiki-trivia", "type": "poleval"},
+  {"split": "test-B", "domain": "wiki-trivia", "type": "poleval"}
+]
