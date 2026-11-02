@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "base-splade-wrapped",
+  "model": "/home/jsowa/work/FlagEmbedding/models/base-splade-wrapped",
+  "taskset": "nqpl",
+  "max_seq_length": null,
+  "tasks": {
+    "nq-pl": 40.06542842874794
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 40.06542842874794
+}
