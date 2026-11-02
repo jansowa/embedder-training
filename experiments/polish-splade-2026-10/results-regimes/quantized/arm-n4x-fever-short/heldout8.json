@@ -1,0 +1,19 @@
+{
+  "regime": "quantized",
+  "label": "arm-n4x-fever-short",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-n4x-fever-short",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 19.868291333913902,
+    "maupqa-multilingual-NLI": 13.900193116245083,
+    "mfaq": 62.1277260008279,
+    "poleval-2022-test-A-legal-questions": 80.60978992400771,
+    "maupqa-wiki-def": 63.926659423630184,
+    "scidocs-pl": 14.020289699234564,
+    "maupqa-1z10": 47.07824772549664,
+    "fiqa-pl": 28.78198290648922
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 41.28914751623064
+}

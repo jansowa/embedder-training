@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "arm-n4x-fever-short",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-n4x-fever-short",
+  "taskset": "tiny10",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3-cc": 17.91794625483662,
+    "maupqa-mkqa": 61.56844113912972,
+    "maupqa-poleval2021-pairs": 81.92287246496872,
+    "maupqa-templates": 74.74962057837737,
+    "poleval-2022-test-A-allegro-faq": 75.48140578077762,
+    "poleval-2022-test-B-allegro-faq": 70.72456108035394,
+    "arguana-pl": 43.03239133763777,
+    "nfcorpus-pl": 31.15207236864153,
+    "scifact-pl": 67.30024229534389,
+    "gpt-exams": 98.6193139427722
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 62.24688672428395
+}
