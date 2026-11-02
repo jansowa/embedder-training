@@ -287,6 +287,14 @@ FlagEmbedding resume is forwarded as `--resume-from-checkpoint`. Preserved epoch
 
 ### SentenceTransformers
 
+For SPLADE, `sentence_transformers.splade_regularizer_scheduler: false` disables
+the regularizer weight scheduler that SparseEncoderTrainer adds automatically.
+The document and query weights then stay at their configured values from the
+first optimizer step. This applies to both SpladeLoss and CachedSpladeLoss.
+Omitting the key preserves SentenceTransformers' default quadratic warm-up
+over one third of the training steps. This switch does not control the
+learning-rate scheduler or implement density control.
+
 Shared parameters for `embedder`, `matryoshka`, and `splade`:
 
 | Field | Description |

@@ -41,6 +41,7 @@ class SentenceTransformersConfigError(ValueError):
 
 
 COMMON_TRAINING_KEYS = {
+    "splade_regularizer_scheduler",
     "batch_sampler",
     "bf16",
     "dataloader_drop_last",
@@ -962,6 +963,11 @@ class SpladeActivationStatsCallback:
             metrics = self._log(step)
             if logs is not None:
                 logs.update(metrics)
+            # Transformers copies logs into history before calling on_log.
+            # Keep the same density metrics in the durable trainer_state.json.
+            history = getattr(state, "log_history", None)
+            if history and history[-1].get("step") == step:
+                history[-1].update(metrics)
         return control
 
     def on_train_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
@@ -1460,6 +1466,24 @@ def run_matryoshka_training(request: TrainingRequest) -> int:
     return 0
 
 
+def _configure_splade_regularizer_scheduler(trainer: Any, backend_config: dict[str, Any]) -> None:
+    """Allow fixed regularizer weights instead of SparseEncoderTrainer's automatic warm-up."""
+    if _as_bool(backend_config.get("splade_regularizer_scheduler", True)):
+        return
+    callbacks = list(getattr(getattr(trainer, "callback_handler", None), "callbacks", []))
+    for callback in callbacks:
+        if any(cls.__name__ == "SpladeRegularizerWeightSchedulerCallback" for cls in type(callback).__mro__):
+            trainer.remove_callback(type(callback))
+    losses = getattr(trainer, "loss", None)
+    losses = list(losses.values()) if isinstance(losses, dict) else [losses]
+    weights = [
+        {"document_weight": getattr(loss, "document_regularizer_weight", None),
+         "query_weight": getattr(loss, "query_regularizer_weight", None)}
+        for loss in losses
+    ]
+    print(f"[INFO] SPLADE regularizer scheduler disabled; fixed loss weights: {weights}.", flush=True)
+
+
 def run_splade_training(request: TrainingRequest) -> int:
     if _skip_completed_training(request, default_output_dir="runs/sentence-transformers-splade"):
         return 0
@@ -1551,6 +1575,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    _configure_splade_regularizer_scheduler(trainer, backend_config)
     activation_stats_callback = _build_splade_activation_stats_callback(model, loaded.rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(activation_stats_callback)
