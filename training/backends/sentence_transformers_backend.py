@@ -1137,6 +1137,29 @@ def _splade_pooling_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     return pooling_kwargs
 
 
+def _install_splade_fused_head(model: Any, backend_config: dict[str, Any]) -> str | None:
+    """Install the sparse-gradient SPLADE head when ``splade_fused_head`` asks for it; returns its description."""
+    from training.backends.splade_fused_head import (
+        SpladeFusedHeadError,
+        describe_fused_head,
+        install_fused_head,
+        parse_fused_head,
+    )
+
+    try:
+        spec = parse_fused_head(backend_config)
+    except SpladeFusedHeadError as exc:
+        raise SentenceTransformersConfigError(str(exc)) from exc
+    if spec is None:
+        return None
+    mode, chunk = spec
+    try:
+        install_fused_head(model[0], model[1], mode=mode, chunk_size=chunk)
+    except SpladeFusedHeadError as exc:
+        raise SentenceTransformersConfigError(f"splade_fused_head: {exc}") from exc
+    return describe_fused_head(spec)
+
+
 def _build_mlm_transformer(MLMTransformer: Any, model_name_or_path: str, mlm_kwargs: dict[str, Any]):
     try:
         from transformers import AutoProcessor, AutoTokenizer
@@ -1486,6 +1509,9 @@ def run_splade_training(request: TrainingRequest) -> int:
         label_layout=label_layout,
     )
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
+    fused_head = _install_splade_fused_head(model, backend_config)
+    if fused_head is not None and is_main_process():
+        print(f"[INFO] SPLADE fused head (sparse gradient, training only): {fused_head}.", flush=True)
 
     score_scale = _resolve_score_scale(backend_config)
     if score_scale is not None:

@@ -11,6 +11,8 @@ fi
 [ -x "${JAVA_HOME:-/nonexistent}/bin/java" ] || echo "queue_lib: no JDK 21 found; set JAVA_HOME before launching (PIRB needs it)" >&2
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
+# No inductor compile-worker pool (~0.5 GB RSS) in the trainers; see training/train.py.
+export TORCHINDUCTOR_COMPILE_THREADS="${TORCHINDUCTOR_COMPILE_THREADS:-1}"
 PY="$(pwd)/.venv/bin/python"
 LOGS="$(pwd)/logs"
 STATE="$LOGS/queue_state.tsv"
