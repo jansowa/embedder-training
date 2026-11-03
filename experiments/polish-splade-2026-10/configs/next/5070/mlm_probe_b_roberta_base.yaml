@@ -1,0 +1,81 @@
+backend: sentence-transformers
+training_type: splade
+
+# MLM-path probe B (5070 Ti, one night after G1): the same probe as mlm_probe_a.yaml but from the
+# 12-layer sdadas/polish-roberta-base-v2 (~125 M parameters), i.e. SPLADE on the bigger backbone without
+# any distillation (SPLADE++: the CoCondenser/bert-base initialisation beat DistilBERT by +1.1 MRR@10 and
+# generalised best). Twice the cost per step, so 9 375 steps = 300 k examples (~6 h) and the physical
+# batch is 8 x 4 (same effective 32, 56 passages in the FLOPS micro-batch). Compare the curve with
+# mlm-probe-a at equal steps; plan: docs/PLAN-5070-MLM-2026-11-03.md §11.
+runs_dir: runs/arm-mlm-probe-b
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data:
+  - path: datasets/judged/msmarco-clean-20000.jsonl
+  - path: datasets/judged/msmarco-plain-20000.jsonl
+  - path: datasets/arms/squadv2-fresh-16000.jsonl
+  - path: datasets/arms/squadv2-2073.jsonl
+  - path: datasets/arms/fiqa-2073.jsonl
+dataset_mix_strategy: concat_shuffle
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-roberta-base-v2
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 12          # upper bound; max_steps below caps the run at 18 750 steps
+    document_regularizer_weight: 0.003
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  max_steps: 9375
+  warmup_ratio: 0.05
+  lr_scheduler_type: constant_with_warmup
+  train_batch_size: 8
+  gradient_accumulation_steps: 4
+  batch_sampler: no_duplicates
+  gradient_checkpointing: false     # true only on OOM
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 6
+  query_regularizer_weight: 0.00015
+  save_strategy: steps
+  save_steps: 625
+  save_total_limit: 2
+  keep_step_checkpoints: [625, 1250, 1875, 2500, 5000, 7500, 9375]
+  keep_epoch_checkpoints: false
+  logging_steps: 25
+  splade_activation_stats:
+    interval_steps: 250
+    sample_size: 256
+    batch_size: 32
+    include_negatives: true
+  document_regularizer_threshold: null   # raw-L0 floor from scripts/splade_density_reference.py, or null
+  query_regularizer_threshold: null
+  regularizer_control:
+    warmup_steps: 1000                   # lambda(t) = lambda_target * min(1, (t / 1000)^2), both weights
+    density:
+      reference_model: models/base-splade-wrapped
+      band: [0.75, 1.05]                 # keep (dims / dims of the reference model) inside this band
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05                  # query weight follows: 0.05 x document weight
+      sample_size: 256
+      batch_size: 32
+      quantization_factor: 100
+  report_to:
+    - wandb
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

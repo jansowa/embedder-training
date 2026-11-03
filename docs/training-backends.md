@@ -443,6 +443,73 @@ Parameters only for `splade`:
 | `sentence_transformers.scale` | Scale for `SparseMultipleNegativesRankingLoss`. Defaults to `1.0`. |
 | `sentence_transformers.gather_across_devices` | Whether to gather embeddings across devices for a larger negative pool. |
 | `sentence_transformers.splade_pooling_chunk_size` | Optional `SpladePooling(chunk_size=...)`. Smaller values reduce pooling memory usage at the cost of speed. |
+| `sentence_transformers.document_regularizer_threshold` / `query_regularizer_threshold` | Optional L0 floor of the FLOPS term (integer ≥ 0 or `null`, default `null`). Passed 1:1 to `SpladeLoss` / `CachedSpladeLoss` only when set. See [SPLADE regularizer control](#splade-regularizer-control). |
+| `sentence_transformers.regularizer_control` | Optional λ warm-up and density controller (mapping or `null`, default `null`). See [SPLADE regularizer control](#splade-regularizer-control). |
+| `sentence_transformers.splade_activation_stats` | Optional monitoring of active dimensions on a fixed sample of training queries and documents (`interval_steps`, `sample_size`, `batch_size`, `include_negatives`, `quantization_factor`). Logs only; it never changes the weights. The values go to W&B and to `log_history` in `trainer_state.json` under `train/splade_activation_stats/...`. |
+
+All three regularizer keys also work at the top level of the config, like `splade_activation_stats`.
+
+#### SPLADE regularizer control
+
+**What happens by default.** sentence-transformers ≥ 5.0 adds a `SpladeRegularizerWeightSchedulerCallback` to every `SparseEncoderTrainer` with a `SpladeLoss` or `CachedSpladeLoss`. That callback raises both weights quadratically from 0 to `document_regularizer_weight` / `query_regularizer_weight` over the first third of the optimizer steps (`state.max_steps / 3`), then keeps them constant. Every run without `regularizer_control` trains with this hidden warm-up, so a run of 18 750 steps reaches its configured λ only at step 6 250.
+
+With `regularizer_control` the trainer removes that callback and puts `RegularizerControlCallback` (`training/splade_regularizer_control.py`) in its place. From then on, only the new callback sets `loss.document_regularizer_weight` and `loss.query_regularizer_weight`, before every optimizer step:
+
+```yaml
+sentence_transformers:
+  document_regularizer_threshold: null   # raw-L0 floor from scripts/splade_density_reference.py, or null
+  query_regularizer_threshold: null
+  regularizer_control:
+    warmup_steps: 1000                   # lambda(t) = lambda_target * min(1, (t / 1000)^2), both weights
+    density:
+      reference_model: models/base-splade-wrapped
+      band: [0.75, 1.05]                 # keep (dims / dims of the reference model) inside this band
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05                  # query weight follows: 0.05 x document weight
+      sample_size: 256
+      batch_size: 32
+      quantization_factor: 100
+```
+
+(from `experiments/polish-splade-2026-10/configs/next/5070/mlm_probe_a.yaml`; the targets come from `document_regularizer_weight` and `query_regularizer_weight`, 0.003 and 0.00015 there.)
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `warmup_steps` | `0` | Integer ≥ 0. Before optimizer step `t < T`, both weights are `λ_target · (t / T)²`. From step `T` on, they are the controller's current values. `0` means no warm-up. `t` is `state.global_step`, so a resumed run continues the same curve. |
+| `density` | `null` | Optional controller. `null` keeps the weights constant after the warm-up. |
+| `density.reference_model` | — | Path or Hugging Face id of the reference `SparseEncoder`. At train begin it is loaded on the training device, measured once on the document sample (the reference density `d_ref`) and released. Give exactly one of `reference_model` and `reference_dims`. |
+| `density.reference_dims` | — | `d_ref` given as a number instead of a reference model. Must be > 0. |
+| `density.band` | `[0.75, 1.05]` | Dead band of `d / d_ref`, with `0 < low < high`. The band edges count as inside. |
+| `density.interval_steps` | `250` | The controller acts at every step `t ≥ warmup_steps`, `t > 0`, that is a multiple of this value. |
+| `density.factor` | `1.25` | Must be > 1. Above the band `λ_d ← min(λ_d · factor, max)`. Below the band `λ_d ← max(λ_d / factor, min)`. Inside the band λ_d does not change. |
+| `density.min_document_weight` / `max_document_weight` | `0.0005` / `0.03` | Clamps for λ_d, with `0 < min ≤ max`. |
+| `density.query_ratio` | `0.05` | After each control, `λ_q = query_ratio · λ_d`. `null` keeps `λ_q` at its target, so it only follows the warm-up. A query weight set to `null` stays disabled. |
+| `density.sample_size` | `256` | Size of the fixed document sample: positives plus negatives, chosen with the same even sampling as `splade_activation_stats`. |
+| `density.batch_size` | `32` | Encoding batch size for the measurement. |
+| `density.quantization_factor` | `100` | A dimension is active when `round(w · qf) > 0`. This is the PIRB and `scripts/compare_splade_sparsity.py` measure, computed by the same function as `splade_activation_stats`. |
+| `density.max_seq_length` | `null` | Length used to measure the trained and the reference model. `null` means the trained model's `max_seq_length`. |
+
+Unknown keys are errors, so a typo cannot silently turn the controller off. The controller measures `d` with the model in `eval()` mode (`encode_document`) and returns it to `train()` afterwards.
+
+**Thresholds (FLOPS with L0 masking, arXiv 2504.14839).** With `document_regularizer_threshold: t`, only documents with more than `t` **raw** non-zero weights (`(emb != 0).sum()`, no quantization) enter the FLOPS term. Sparser documents get no further sparsity penalty. The raw count is much larger than the quantized one, so calibrate `t` with `scripts/splade_density_reference.py`. The script reports the raw and the quantized L0 of documents and queries, fits `raw ≈ a · quantized + b`, and prints `recommended_document_regularizer_threshold` for `--threshold-at` quantized dimensions:
+
+```bash
+python scripts/splade_density_reference.py --model models/base-splade-wrapped \
+    --jsonl datasets/judged/msmarco-clean-20000.jsonl datasets/arms/squadv2-fresh-16000.jsonl datasets/arms/fiqa-2073.jsonl \
+    --sample 256 --max-seq-length 256 --quantization-factor 100 --threshold-at 200 \
+    --output-json experiments/polish-splade-2026-10/results/data/density-reference-base.json
+```
+
+By default the script encodes in fp16 on CUDA, which matches fp16 training. Use `--fp32` to compare.
+
+**Logged values.** On every logging step the callback adds the following keys to the trainer logs: `regularizer/document_weight`, `regularizer/query_weight`, `regularizer/document_dims_mean` (last measurement), `regularizer/document_dims_reference` and `regularizer/document_dims_ratio`. The weights are the ones the next optimizer step uses. These keys go to `trainer_state.json` (`log_history`), to the console, and to W&B, where the trainer adds the `train/` prefix, for example `train/regularizer/document_weight`. Every train begin, warm-up end, control and train end also prints an `[INFO] Regularizer control ...` line and is appended to `<output_dir>/regularizer_control.json`, together with the parsed config, the targets and `d_ref`. A run without step checkpoints has no `trainer_state.json`, so for a short smoke run read the console and this JSON file.
+
+**Resume and continuation.** The controller state (current λ_d and λ_q) is not part of the Hugging Face checkpoint. On a resume in the same run directory, the callback restores the state from the last control at or before the checkpoint step recorded in `regularizer_control.json`. Without that file, λ_d starts again from `document_regularizer_weight`. The warm-up always follows `global_step`. `d_ref` is measured again. To continue in a new run, for example night 2 after the probe, set `document_regularizer_weight` (and `query_regularizer_weight`) to the last values in `regularizer_control.json` and use `warmup_steps: 0`.
+
+**Distributed runs.** Every rank owns a copy of the loss, so the callback runs on every rank and measures the same sample with the same weights. Only rank 0 prints and writes the JSON file.
 
 ### PyLate
 

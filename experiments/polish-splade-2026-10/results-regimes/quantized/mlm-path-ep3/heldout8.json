@@ -1,0 +1,18 @@
+{
+  "regime": "quantized",
+  "label": "mlm-path-ep3",
+  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-path-ep3",
+  "taskset": "heldout8",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 19.6926,
+    "maupqa-multilingual-nli": 12.8402,
+    "mfaq": 58.2274,
+    "poleval-2022-test-a-legal-questions": 80.8579,
+    "maupqa-wiki-def": 62.3649,
+    "scidocs-pl": 10.4455,
+    "maupqa-1z10": 44.0181
+  },
+  "n_tasks": 7,
+  "mean_ndcg@10": 41.20665714285714
+}

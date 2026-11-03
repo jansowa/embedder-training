@@ -1,0 +1,53 @@
+backend: sentence-transformers
+training_type: splade
+
+# SPLADE-to-SPLADE distillation (next cycle, plan docs/PLAN-5070-MLM-2026-11-03.md §11): the student is
+# sdadas/polish-splade, the teacher a bigger SPLADE (e.g. the best checkpoint of mlm_probe_b_roberta_base),
+# whose dot products were written into pos_scores / neg_scores of the fiqa-plus-squadv2 rows (4 146) by the kitchen's
+# bridge/splade_teacher_scores.py (file suffix -tsplade). Same recipe as the v9b ingredients otherwise
+# (512 tokens, 10 negatives, lr 2e-5, 2 epochs, 8 x 4), loss MarginMSE on the teacher margins pos - neg (the SPLADE++ DistilMSE setting).
+# No score_scale: teacher and student score in the same units. Souped with the v9b ingredients afterwards
+# (same starting point).
+runs_dir: runs/arm-distil-splade-mmse-n1
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2-tsplade.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_margin_mse
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 8
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 16
+  negatives_per_query: 10
+  score_normalization: none
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

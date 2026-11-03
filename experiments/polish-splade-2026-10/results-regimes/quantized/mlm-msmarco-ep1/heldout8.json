@@ -1,0 +1,16 @@
+{
+  "regime": "quantized",
+  "label": "mlm-msmarco-ep1",
+  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-msmarco-ep1",
+  "taskset": "heldout8",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.1412,
+    "maupqa-multilingual-nli": 13.7243,
+    "mfaq": 62.356,
+    "poleval-2022-test-a-legal-questions": 82.7011,
+    "maupqa-wiki-def": 63.9422
+  },
+  "n_tasks": 5,
+  "mean_ndcg@10": 48.57296
+}

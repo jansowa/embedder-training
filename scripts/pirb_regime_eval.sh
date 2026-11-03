@@ -31,6 +31,7 @@ BENCH="$REPO/configs/pirb_tasks/$TASKSET.json"
 [ -e "$MODEL" ] || { echo "model $MODEL missing"; exit 1; }
 MODEL_ABS="$(cd "$MODEL" && pwd)"
 REGIMES_ROOT="${REGIMES_ROOT:-experiments/polish-splade-2026-10/results-regimes}"
+PIRB_DTYPE="${PIRB_DTYPE:-fp16}"   # fp16 | bf16 (bf16 for ModernBERT backbones)
 case "$REGIMES_ROOT" in /*) ;; *) REGIMES_ROOT="$REPO/$REGIMES_ROOT" ;; esac
 OUT_DIR="$REGIMES_ROOT/$REGIME/$LABEL"; mkdir -p "$OUT_DIR" "$REPO/logs/regimes"
 OUT="$OUT_DIR/$TASKSET.json"
@@ -64,16 +65,16 @@ fi
 case "$REGIME" in
   old-pyserini)
     PYBIN=/home/jsowa/work/venv-pyserini021/bin/python; DIR="$REPO/third_party/pirb"
-    echo "[{\"name\": \"$EVAL_MODEL\", \"fp16\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS$LEN_KEY}]" > "$CFG" ;;
+    echo "[{\"name\": \"$EVAL_MODEL\", \"$PIRB_DTYPE\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS$LEN_KEY}]" > "$CFG" ;;
   quantized)
     PYBIN="$REPO/.venv/bin/python"; DIR="$REPO/third_party/pirb"
-    echo "[{\"name\": \"$EVAL_MODEL\", \"fp16\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS, \"quantize_queries\": true$LEN_KEY}]" > "$CFG" ;;
+    echo "[{\"name\": \"$EVAL_MODEL\", \"$PIRB_DTYPE\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS, \"quantize_queries\": true$LEN_KEY}]" > "$CFG" ;;
   truncated)
     PYBIN="$REPO/.venv/bin/python"; DIR="$REPO/third_party/pirb"
-    echo "[{\"name\": \"$EVAL_MODEL\", \"fp16\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS$LEN_KEY}]" > "$CFG" ;;
+    echo "[{\"name\": \"$EVAL_MODEL\", \"$PIRB_DTYPE\": true, \"type\": \"splade\", \"batch_size\": $BATCH, \"threads\": $THREADS$LEN_KEY}]" > "$CFG" ;;
   new-backend)
     PYBIN=/home/jsowa/work/venv-pirb-new/bin/python; DIR=/home/jsowa/work/pirb-upstream
-    echo "[{\"name\": \"$EVAL_MODEL\", \"fp16\": true, \"type\": \"splade\", \"backend\": \"splade\", \"encoder_type\": \"sentence_transformer\", \"batch_size\": $BATCH}]" > "$CFG" ;;
+    echo "[{\"name\": \"$EVAL_MODEL\", \"$PIRB_DTYPE\": true, \"type\": \"splade\", \"backend\": \"splade\", \"encoder_type\": \"sentence_transformer\", \"batch_size\": $BATCH}]" > "$CFG" ;;
   *) echo "unknown regime $REGIME"; exit 1 ;;
 esac
 

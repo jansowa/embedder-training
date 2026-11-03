@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -29,6 +30,10 @@ from training.checkpoints import (
 from training.config_grid import BACKEND_SECTION_KEYS, expand_config_grid
 from training.distributed import argv_from_args, is_main_process, maybe_launch_distributed_training
 from training.run_metadata import create_run_metadata, verify_resume_metadata
+
+# torch._inductor starts a pool of compile workers (1 + 12 processes, ~0.5 GB RSS on the
+# 16 GB box) even when nothing is compiled; one thread keeps the pool from being spawned.
+os.environ.setdefault("TORCHINDUCTOR_COMPILE_THREADS", "1")
 
 
 class ConfigError(TrainingCliError):

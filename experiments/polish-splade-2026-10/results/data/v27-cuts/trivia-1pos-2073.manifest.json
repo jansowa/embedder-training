@@ -1,0 +1,48 @@
+{
+  "name": "trivia-1pos-2073",
+  "input": "/home/jsowa/work/FlagEmbedding/datasets/arms/trivia-2073.jsonl",
+  "source": "trivia-2073",
+  "input_rows": 2073,
+  "dropped": {},
+  "rows": 2073,
+  "examples": 2073,
+  "positives_per_row": {
+    "1": 2073
+  },
+  "annotation_records": 0,
+  "rows_with_unannotated_negatives_kept": 0,
+  "strata": null,
+  "recipe": {
+    "name": "trivia-1pos-2073",
+    "input": "${TRAINER_ROOT}/datasets/arms/trivia-2073.jsonl",
+    "source": "trivia-2073",
+    "output": "${TRAINER_ROOT}/datasets/arms/trivia-1pos-2073.jsonl",
+    "seed": 42,
+    "order": "input",
+    "gate": {
+      "field": "pos_scores_stronger_reranker",
+      "min": 23.5
+    },
+    "negatives": {
+      "min": 10,
+      "sort": "longest_first"
+    },
+    "lengths": {
+      "tokenizer": "${TRAINER_ROOT}/models/base-splade-wrapped",
+      "max_tokens": 512,
+      "max_positive_tokens": 512,
+      "max_long_negatives": 2
+    },
+    "positives": {
+      "prefer": [
+        {
+          "field": "pos_scores_stronger_reranker",
+          "desc": true
+        }
+      ],
+      "max_per_row": 1
+    }
+  },
+  "recipe_file": "cut/recipes/trivia-1pos-2073.yaml",
+  "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/trivia-1pos-2073.jsonl"
+}

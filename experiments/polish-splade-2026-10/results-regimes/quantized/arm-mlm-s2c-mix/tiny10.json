@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "arm-mlm-s2c-mix",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-mlm-s2c-mix",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3-cc": 18.707652509101848,
+    "maupqa-mkqa": 55.47888143212746,
+    "maupqa-poleval2021-pairs": 78.88407573390069,
+    "maupqa-templates": 72.72927019832234,
+    "poleval-2022-test-A-allegro-faq": 67.0854862758839,
+    "poleval-2022-test-B-allegro-faq": 63.77544023506876,
+    "arguana-pl": 27.22549372245224,
+    "nfcorpus-pl": 29.413161143214534,
+    "scifact-pl": 57.13501927622935,
+    "gpt-exams": 96.79918026661042
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 56.723366079291154
+}

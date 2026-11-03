@@ -33,6 +33,16 @@ from training.multi_dataset import (
     normalize_dataset_mix_strategy,
     resolve_dataset_sources,
 )
+from training.splade_regularizer_control import (
+    RegularizerControlError,
+    build_regularizer_control_callback,
+    count_active_dims,
+    describe_regularizer_control,
+    even_sample as _even_sample,
+    install_regularizer_control_callback,
+    merge_into_log_history,
+    parse_regularizer_control,
+)
 from training.wandb_tracking import reports_to_wandb, wandb_run_environment, wandb_run_for_benchmarks
 
 
@@ -50,6 +60,7 @@ COMMON_TRAINING_KEYS = {
     "dataloader_pin_memory",
     "dataloader_prefetch_factor",
     "dataset_mix_strategy",
+    "document_regularizer_threshold",
     "epoch_checkpoint_dir",
     "fp16",
     "gradient_accumulation_steps",
@@ -75,6 +86,8 @@ COMMON_TRAINING_KEYS = {
     "per_device_train_batch_size",
     "processor_kwargs",
     "query_instruction_for_retrieval",
+    "query_regularizer_threshold",
+    "regularizer_control",
     "report_to",
     "resume",
     "resume_from_checkpoint",
@@ -468,6 +481,29 @@ def _splade_cached_loss_mini_batch(backend_config: dict[str, Any]) -> int | None
     if mini_batch_size < 1:
         raise SentenceTransformersConfigError("'sentence_transformers.mini_batch_size' must be a positive integer.")
     return mini_batch_size
+
+
+def _splade_loss_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
+    """Keyword arguments shared by ``SpladeLoss`` and ``CachedSpladeLoss``.
+
+    The L0 thresholds (FLOPS with L0 masking, arXiv 2504.14839) are passed only when set, so a config
+    without them builds the loss exactly as before. A threshold counts raw non-zero weights: only
+    texts with more non-zero dimensions than the threshold enter the FLOPS term.
+    """
+    kwargs: dict[str, Any] = {
+        "document_regularizer_weight": float(backend_config.get("document_regularizer_weight", 3e-5)),
+        "query_regularizer_weight": float(backend_config.get("query_regularizer_weight", 5e-5)),
+    }
+    for key in ("document_regularizer_threshold", "query_regularizer_threshold"):
+        value = backend_config.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise SentenceTransformersConfigError(
+                f"'sentence_transformers.{key}' must be a non-negative integer or null, got {value!r}."
+            )
+        kwargs[key] = value
+    return kwargs
 
 
 SPLADE_DISTILLATION_LOSSES = {"sparse_margin_mse", "sparse_distill_kl_div"}
@@ -873,27 +909,6 @@ def _release_training_gpu_memory(trainer: Any, model: Any) -> None:
         torch.cuda.empty_cache()
 
 
-def _unique_texts(values: list[str]) -> list[str]:
-    seen = set()
-    result = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        result.append(value)
-    return result
-
-
-def _even_sample(values: list[str], sample_size: int) -> list[str]:
-    values = _unique_texts(values)
-    if len(values) <= sample_size:
-        return values
-    if sample_size == 1:
-        return [values[0]]
-    step = (len(values) - 1) / (sample_size - 1)
-    return [values[round(idx * step)] for idx in range(sample_size)]
-
-
 def _activation_stats(values: list[int]) -> dict[str, float | int]:
     if not values:
         return {"samples": 0, "mean": 0.0, "median": 0.0, "p90": 0.0, "p95": 0.0, "p99": 0.0, "max": 0}
@@ -963,11 +978,7 @@ class SpladeActivationStatsCallback:
             metrics = self._log(step)
             if logs is not None:
                 logs.update(metrics)
-            # Transformers copies logs into history before calling on_log.
-            # Keep the same density metrics in the durable trainer_state.json.
-            history = getattr(state, "log_history", None)
-            if history and history[-1].get("step") == step:
-                history[-1].update(metrics)
+            merge_into_log_history(state, metrics)
         return control
 
     def on_train_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
@@ -1001,34 +1012,13 @@ class SpladeActivationStatsCallback:
         return metrics
 
     def _count_active_dims(self, texts: list[str], encoder_name: str) -> list[int]:
-        import torch
-
-        counts: list[int] = []
-        was_training = bool(getattr(self.model, "training", False))
-        if hasattr(self.model, "eval"):
-            self.model.eval()
-        try:
-            for batch in _batch_texts(texts, self.batch_size):
-                encoder = getattr(self.model, encoder_name, None) or getattr(self.model, "encode")
-                embeddings = encoder(
-                    batch,
-                    batch_size=len(batch),
-                    show_progress_bar=False,
-                    convert_to_tensor=True,
-                    convert_to_sparse_tensor=False,
-                    save_to_cpu=False,
-                )
-                tensor = _as_dense_tensor(embeddings, torch)
-                # Keep the dense vocabulary-sized embeddings on the accelerator. Moving only
-                # the final per-example counts avoids transferring and quantizing roughly
-                # sample_size * vocab_size floats on the CPU for every stats interval.
-                quantized = torch.round(tensor.float() * self.quantization_factor)
-                counts.extend((quantized > 0).sum(dim=-1).cpu().tolist())
-                del embeddings, tensor, quantized
-        finally:
-            if was_training and hasattr(self.model, "train"):
-                self.model.train()
-        return [int(value) for value in counts]
+        return count_active_dims(
+            self.model,
+            texts,
+            batch_size=self.batch_size,
+            encoder_name=encoder_name,
+            quantization_factor=self.quantization_factor,
+        )
 
     def _log_to_wandb(self, metrics: dict[str, float | int], step: int) -> None:
         try:
@@ -1038,21 +1028,6 @@ class SpladeActivationStatsCallback:
         if getattr(wandb, "run", None) is None:
             return
         wandb.log(metrics, step=step)
-
-
-def _batch_texts(values: list[str], batch_size: int) -> list[list[str]]:
-    return [values[idx : idx + batch_size] for idx in range(0, len(values), batch_size)]
-
-
-def _as_dense_tensor(embeddings: Any, torch: Any) -> Any:
-    if isinstance(embeddings, list):
-        tensors = [_as_dense_tensor(value, torch) for value in embeddings]
-        return torch.stack(tensors)
-    if not isinstance(embeddings, torch.Tensor):
-        return torch.as_tensor(embeddings)
-    if embeddings.is_sparse:
-        return embeddings.to_dense()
-    return embeddings
 
 
 def _splade_activation_stats_config(backend_config: dict[str, Any]) -> dict[str, Any] | None:
@@ -1161,6 +1136,29 @@ def _splade_pooling_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     elif "chunk_size" in backend_config:
         pooling_kwargs["chunk_size"] = int(backend_config["chunk_size"])
     return pooling_kwargs
+
+
+def _install_splade_fused_head(model: Any, backend_config: dict[str, Any]) -> str | None:
+    """Install the sparse-gradient SPLADE head when ``splade_fused_head`` asks for it; returns its description."""
+    from training.backends.splade_fused_head import (
+        SpladeFusedHeadError,
+        describe_fused_head,
+        install_fused_head,
+        parse_fused_head,
+    )
+
+    try:
+        spec = parse_fused_head(backend_config)
+    except SpladeFusedHeadError as exc:
+        raise SentenceTransformersConfigError(str(exc)) from exc
+    if spec is None:
+        return None
+    mode, chunk = spec
+    try:
+        install_fused_head(model[0], model[1], mode=mode, chunk_size=chunk)
+    except SpladeFusedHeadError as exc:
+        raise SentenceTransformersConfigError(f"splade_fused_head: {exc}") from exc
+    return describe_fused_head(spec)
 
 
 def _build_mlm_transformer(MLMTransformer: Any, model_name_or_path: str, mlm_kwargs: dict[str, Any]):
@@ -1502,6 +1500,12 @@ def run_splade_training(request: TrainingRequest) -> int:
 
     config = request.config
     backend_config = _backend_config(config)
+    # Validate the regularizer settings before the data and the model are loaded.
+    splade_loss_kwargs = _splade_loss_kwargs(backend_config)
+    try:
+        regularizer_control = parse_regularizer_control(backend_config)
+    except RegularizerControlError as exc:
+        raise SentenceTransformersConfigError(str(exc)) from exc
     model_name_or_path = _resolve_value(
         config,
         backend_config,
@@ -1524,6 +1528,9 @@ def run_splade_training(request: TrainingRequest) -> int:
         label_layout=label_layout,
     )
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
+    fused_head = _install_splade_fused_head(model, backend_config)
+    if fused_head is not None and is_main_process():
+        print(f"[INFO] SPLADE fused head (sparse gradient, training only): {fused_head}.", flush=True)
 
     score_scale = _resolve_score_scale(backend_config)
     if score_scale is not None:
@@ -1557,10 +1564,6 @@ def run_splade_training(request: TrainingRequest) -> int:
             scale=float(backend_config.get("scale", 1.0)),
             gather_across_devices=bool(backend_config.get("gather_across_devices", False)),
         )
-    splade_loss_kwargs = {
-        "document_regularizer_weight": float(backend_config.get("document_regularizer_weight", 3e-5)),
-        "query_regularizer_weight": float(backend_config.get("query_regularizer_weight", 5e-5)),
-    }
     cached_mini_batch = _splade_cached_loss_mini_batch(backend_config)
     if cached_mini_batch is None:
         loss = SpladeLoss(model, loss=ranking_loss, **splade_loss_kwargs)
@@ -1579,6 +1582,15 @@ def run_splade_training(request: TrainingRequest) -> int:
     activation_stats_callback = _build_splade_activation_stats_callback(model, loaded.rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
         trainer.add_callback(activation_stats_callback)
+    if regularizer_control is not None:
+        regularizer_callback = build_regularizer_control_callback(loss, model, loaded.rows, backend_config)
+        if regularizer_callback is not None:
+            placement = install_regularizer_control_callback(trainer, regularizer_callback)
+            if is_main_process():
+                print(
+                    f"[INFO] Regularizer control ({placement}): {describe_regularizer_control(regularizer_control)}.",
+                    flush=True,
+                )
     _add_checkpoint_callbacks(trainer, output_dir, config, backend_config)
 
     print(

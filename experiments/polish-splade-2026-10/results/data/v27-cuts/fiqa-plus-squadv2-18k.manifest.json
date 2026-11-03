@@ -1,0 +1,19 @@
+{
+ "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-plus-squadv2-18k.jsonl",
+ "seed": 42,
+ "parts": [
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-2073.jsonl",
+   "rows": 2073,
+   "positives": 3161
+  },
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/squadv2-fresh-16000.jsonl",
+   "rows": 16000,
+   "positives": 16096
+  }
+ ],
+ "rows": 18073,
+ "positives": 19257,
+ "duplicate_queries": 0
+}
