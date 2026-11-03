@@ -1,0 +1,30 @@
+{
+  "name": "msmarco-clean-rand1688",
+  "input": "/home/jsowa/work/FlagEmbedding/datasets/arms/msmarco-clean-2073.jsonl",
+  "source": "msmarco-clean-2073",
+  "input_rows": 2073,
+  "dropped": {
+    "after_dose": 385
+  },
+  "rows": 1688,
+  "examples": 1688,
+  "positives_per_row": {
+    "1": 1688
+  },
+  "annotation_records": 0,
+  "rows_with_unannotated_negatives_kept": 0,
+  "strata": null,
+  "recipe": {
+    "name": "msmarco-clean-rand1688",
+    "input": "${TRAINER_ROOT}/datasets/arms/msmarco-clean-2073.jsonl",
+    "source": "msmarco-clean-2073",
+    "output": "${TRAINER_ROOT}/datasets/arms/msmarco-clean-rand1688.jsonl",
+    "seed": 42,
+    "order": "shuffle",
+    "dose": {
+      "rows": 1688
+    }
+  },
+  "recipe_file": "cut/recipes/msmarco-clean-rand1688.yaml",
+  "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/msmarco-clean-rand1688.jsonl"
+}

@@ -1,0 +1,24 @@
+{
+ "output": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-squadv2-msmarco-rand-5834.jsonl",
+ "seed": 42,
+ "parts": [
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/fiqa-2073.jsonl",
+   "rows": 2073,
+   "positives": 3161
+  },
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/squadv2-2073.jsonl",
+   "rows": 2073,
+   "positives": 2089
+  },
+  {
+   "file": "/home/jsowa/work/FlagEmbedding/datasets/arms/msmarco-clean-rand1688.jsonl",
+   "rows": 1688,
+   "positives": 1688
+  }
+ ],
+ "rows": 5834,
+ "positives": 6938,
+ "duplicate_queries": 0
+}

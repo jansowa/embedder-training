@@ -1,0 +1,11 @@
+{
+ "pool": "/home/jsowa/work/FlagEmbedding/cache/huggingface_datasets/speakleash-squadv2-main-train_pl-7f2f680853ed240b/dataset.jsonl",
+ "exclude": "/home/jsowa/work/FlagEmbedding/datasets/arms/squadv2-2073.jsonl",
+ "gate": 23.5,
+ "seed": 42,
+ "burn_shuffle": 6219,
+ "pool_gated_unused": 53859,
+ "rows": 16000,
+ "positives": 16096,
+ "first_8000_are_n3": true
+}
