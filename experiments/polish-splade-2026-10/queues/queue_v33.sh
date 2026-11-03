@@ -9,6 +9,9 @@
 #   0  fiqa-pl of arm-distil-v9b-mmse-n1 heldout8 failed in v32 (disk full); the 7-task file is set aside and re-run.
 #   1  teacher scores (soup-v9b dot products, kitchen bridge/splade_teacher_scores.py, suffix -tv9b) for the four KD files.
 #   2  arms in priority order; each: sparsity, leaderboard tiny10; heldout8 when tiny10 >= 62.0.
+#   2b right after kl-n1v2: the English teacher (opensearch-neural-sparse-encoding-v2-distill) scores the ENGLISH twin of
+#      the same rows (datasets/arms/fiqa-plus-squadv2v2-en.jsonl, kitchen cut/build_english_twin.py) and the Polish student
+#      trains on those scores: distil-en-kl-n1v2 (score_scale auto) and -raw. Paired control: kl-n1v2. soup-v11-en in step 3.
 #   3  soups of the v9b slots (n1, n3, n4, long-easy, lenfar): soup-v11-kl (v32 KD arms), soup-v11-v2 (best of each slot by
 #      heldout8 among old / v2 / KD), soup-v11-nq (+ kl-n4xnq), soup-v11-n5 (16 k SQuAD arm in the n3 slot); held-out-2
 #      when heldout8 >= soup-v9b (42.56).
@@ -30,6 +33,10 @@ END=$(date -d "$V33_END" +%s)
 B_SCORE=2400; B_TRAIN=16000; B_TINY=900; B_H8=2700; B_NQ=16200; NQ_MIN_FREE_GB=35
 V9B_H8=42.56; H8_MIN=62.0
 LONG="models/long-easy-5070 models/arm-mnrl-fiqa-lenmatch-far"
+TEACHER=${TEACHER:-opensearch-project/opensearch-neural-sparse-encoding-v2-distill}   # English SPLADE, Apache-2.0, BEIR 0.528
+ROWS=datasets/arms/fiqa-plus-squadv2v2.jsonl
+TWIN=datasets/arms/fiqa-plus-squadv2v2-en.jsonl
+TEN=datasets/arms/fiqa-plus-squadv2v2-ten.jsonl
 
 fits() { [ $(( $(date +%s) + $1 )) -le "$END" ]; }
 step() { local need=$1; shift; fits "$need" || { log "no time before $V33_END for a ${need}s step; skipping: $*"; return 1; }; "$@"; }
@@ -124,6 +131,29 @@ done
 
 log "=== v33 step 2: arms ==="
 arm distil-v9b-kl-n1v2 "$C/distil_v9b_kl_n1v2.yaml" "kl-n1 old translation $(lbs arm-distil-v9b-kl-n1)"
+
+log "=== v33 step 2b: English teacher ($TEACHER) on the English twin of the n1v2 rows ==="
+# The twin (kitchen cut/build_english_twin.py: fiqa from datasets/fiqa/train_en.jsonl, SQuAD from the better-translation
+# file) has the same rows, order, ids and scores as $ROWS with the English texts; the teacher scores the twin and the
+# scores land in the Polish rows (bridge --texts-from). Student = polish-splade on the Polish texts. Paired control: kl-n1v2.
+if [ -s "$TWIN" ] && [ "$(wc -l < "$TWIN")" = "$(wc -l < "$ROWS")" ]; then
+    if [ -s "$TEN" ] && [ "$(wc -l < "$TEN")" = "$(wc -l < "$ROWS")" ]; then log "teacher scores: $TEN already present"
+    elif fits $B_SCORE; then
+        need_space; wait_gpu_free; wait_ram
+        log "teacher scores $TEACHER -> $TEN"; s=$SECONDS
+        ORPHAN_GUARD_EXEMPT=1 timeout -k 60 "$B_SCORE" "$PY" "$KITCHEN/bridge/splade_teacher_scores.py" --teacher "$TEACHER" \
+            --rows "$ROWS" --texts-from "$TWIN" --output "$TEN" --max-seq-length 512 --batch-size 16 > "$LOGS/tscore_$(basename "$TEN" .jsonl).log" 2>&1
+        e=$((SECONDS - s))
+        if [ -s "$TEN" ] && [ "$(wc -l < "$TEN")" = "$(wc -l < "$ROWS")" ]; then
+            log "teacher scores done in ${e}s: $(tail -1 "$LOGS/tscore_$(basename "$TEN" .jsonl).log")"; record "tscore:$(basename "$TEN")" ok "-" "${e}s"
+        else log "teacher scores FAILED after ${e}s (logs/tscore_$(basename "$TEN" .jsonl).log)"; record "tscore:$(basename "$TEN")" FAILED "-" "${e}s"; rm -f "$TEN"; fi
+    fi
+    if [ -s "$TEN" ]; then
+        arm distil-en-kl-n1v2 "$C/distil_en_kl_n1v2.yaml" "Polish teacher kl-n1v2 $(lbs arm-distil-v9b-kl-n1v2)"
+        arm distil-en-kl-n1v2-raw "$C/distil_en_kl_n1v2_raw.yaml" "scale auto $(lbs arm-distil-en-kl-n1v2)"
+    fi
+else log "  no English twin $TWIN; English-teacher arms skipped"; fi
+
 arm n3v2-squad8k "$C/n3v2_squad8k.yaml" "n3-5070 old translation $(lbs n3-5070)"
 arm distil-v9b-kl-n4xnq "$C/distil_v9b_kl_n4xnq.yaml" "arm-n4x-nq MNRL $(lbs arm-n4x-nq), kl-n4 $(lbs arm-distil-v9b-kl-n4)"
 arm distil-v9b-kl-n4v2 "$C/distil_v9b_kl_n4v2.yaml" "kl-n4 old translation $(lbs arm-distil-v9b-kl-n4)"
@@ -142,13 +172,18 @@ if [ -n "$S1" ] && [ -n "$S3" ] && [ -n "$S4" ]; then
     soup soup-v11-v2 "models/$S1" "models/$S3" "models/$S4" $LONG
     # shellcheck disable=SC2086
     [ -d models/arm-distil-v9b-kl-n4xnq ] && soup soup-v11-nq "models/$S1" "models/$S3" "models/$S4" $LONG models/arm-distil-v9b-kl-n4xnq
+    EN=$(best_of arm-distil-en-kl-n1v2 arm-distil-en-kl-n1v2-raw)
+    if [ -n "$EN" ] && [ "$(ge "$(lbv "$EN" heldout8)" "$(lbv "$S1" heldout8)")" = 1 ]; then
+        # shellcheck disable=SC2086
+        soup soup-v11-en "models/$EN" "models/$S3" "models/$S4" $LONG
+    else log "  English arm ${EN:-none} does not beat the n1 slot $S1 on heldout8; no soup-v11-en"; fi
     S5=$(best_of arm-n5v2-squad16k arm-distil-v9b-kl-n5v2)
     if [ -n "$S5" ] && [ "$(ge "$(lbv "$S5" heldout8)" "$(lbv "$S3" heldout8)")" = 1 ]; then
         # shellcheck disable=SC2086
         soup soup-v11-n5 "models/$S1" "models/$S5" "models/$S4" $LONG
     else log "  no 16 k SQuAD arm beats the n3 slot (${S5:-none}); no soup-v11-n5"; fi
 fi
-BEST=$(best_of soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5)
+BEST=$(best_of soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5 soup-v11-en)
 log "  best soup: ${BEST:-none} $(lbs "${BEST:-soup-v9b}") vs soup-v9b $(lbs soup-v9b)"
 
 log "=== v33 step 4: nq-pl (optional) ==="
@@ -176,19 +211,19 @@ SUM="$RESULTS_ROOT/summary_v33.md"
     echo
     echo "Paired files: *v2* = the same rows, order, ids and scores as the old arm, only the SQuAD texts come from the better translation."
     echo
-    "$PY" scripts/regime_task_table.py --models base-splade-wrapped n3-5070 arm-n3v2-squad8k arm-n5-squad16k arm-n5v2-squad16k arm-distil-v9b-kl-n1 arm-distil-v9b-kl-n1v2 arm-distil-v9b-mmse-n1 arm-distil-v9b-kl-n4 arm-distil-v9b-kl-n4v2 arm-n4x-nq arm-distil-v9b-kl-n4xnq arm-distil-v9b-kl-n5v2 soup-v11-distil soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5 soup-v9b \
+    "$PY" scripts/regime_task_table.py --models base-splade-wrapped n3-5070 arm-n3v2-squad8k arm-n5-squad16k arm-n5v2-squad16k arm-distil-v9b-kl-n1 arm-distil-v9b-kl-n1v2 arm-distil-en-kl-n1v2 arm-distil-en-kl-n1v2-raw arm-distil-v9b-mmse-n1 arm-distil-v9b-kl-n4 arm-distil-v9b-kl-n4v2 arm-n4x-nq arm-distil-v9b-kl-n4xnq arm-distil-v9b-kl-n5v2 soup-v11-distil soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5 soup-v11-en soup-v9b \
         --tasksets tiny10 heldout8 nqpl 2>> "$LOGS/queue_summary.log"
     echo; echo "## Held-out-2 (czywiesz, gpt35wiki, poquad, quora, treccovid)"; echo
-    "$PY" scripts/regime_task_table.py --models soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5 soup-v9b \
+    "$PY" scripts/regime_task_table.py --models soup-v11-kl soup-v11-v2 soup-v11-nq soup-v11-n5 soup-v11-en soup-v9b \
         --tasksets heldout2_czywiesz heldout2_gpt35wiki heldout2_poquad heldout2_quora heldout2_treccovid 2>> "$LOGS/queue_summary.log"
     echo; echo "## Active document dimensions (base 436)"; echo
-    "$PY" scripts/sparsity_table.py --model base=base --model arm-n3v2-squad8k --model arm-n5v2-squad16k --model arm-distil-v9b-kl-n1v2 --model arm-distil-v9b-kl-n4v2 --model arm-distil-v9b-kl-n4xnq --model arm-distil-v9b-kl-n5v2 --model soup-v11-kl --model soup-v11-v2 --model soup-v11-nq --model soup-v11-n5 2>> "$LOGS/queue_summary.log"
+    "$PY" scripts/sparsity_table.py --model base=base --model arm-n3v2-squad8k --model arm-n5v2-squad16k --model arm-distil-v9b-kl-n1v2 --model arm-distil-en-kl-n1v2 --model arm-distil-en-kl-n1v2-raw --model arm-distil-v9b-kl-n4v2 --model arm-distil-v9b-kl-n4xnq --model arm-distil-v9b-kl-n5v2 --model soup-v11-kl --model soup-v11-v2 --model soup-v11-nq --model soup-v11-n5 --model soup-v11-en 2>> "$LOGS/queue_summary.log"
     echo; echo "## Queue state (v33)"; echo; echo '```'
     grep -E "^(tscore|train|sparsity|regime:quantized):(.*v2|.*n4xnq|.*mmse-n1:heldout8|soup-v11)" "$STATE" | tail -40
     echo '```'
 } > "$SUM" 2>> "$LOGS/queue_v33.out"
 log "summary written to $SUM"
-for p in "$REGIMES_ROOT/quantized" "$RESULTS_ROOT/sparsity" "$SUM" "$EXP_ROOT/queues/queue_v33.sh" "$C"/*v2*.yaml "$C/distil_v9b_kl_n4xnq.yaml"; do
+for p in "$REGIMES_ROOT/quantized" "$RESULTS_ROOT/sparsity" "$SUM" "$EXP_ROOT/queues/queue_v33.sh" "$C"/*v2*.yaml "$C/distil_v9b_kl_n4xnq.yaml" "$C"/distil_en_*.yaml; do
     [ -e "$p" ] && git add "$p" 2>> "$LOGS/queue_v33.out"
 done
 if git commit -q -m "Add the v33 results: better SQuAD-v2 translation and SPLADE distillation on more rows" 2>> "$LOGS/queue_v33.out"; then
