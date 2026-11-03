@@ -1,0 +1,87 @@
+backend: sentence-transformers
+training_type: splade
+
+# Probe M (5070 Ti, the night after probe A): SPLADE from the MLM checkpoint of OPI-PIB/pl-ModernBERT-512-base
+# (22 layers, hidden 768, 149 M parameters, 50 008-dim MLM head over a 50 002-token SentencePiece vocabulary,
+# Apache-2.0; stronger than polish-roberta-base-v2 on 30 Polish tasks: 82.73 vs 79.42). Same data, same
+# recipe and the same effective batch (32) as mlm_probe_a.yaml, so the curves compare at equal steps:
+# gate GM at s05000 (160 k examples) against probe A's s05000. Differences from probe A: bf16 (ModernBERT
+# was pre-trained in bf16; fp16 overflows in its GeGLU layers), 8 x 4 with gradient checkpointing (3.7 x the
+# compute of distilroberta per token), 5 000 steps. The MLM head starts dense (26 k active dims on a raw
+# sentence), hence the quadratic lambda warm-up; the density regulator (regularizer_control) is used only when
+# the trainer has it (NEXT-SESSION-REGULARIZER.md), otherwise copy this file without that block (fallback).
+# Evaluation: PIRB_DTYPE=bf16 for the regimes (scripts/pirb_regime_eval.sh); the sparsity script is dtype-free.
+# Plan: docs/PLAN-5070-MLM-2026-11-03.md §12.
+runs_dir: runs/arm-modernbert-probe-m
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data:
+  - path: datasets/judged/msmarco-clean-20000.jsonl
+  - path: datasets/judged/msmarco-plain-20000.jsonl
+  - path: datasets/arms/squadv2-fresh-16000.jsonl
+  - path: datasets/arms/squadv2-2073.jsonl
+  - path: datasets/arms/fiqa-2073.jsonl
+dataset_mix_strategy: concat_shuffle
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - OPI-PIB/pl-ModernBERT-512-base
+
+hparams:
+  - learning_rate: 5e-5
+    num_train_epochs: 12          # upper bound; max_steps below caps the run at 5 000 steps
+    document_regularizer_weight: 0.003
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 256
+  max_steps: 5000
+  warmup_ratio: 0.05
+  lr_scheduler_type: constant_with_warmup
+  train_batch_size: 8
+  gradient_accumulation_steps: 4
+  batch_sampler: no_duplicates
+  gradient_checkpointing: true
+  bf16: true
+  fp16: false
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 6
+  query_regularizer_weight: 0.00015
+  save_strategy: steps
+  save_steps: 625
+  save_total_limit: 2
+  keep_step_checkpoints: [625, 1250, 1875, 2500, 3750, 5000]
+  keep_epoch_checkpoints: false
+  logging_steps: 25
+  splade_activation_stats:
+    interval_steps: 250
+    sample_size: 256
+    batch_size: 32
+    include_negatives: true
+  document_regularizer_threshold: null
+  query_regularizer_threshold: null
+  regularizer_control:
+    warmup_steps: 1000                   # lambda(t) = lambda_target * min(1, (t / 1000)^2), both weights
+    density:
+      reference_model: models/base-splade-wrapped
+      band: [0.75, 1.05]
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05
+      sample_size: 256
+      batch_size: 32
+      quantization_factor: 100
+  report_to:
+    - wandb
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

@@ -1,0 +1,47 @@
+backend: sentence-transformers
+training_type: splade
+
+# SPLADE-to-SPLADE distillation (queue v33): teacher soup-v9b, student sdadas/polish-splade, the n5 rows (fiqa-2073 + 16000 gated SQuAD-v2, better translation), teacher scores in pos_scores / neg_scores. Does distillation keep paying with the dose where MNRL did not (arm-n5-squad16k 60.99)? Loss sparse_distill_kl_div, FLOPS kept, 512 tokens, 10 negatives, 2 x 16.
+runs_dir: runs/arm-distil-v9b-kl-n5v2
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2v2-18k-tv9b.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
