@@ -1,0 +1,22 @@
+{
+  "regime": "quantized",
+  "label": "soup-v11-distil",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v11-distil",
+  "taskset": "tiny10",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3-cc": 18.5862,
+    "maupqa-mkqa": 65.0149,
+    "maupqa-poleval2021-pairs": 83.3366,
+    "maupqa-templates": 75.8572,
+    "poleval-2022-test-A-allegro-faq": 76.6385,
+    "poleval-2022-test-B-allegro-faq": 73.5408,
+    "arguana-pl": 45.2095,
+    "nfcorpus-pl": 32.3755,
+    "scifact-pl": 66.2572,
+    "gpt-exams": 98.6999
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 63.55162999999999,
+  "note": "reconstructed 2026-11-03 22:58 from logs/regimes/quantized_soup-v11-distil_tiny10.log (all 10 tasks ran; the output directory was removed by a git stash -u before the JSON was written)"
+}

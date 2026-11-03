@@ -1,0 +1,18 @@
+{
+  "regime": "quantized",
+  "label": "arm-distil-v9b-mmse-n1",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-distil-v9b-mmse-n1",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.3949,
+    "maupqa-multilingual-nli": 14.6864,
+    "mfaq": 63.3762,
+    "poleval-2022-test-a-legal-questions": 82.728,
+    "maupqa-wiki-def": 66.5926,
+    "scidocs-pl": 14.2547,
+    "maupqa-1z10": 48.7716
+  },
+  "n_tasks": 7,
+  "mean_ndcg@10": 44.40062857142857
+}
