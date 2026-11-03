@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "mlm-msmarco-ep1",
+  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-msmarco-ep1",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3-cc": 18.685032493830942,
+    "maupqa-mkqa": 61.65592262505023,
+    "maupqa-poleval2021-pairs": 80.67309486136486,
+    "maupqa-templates": 74.16124220944454,
+    "poleval-2022-test-A-allegro-faq": 71.36340924133157,
+    "poleval-2022-test-B-allegro-faq": 67.79546274946247,
+    "arguana-pl": 29.852896766663594,
+    "nfcorpus-pl": 32.511267148403164,
+    "scifact-pl": 58.105735627701016,
+    "gpt-exams": 98.12217595624634
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 59.292623967949865
+}

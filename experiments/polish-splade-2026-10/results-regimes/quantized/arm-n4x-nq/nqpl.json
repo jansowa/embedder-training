@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "arm-n4x-nq",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-n4x-nq",
+  "taskset": "nqpl",
+  "max_seq_length": null,
+  "tasks": {
+    "nq-pl": 43.78545315948676
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 43.78545315948676
+}
