@@ -1,0 +1,48 @@
+backend: sentence-transformers
+training_type: splade
+
+# English-teacher distillation (queue v34): the n1v2 rows (fiqa-2073 + squadv2-2073, better SQuAD translation) scored by an English SPLADE (opensearch-project/opensearch-neural-sparse-encoding-v2-distill, Apache-2.0, BEIR 0.528) on the ENGLISH twins of the same rows (kitchen cut/build_english_twin.py + bridge/splade_teacher_scores.py --texts-from, suffix -ten); the student sdadas/polish-splade trains on the Polish texts. Teacher units differ from the student's, so score_scale: auto fits the teacher margins to the student's at the start. Control: arm-distil-v9b-kl-n1v2 (Polish teacher soup-v9b, same rows). Loss sparse_distill_kl_div, FLOPS kept, 512 tokens, 10 negatives, 2 x 16.
+runs_dir: runs/arm-distil-en-kl-n1v2
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2v2-ten.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  score_scale: auto
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
