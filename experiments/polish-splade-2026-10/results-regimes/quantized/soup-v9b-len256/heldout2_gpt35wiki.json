@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "soup-v9b-len256",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9b",
+  "taskset": "heldout2_gpt35wiki",
+  "max_seq_length": 256,
+  "tasks": {
+    "maupqa-gpt3.5-wiki": 91.9466402478642
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 91.9466402478642
+}
