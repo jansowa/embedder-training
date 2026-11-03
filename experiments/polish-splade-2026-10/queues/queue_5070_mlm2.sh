@@ -47,7 +47,10 @@ if queue_alive mlm1; then
     log "waiting for queue mlm1 (pid $(cat "$LOGS/queue_mlm1.pid")) to exit"
     while queue_alive mlm1; do sleep 60; done; sleep 30
 fi
-wait_gpu_free
+# Probe A may still be training under another pid file name: wait for an idle card without the 40-minute cap of
+# wait_gpu_free (a second process next to the probe would OOM the 16 GB card or kill the probe).
+gpu_idle_strict() { while [ "$(gpu_busy)" != 0 ]; do sleep 60; done; sleep 20; [ "$(gpu_busy)" = 0 ] || gpu_idle_strict; }
+log "waiting for an idle GPU (no cap)"; gpu_idle_strict; log "GPU idle"
 
 # ---- 0. checks: nothing here is guessed; a missing piece stops the queue before it costs GPU time ---------------
 missing=0
@@ -101,7 +104,7 @@ PYEOF
 BENCH="runs/bench-speed/modernbert/head_bench"
 if [ "$HEAD" = auto ]; then
     if [ ! -f "$BENCH.json" ] && fits $B_BENCH; then
-        need_space; wait_gpu_free; wait_ram
+        need_space; gpu_idle_strict; wait_ram
         log "head benchmark (bf16, 8 x (1+1+6) x 256 tokens)"; s=$SECONDS
         ORPHAN_GUARD_EXEMPT=1 timeout -k 60 "$B_BENCH" "$PY" scripts/splade_head_bench.py --model "$MODEL_ID" --dtype bf16 \
             --rows datasets/judged/msmarco-clean-20000.jsonl --rows-per-step 32 --micro-batch 8 --negatives 6 --max-seq-length 256 \
