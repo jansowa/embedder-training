@@ -143,7 +143,7 @@ train() {  # train NAME CONFIG: train and copy final/ to models/arm-NAME
     [ -f "$cfg" ] || { log "train arm-$tag: config $cfg missing"; record "train:arm-$tag" SKIPPED "no config"; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram
     log "train arm-$tag"; local s=$SECONDS
-    timeout -k 60 "$TRAIN_TIMEOUT" "$PY" run_experiments.py --grid-configuration-file "$cfg" \
+    timeout -k 60 "${TRAIN_TIMEOUT_SECONDS:-$TRAIN_TIMEOUT}" "$PY" run_experiments.py --grid-configuration-file "$cfg" \
         --backend sentence-transformers --training-type splade > "$LOGS/arm_$tag.log" 2>&1
     local e=$((SECONDS - s)) ck
     ck=$(ls -1dt "runs/arm-$tag/sentence-transformers/splade"/*/final 2>/dev/null | head -1)
@@ -172,7 +172,7 @@ split_block() {  # split_block SRC TAG...: train all, tiny all, held-out for con
         holdout "arm-$src-rand" "models/arm-$src-rand"; holdout "arm-$best" "models/arm-$best"
     else log "split block $src: no split beats the random half by 0.4 on tiny; no held-out"; fi
 }
-regime_mean() { "$PY" -c "import json;d=json.load(open('$1'));print(round(d['mean_ndcg@10'],2) if d['mean_ndcg@10'] is not None else '', d['n_tasks'])" 2>/dev/null; }
+regime_mean() { "$PY" -c "import json;d=json.load(open('$1'));print(round(d['mean_ndcg@10'],2) if d['mean_ndcg@10'] is not None else 'nan', d['n_tasks'])" 2>/dev/null; }
 regime() {  # regime REGIME LABEL MODEL TASKSET [BATCH] [MAXLEN]: scripts/pirb_regime_eval.sh with the usual guards
     local reg="$1" label="$2" model="$3" ts="$4" bs="${5:-16}" maxlen="${6:-}" out="$REGIMES_ROOT/$1/$2/$4.json"
     [ -f "$out" ] && [ "$(regime_mean "$out" | awk '{print $2}')" != "0" ] && { log "regime $reg/$label/$ts: already present ($(regime_mean "$out"))"; return 0; }
