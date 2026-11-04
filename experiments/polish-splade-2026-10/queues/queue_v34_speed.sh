@@ -22,6 +22,16 @@ TAG=n4-3060-fast
 MAX_PEAK_GB=${MAX_PEAK_GB:-7.0}
 TOL=${TOL:-0.30}
 
+# Queued after v35 on 4.11: wait for the queues named in WAIT_FOR (default v35) to exit before doing anything.
+queue_alive() { local pf="$LOGS/queue_$1.pid"; [ -f "$pf" ] && ps -p "$(cat "$pf")" -o args= 2>/dev/null | grep -q "queue_$1.sh"; }
+for prev in ${WAIT_FOR:-v35}; do
+    if queue_alive "$prev"; then
+        log "waiting for queue $prev (pid $(cat "$LOGS/queue_$prev.pid")) to exit"
+        while queue_alive "$prev"; do sleep 60; done
+        sleep 30
+    fi
+done
+
 PAUSED=""
 resume() { if [ -n "$PAUSED" ]; then kill -CONT "$PAUSED" 2>/dev/null && log "queue v33 (pid $PAUSED) resumed with SIGCONT"; PAUSED=""; fi; }
 trap resume EXIT
