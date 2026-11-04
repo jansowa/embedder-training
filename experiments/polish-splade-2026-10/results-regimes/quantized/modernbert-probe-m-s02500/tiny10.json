@@ -1,0 +1,10 @@
+{
+  "regime": "quantized",
+  "label": "modernbert-probe-m-s02500",
+  "model": "/mnt/c/work/embedder-training-v2/models/modernbert-probe-m-s02500",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {},
+  "n_tasks": 0,
+  "mean_ndcg@10": null
+}

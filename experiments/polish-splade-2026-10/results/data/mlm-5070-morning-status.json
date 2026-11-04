@@ -1,0 +1,10 @@
+{
+  "written": "2026-11-04T06:04:20.579736+01:00",
+  "gate_G1": "REVIEW — stałe λ, gęstość poza 300–480; decyzja użytkownika, próg 59.5 nie obowiązuje wprost. tiny10(s18750)=52.44, s10000−s05000=+0.24; gęstości=249.16, 222.40, 221.02",
+  "probe_A_caveat": "Sonda A to około 9.8 epoki po tych samych 61 tys. przykładów. Spłaszczenie krzywej w ostatnich podwojeniach może wynikać z powtórzeń danych; nie stanowi samo w sobie dowodu osiągnięcia sufitu architektury.",
+  "training_head": "stock",
+  "benchmark_step_seconds": 2.2617717496662713,
+  "benchmark_peak_memory_gb": 6.623758792877197,
+  "training_started": "2026-11-04T01:34:05+01:00",
+  "training_finish_estimate_from_benchmark": "2026-11-04T04:42:33.858748+01:00"
+}

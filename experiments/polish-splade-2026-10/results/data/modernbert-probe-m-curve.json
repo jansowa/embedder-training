@@ -1,0 +1,76 @@
+{
+  "model": "modernbert-probe-m",
+  "head": "stock",
+  "config": "experiments/polish-splade-2026-10/configs/next/5070/modernbert_probe_m.yaml",
+  "examples_per_step": 32,
+  "points": [
+    {
+      "step": 625,
+      "examples": 20000,
+      "label": "modernbert-probe-m-s00625",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": "mlm-probe-a-s00625",
+      "probe_a_tiny10": 54.71,
+      "probe_a_dims": 418.5
+    },
+    {
+      "step": 1250,
+      "examples": 40000,
+      "label": "modernbert-probe-m-s01250",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": "mlm-probe-a-s01250",
+      "probe_a_tiny10": 54.73,
+      "probe_a_dims": 434.9
+    },
+    {
+      "step": 1875,
+      "examples": 60000,
+      "label": "modernbert-probe-m-s01875",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": "mlm-probe-a-s01875",
+      "probe_a_tiny10": 55.7,
+      "probe_a_dims": 390.8
+    },
+    {
+      "step": 2500,
+      "examples": 80000,
+      "label": "modernbert-probe-m-s02500",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": "mlm-probe-a-s02500",
+      "probe_a_tiny10": 56.33,
+      "probe_a_dims": 297.2
+    },
+    {
+      "step": 3750,
+      "examples": 120000,
+      "label": "modernbert-probe-m-s03750",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": null,
+      "probe_a_tiny10": null,
+      "probe_a_dims": null
+    },
+    {
+      "step": 5000,
+      "examples": 160000,
+      "label": "modernbert-probe-m-s05000",
+      "tiny10": null,
+      "n_tasks": 0,
+      "dims": 0.0,
+      "probe_a_label": "mlm-probe-a-s05000",
+      "probe_a_tiny10": 55.37,
+      "probe_a_dims": 310.6
+    }
+  ],
+  "gate_GM": "no s05000 measurement",
+  "written": "2026-11-04 06:26"
+}

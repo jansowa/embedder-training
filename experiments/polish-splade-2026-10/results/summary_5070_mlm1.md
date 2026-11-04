@@ -10,14 +10,14 @@ Przebieg z batchem 16 przerwano z powodu przekroczenia VRAM i używania pamięci
 
 | krok | przykłady | tiny10 | wym./dok (PIRB) | λ_d | gęstość próbki / baza | mkqa | pairs | templates |
 |---:|---:|---:|---:|---:|---|---:|---:|---:|
-| 625.00 | 20000.00 | 54.71 | 418.49 | 0.00 | 215.54 / brak pomiaru bazy | 47.81 | 74.23 | 67.37 |
-| 1250.00 | 40000.00 | 54.73 | 434.86 | 0.00 | 338.83 / brak pomiaru bazy | 53.16 | 75.69 | 70.59 |
-| 1875.00 | 60000.00 | 55.70 | 390.82 | 0.00 | 329.93 / brak pomiaru bazy | 51.80 | 76.50 | 70.31 |
-| 2500.00 | 80000.00 | 56.33 | 297.15 | 0.00 | 236.86 / brak pomiaru bazy | 51.55 | 76.26 | 71.02 |
-| 5000.00 | 160000.00 | 55.37 | 310.58 | 0.00 | 230.68 / brak pomiaru bazy | 52.11 | 75.62 | 69.90 |
-| 10000.00 | 320000.00 | 55.62 | 249.16 | 0.00 | 178.88 / brak pomiaru bazy | 51.54 | 75.61 | 69.33 |
-| 15000.00 | 480000.00 | 52.94 | 222.40 | 0.00 | 151.50 / brak pomiaru bazy | 45.52 | 72.40 | 64.47 |
-| 18750.00 | 600000.00 | 52.44 | 221.02 | 0.00 | 146.09 / brak pomiaru bazy | 44.91 | 68.82 | 64.43 |
+| 625.00 | 20000.00 | 54.71 | 418.49 | 0.003 | 215.54 / brak pomiaru bazy | 47.81 | 74.23 | 67.37 |
+| 1250.00 | 40000.00 | 54.73 | 434.86 | 0.003 | 338.83 / brak pomiaru bazy | 53.16 | 75.69 | 70.59 |
+| 1875.00 | 60000.00 | 55.70 | 390.82 | 0.003 | 329.93 / brak pomiaru bazy | 51.80 | 76.50 | 70.31 |
+| 2500.00 | 80000.00 | 56.33 | 297.15 | 0.003 | 236.86 / brak pomiaru bazy | 51.55 | 76.26 | 71.02 |
+| 5000.00 | 160000.00 | 55.37 | 310.58 | 0.003 | 230.68 / brak pomiaru bazy | 52.11 | 75.62 | 69.90 |
+| 10000.00 | 320000.00 | 55.62 | 249.16 | 0.003 | 178.88 / brak pomiaru bazy | 51.54 | 75.61 | 69.33 |
+| 15000.00 | 480000.00 | 52.94 | 222.40 | 0.003 | 151.50 / brak pomiaru bazy | 45.52 | 72.40 | 64.47 |
+| 18750.00 | 600000.00 | 52.44 | 221.02 | 0.003 | 146.09 / brak pomiaru bazy | 44.91 | 68.82 | 64.43 |
 
 ## Kotwice
 
@@ -120,3 +120,7 @@ REVIEW — stałe λ, gęstość poza 300–480; decyzja użytkownika, próg 59.
 | mlm-probe-a-s18750 | 221.0 | ×0.51 | 332 |  |  |  |  |  |
 
 Źródło próbki kosztu: index_cost.json (1350 pasaży i tyle samo zapytań).
+
+## Zastrzeżenie do G1: powtarzanie danych
+
+Sonda A to około 9.8 epoki po tych samych 61 tys. przykładów. Spłaszczenie krzywej w ostatnich podwojeniach może wynikać z powtórzeń danych; nie stanowi samo w sobie dowodu osiągnięcia sufitu architektury.
