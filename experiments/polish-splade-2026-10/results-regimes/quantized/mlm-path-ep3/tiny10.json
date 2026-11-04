@@ -1,21 +1,21 @@
 {
   "regime": "quantized",
   "label": "mlm-path-ep3",
-  "model": "/home/jsowa/work/FlagEmbedding/models/mlm-path-ep3",
+  "model": "/mnt/c/work/embedder-training-v2/models/mlm-path-ep3",
   "taskset": "tiny10",
   "max_seq_length": 512,
   "tasks": {
-    "maupqa-gpt3-cc": 18.227773370987467,
-    "maupqa-mkqa": 53.298791143437285,
-    "maupqa-poleval2021-pairs": 78.52738960364007,
-    "maupqa-templates": 70.37214904487308,
-    "poleval-2022-test-A-allegro-faq": 65.86501718592066,
-    "poleval-2022-test-B-allegro-faq": 62.239215210145545,
-    "arguana-pl": 24.82203052059823,
-    "nfcorpus-pl": 29.5527182193242,
-    "scifact-pl": 57.09288631660563,
-    "gpt-exams": 96.28056313466188
+    "maupqa-gpt3-cc": 18.23228774300249,
+    "maupqa-mkqa": 53.26339995090924,
+    "maupqa-poleval2021-pairs": 78.52618325247083,
+    "maupqa-templates": 70.36396877620442,
+    "poleval-2022-test-A-allegro-faq": 65.8793567540658,
+    "poleval-2022-test-B-allegro-faq": 62.30517663747358,
+    "arguana-pl": 24.761956885958096,
+    "nfcorpus-pl": 29.559354895357735,
+    "scifact-pl": 57.008485571549784,
+    "gpt-exams": 96.28416698478685
   },
   "n_tasks": 10,
-  "mean_ndcg@10": 55.62785337501941
+  "mean_ndcg@10": 55.61843374517789
 }

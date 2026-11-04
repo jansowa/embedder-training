@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "mlm-probe-a-s01875",
+  "model": "/mnt/c/work/embedder-training-v2/models/mlm-probe-a-s01875",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3-cc": 17.96253335634622,
+    "maupqa-mkqa": 51.80169124586461,
+    "maupqa-poleval2021-pairs": 76.50366740983819,
+    "maupqa-templates": 70.31384350226372,
+    "poleval-2022-test-A-allegro-faq": 64.28001438066386,
+    "poleval-2022-test-B-allegro-faq": 62.12199932062208,
+    "arguana-pl": 29.669629924685324,
+    "nfcorpus-pl": 29.50015498891113,
+    "scifact-pl": 59.613569801994146,
+    "gpt-exams": 95.27896200559202
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 55.70460659367812
+}
