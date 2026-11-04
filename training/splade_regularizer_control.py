@@ -37,6 +37,7 @@ BUILTIN_WEIGHT_SCHEDULER_NAMES = frozenset({"SpladeRegularizerWeightSchedulerCal
 _TOP_LEVEL_KEYS = frozenset({"warmup_steps", "density"})
 _DENSITY_KEYS = frozenset(
     {
+        "start_step",
         "reference_model",
         "reference_dims",
         "band",
@@ -83,6 +84,7 @@ class DensityControlConfig:
     batch_size: int
     quantization_factor: int
     max_seq_length: int | None
+    start_step: int | None = None
 
 
 @dataclass(frozen=True)
@@ -223,6 +225,11 @@ def _parse_density(raw: Any) -> DensityControlConfig | None:
     max_seq_length = values["max_seq_length"]
     if max_seq_length is not None:
         max_seq_length = _positive_int(values, "max_seq_length", prefix)
+    start_step = values.get("start_step")
+    if start_step is not None:
+        start_step = _as_int(start_step, f"{prefix}start_step")
+        if start_step < 0:
+            raise _error(f"{prefix}start_step", "must be >= 0.")
 
     return DensityControlConfig(
         reference_model=reference_model,
@@ -237,6 +244,7 @@ def _parse_density(raw: Any) -> DensityControlConfig | None:
         batch_size=_positive_int(values, "batch_size", prefix),
         quantization_factor=_positive_int(values, "quantization_factor", prefix),
         max_seq_length=max_seq_length,
+        start_step=start_step,
     )
 
 
@@ -557,7 +565,7 @@ class RegularizerControlCallback:
         density = self.config.density
         return (
             density is not None
-            and step >= self.config.warmup_steps
+            and step >= (self.config.warmup_steps if density.start_step is None else density.start_step)
             and step > 0
             and step % density.interval_steps == 0
             and step != self.last_control_step
