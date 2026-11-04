@@ -1,6 +1,6 @@
 # SPLADE initialization: D0, E1–E4
 
-Updated: 2026-11-04T22:30:14+01:00
+Updated: 2026-11-04T23:02:39+01:00
 
 All new trials: stock head, BF16, physical batch 8 × accumulation 4, 256 tokens, six negatives, same five data files. E2–E4: scale=1, backbone/head LR=2e-5, LR warmup 250 steps. E1 is diagnostic scale=0.0001, LR=5e-5, no regularization. Sparsity: FP32, 512 tokens, 300 passages per tiny task; tiny10: BF16, quantized, 512 tokens. Only complete 10-task means count as tiny10 scores.
 
@@ -18,6 +18,7 @@ D0 uses the same first eight eligible prepared rows for both models, eval mode (
 | run | c | initial scores median / max | initial loss | dims s250 / s500 | rank loss s500 | tiny10 s500 | verdict |
 |---|---:|---|---:|---|---:|---:|---|
 | e1 | — | — / — | — | — / 36290.978 | 2.179 | — | nonzero; quality/density assessed separately |
+| e2 | 11.745 | 2.450 / 148.438 | 3.808 | 3725.275 / 4014.277 | 0.875 | — | nonzero; quality/density assessed separately |
 
 Recipe verdict: **pending**
 
