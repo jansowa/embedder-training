@@ -51,6 +51,10 @@ class SentenceTransformersConfigError(ValueError):
 
 
 COMMON_TRAINING_KEYS = {
+    "splade_decoder_bias_shift",
+    "splade_decoder_bias_target",
+    "splade_train_only_head",
+    "splade_head_learning_rate",
     "splade_regularizer_scheduler",
     "batch_sampler",
     "bf16",
@@ -109,6 +113,7 @@ COMMON_TRAINING_KEYS = {
     "train_data",
     "trust_remote_code",
     "warmup_ratio",
+    "warmup_steps",
     "wandb_run_id",
     "weight_decay",
 }
@@ -670,6 +675,7 @@ def _training_args(output_dir: Path, backend_config: dict[str, Any], training_ar
         "report_to": backend_config.get("report_to", []),
     }
     optional_training_args: dict[str, Any] = {
+        "warmup_steps": int,
         "dataloader_persistent_workers": _as_bool,
         "dataloader_pin_memory": _as_bool,
         "dataloader_prefetch_factor": int,
@@ -979,6 +985,18 @@ class SpladeActivationStatsCallback:
             if logs is not None:
                 logs.update(metrics)
             merge_into_log_history(state, metrics)
+            threshold = getattr(self, "stop_below", None)
+            if threshold is not None and metrics:
+                from training.backends.splade_initialization import update_density_streak
+                value = metrics.get(f"{self.prefix}/document_active_dims_mean")
+                self._low_density_streak = update_density_streak(getattr(self, "_low_density_streak", 0), value)
+                if self._low_density_streak >= 2:
+                    control.should_training_stop = True
+                    control.should_save = True
+                    reason = {"step": step, "mean_active_dims": value, "reason": "two consecutive density measurements below 5"}
+                    (Path(args.output_dir) / "splade_density_stop.json").write_text(json.dumps(reason, indent=2) + "\n")
+                    print(f"[DENSITY STOP] {reason}", flush=True)
+
         return control
 
     def on_train_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
@@ -1078,7 +1096,7 @@ def _build_splade_activation_stats_callback(
                 if key.startswith("negative_") and value:
                     document_candidates.append(value)
     document_texts = _even_sample(document_candidates, sample_size)
-    return SpladeActivationStatsCallback(
+    callback = SpladeActivationStatsCallback(
         model=model,
         query_texts=query_texts,
         document_texts=document_texts,
@@ -1089,6 +1107,11 @@ def _build_splade_activation_stats_callback(
         log_on_train_end=bool(stats_config["log_on_train_end"]),
         prefix=str(stats_config["prefix"]),
     )
+    if stats_config.get("stop_below") is not None:
+        if float(stats_config["stop_below"]) != 5:
+            raise SentenceTransformersConfigError("The diagnostic density guard uses threshold 5.")
+        callback.stop_below = 5.0
+    return callback
 
 
 def _model_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
@@ -1528,6 +1551,10 @@ def run_splade_training(request: TrainingRequest) -> int:
         label_layout=label_layout,
     )
     model = _build_splade_model(SparseEncoder, MLMTransformer, SpladePooling, str(model_name_or_path), backend_config)
+    from training.backends.splade_initialization import initialize_decoder, configure_trainable, configure_head_optimizer
+    if resume_from_checkpoint is None:
+        initialize_decoder(model, loaded.rows, backend_config, output_dir)
+    configure_trainable(model, backend_config)
     fused_head = _install_splade_fused_head(model, backend_config)
     if fused_head is not None and is_main_process():
         print(f"[INFO] SPLADE fused head (sparse gradient, training only): {fused_head}.", flush=True)
@@ -1578,6 +1605,7 @@ def run_splade_training(request: TrainingRequest) -> int:
         train_dataset=train_dataset,
         loss=loss,
     )
+    configure_head_optimizer(trainer, model, backend_config)
     _configure_splade_regularizer_scheduler(trainer, backend_config)
     activation_stats_callback = _build_splade_activation_stats_callback(model, loaded.rows, backend_config)
     if activation_stats_callback is not None and hasattr(trainer, "add_callback"):
