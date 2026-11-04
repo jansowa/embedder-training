@@ -87,3 +87,29 @@ def test_partial_checkpoint_never_becomes_s500(tmp_path,monkeypatch):
     night.snapshot_results('test',row)
     assert row['trained_steps']==100
     assert not (tmp_path/'models/modernbert-init-test-s00500').exists()
+
+
+def test_budget_never_launches_child_after_deadline(monkeypatch):
+    monkeypatch.setattr(night,'remaining',lambda state:0)
+    def forbidden(*args,**kwargs):
+        raise AssertionError('a child must not start after the GPU deadline')
+    monkeypatch.setattr(night.subprocess,'Popen',forbidden)
+    with pytest.raises(night.BudgetExpired):
+        night.command({},['python','train.py'],'unused.log',100)
+
+
+def test_partial_save_without_trainer_state_is_not_exported(tmp_path,monkeypatch):
+    monkeypatch.setattr(night,'ROOT',tmp_path)
+    run=tmp_path/'runs/modernbert-init-test-b8/run'
+    complete=run/'checkpoint-250'
+    complete.mkdir(parents=True)
+    (complete/'model.safetensors').write_bytes(b'weights250')
+    (complete/'trainer_state.json').write_text(json.dumps({'global_step':250}))
+    broken=run/'checkpoint-500'
+    broken.mkdir()
+    (broken/'model.safetensors').write_bytes(b'partial500')
+    seen=[]
+    monkeypatch.setattr(night.base,'export_model',lambda src,dst:seen.append(dst.name))
+    row={'physical_batch':8,'requested_steps':500}
+    night.snapshot_results('test',row)
+    assert seen==['modernbert-init-test-s00250']

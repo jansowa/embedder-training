@@ -363,13 +363,13 @@ def trial(state,name,recipe,branch,*,steps=500,source=None,seed=42):
     if row.get('phase')=='finished':
         return row
     row['phase']='training'; report(state)
-    if remaining(state)<600:
+    if remaining(state)<1000:
         row['phase']='skipped: time budget'; row['error']='not enough time for a checkpoint'
         report(state)
         raise BudgetExpired('insufficient budget for a meaningful new training/checkpoint')
     try:
         if not exported(name,steps).exists():
-            for batch in (8,4):
+            for batch in ((4,) if recipe.get('initial_batch')==4 else (8,4)):
                 cfg = configuration(name,recipe,steps=steps,source=source,batch=batch,seed=seed)
                 row['physical_batch']=batch
                 result = command(state,[PY,'-m','training.train','--backend','sentence-transformers','--training-type','splade',
@@ -422,9 +422,19 @@ def finish_recommendation(state):
 
 def run(state):
     import_primary(state)
-    branch = choose_branch(state['experiments'].get('e2',{}).get('classification',{}),state['experiments'].get('e3',{}).get('classification',{}))
-    state['branch']=branch; report(state)
     regular = {'lambda_d':0.003,'lambda_q':0.00015,'lambda_warmup':1000}
+    inputs={name:state['experiments'].get(name,{}) for name in ('e2','e3')}
+    for name,recipe in [('e2',{'lambda_d':0.0,'lambda_q':0.0}),('e3',regular)]:
+        log=ROOT/'logs'/f'init_{name}_train.log'
+        if not exported(name,500).exists() and log.exists() and is_oom(log.read_text(errors='replace')):
+            try:
+                inputs[name]=trial(state,f'n2-{name}-oom-retry',dict(recipe,initial_batch=4),'OOM recovery')
+            except BudgetExpired:
+                finish_recommendation(state);commit(state,'deadline');return
+    branch = choose_branch(inputs['e2'].get('classification',{}),inputs['e3'].get('classification',{}))
+    state['branch']=branch
+    state['branch_inputs']={name:row.get('classification',{}) for name,row in inputs.items()}
+    report(state)
     selected, source = None, None
     try:
         if branch=='A':
@@ -468,6 +478,13 @@ def run(state):
             for name,recipe in [('n2-e6',dict(regular,target=200)),('n2-e7',dict(regular,lr=1e-5,head_lr=2e-5))]:
                 if remaining(state)>2400:
                     trial(state,name,recipe,branch)
+        # A/B may finish before morning after dense evaluations are skipped.
+        # Use the remaining budget for reproducibility, not a new long run.
+        if branch in ('A','B') and selected:
+            seed=43
+            while remaining(state)>1800 and seed<=49:
+                trial(state,f'n2-repeat-seed{seed}',selected,branch,source=source,seed=seed)
+                seed+=1
     except BudgetExpired as exc:
         state['errors'].append(str(exc))
     finally:
