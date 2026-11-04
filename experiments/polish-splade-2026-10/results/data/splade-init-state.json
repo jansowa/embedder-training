@@ -1,0 +1,10 @@
+{
+  "experiments": {},
+  "errors": [],
+  "updated": "2026-11-04T22:11:53+01:00",
+  "d0_process": {
+    "rc": 0,
+    "seconds": 40.0,
+    "log": "logs/init_d0.log"
+  }
+}
