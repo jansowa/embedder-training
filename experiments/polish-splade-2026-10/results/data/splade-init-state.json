@@ -1,7 +1,36 @@
 {
-  "experiments": {},
+  "experiments": {
+    "e1": {
+      "phase": "finished",
+      "run": "runs/modernbert-control-noreg-scale1e-4/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-5e-5-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-213337",
+      "initialization": null,
+      "trained_steps": 500,
+      "rank_loss_500": 2.1788,
+      "density_stop": null,
+      "diagnostic_process": {
+        "rc": 0,
+        "seconds": 30.0,
+        "log": "logs/init_e1_diagnosis.log"
+      },
+      "nonzero_fp32_bf16": true,
+      "sparsity_process_500": {
+        "rc": 0,
+        "seconds": 50.1,
+        "log": "logs/init_e1_s500_sparsity.log"
+      },
+      "dims_500": 36290.97814814815,
+      "tiny_process_500": {
+        "rc": -15,
+        "seconds": 996.0,
+        "log": "logs/init_e1_s500_tiny10.log"
+      },
+      "tiny10_500": null,
+      "stable_training": true,
+      "verdict": "nonzero; quality/density assessed separately"
+    }
+  },
   "errors": [],
-  "updated": "2026-11-04T22:11:53+01:00",
+  "updated": "2026-11-04T22:30:14+01:00",
   "d0_process": {
     "rc": 0,
     "seconds": 40.0,
