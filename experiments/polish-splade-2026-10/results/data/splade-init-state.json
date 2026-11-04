@@ -422,10 +422,11 @@
     }
   },
   "errors": [],
-  "updated": "2026-11-04T23:58:45+01:00",
+  "updated": "2026-11-04T23:59:07+01:00",
   "d0_process": {
     "rc": 0,
     "seconds": 40.0,
     "log": "logs/init_d0.log"
-  }
+  },
+  "recipe_verdict": "NOT ESTABLISHED; no night-3 launch"
 }
