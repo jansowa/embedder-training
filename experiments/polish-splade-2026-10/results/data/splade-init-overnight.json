@@ -1747,7 +1747,7 @@
       "time": "2026-11-04T23:02:37+01:00"
     }
   },
-  "updated": "2026-11-05T05:21:28+01:00",
+  "updated": "2026-11-05T05:21:48+01:00",
   "branch": "A",
   "branch_inputs": {
     "e2": {
@@ -1768,5 +1768,6 @@
       "BAND": true,
       "OK": true
     }
-  }
+  },
+  "recommendation": "No stable recipe established by the longer E5 criterion; best short OK probe: n2-e6. Next hypothesis: tune regularization strength/start while retaining calibrated initialization."
 }

@@ -34,7 +34,7 @@ E1 initialization scores, if not explicitly measured before its original trainin
 
 ## Overnight adaptive probes (second queue)
 
-Updated: 2026-11-05T05:21:28+01:00; GPU deadline: **2026-11-05T08:00:00+01:00**. Branch: **A**.
+Updated: 2026-11-05T05:21:48+01:00; GPU deadline: **2026-11-05T08:00:00+01:00**. Branch: **A**.
 
 ALIVE = completed s00500, nonzero FP32 diagnostic vectors, mean document dimensions ≥20; BAND = 150–900; OK = ALIVE + BAND + complete tiny10 ≥50. Above 1500 dimensions tiny10 is skipped. Missing/partial evaluations are not numerical scores.
 
@@ -54,7 +54,7 @@ ALIVE = completed s00500, nonzero FP32 diagnostic vectors, mean document dimensi
 | n2-repeat-seed48 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
 | n2-repeat-seed49 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
 
-Recommendation pending; no night-3 training will be started.
+No stable recipe established by the longer E5 criterion; best short OK probe: n2-e6. Next hypothesis: tune regularization strength/start while retaining calibrated initialization.
 
 New overnight controllers use reference_dims=436 and band [0.75,1.05] (327–457.8 dimensions), as requested. Earlier E3 measured its reference on the training sample (about 317.6); this change is explicit and comparisons are not single-variable ablations. E3c starts density control at step 250 independently of lambda warmup. E4+lambda and its E5 start from head-only s00500, so lambda warmup starts at unfreezing. FP32 precision control uses the same numeric bias shift as its BF16 counterpart when available. OOM fallback preserves effective batch 32 but changes the in-batch negative pool; see raw state.
 
