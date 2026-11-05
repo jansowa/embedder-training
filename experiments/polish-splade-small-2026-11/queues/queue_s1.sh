@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Queue s1 (3060 Ti 8 GB; NOT STARTED, needs the user's go): the small-SPLADE probe night (docs/PLAN-2026-11-04.md §5,
+# Queue s1 (3060 Ti 8 GB; started 5.11 on the user's go, waits for the live main-line queues): the small-SPLADE probe night (docs/PLAN-2026-11-04.md §5,
 # revised 5.11 after the review in STATUS-DISTILL-2026-11-05.md).
 # Does representation distillation on unlabeled text turn a pruned soup-v9b into a usable student, and does the
 # staged recipe (short token-KL repair, then pooled-MSE + token-KL) beat the combined loss from the start?
-#   0  reference results copied into this series' results-regimes; students; GPU memory check of the fast head
+#   0  reference results copied into this series' results-regimes; students; fidelity of hl-r256-w on cuda in fp32 /
+#      fp16 / fp16 with the fp32 head path (what stock inference costs); GPU memory check of the fast head
 #   1  control: b4-l0125-f3072 (layers 0,1,2,5, FFN 3072, no KD) -> stage 3 only (ranking KL on n4 rows) -> tiny10
 #   2  b4-l0125-f3072 staged: s1 token KL (KD_S1_ITEMS texts) -> s2 pooled MSE + token KL x0.3 (KD_S2_ITEMS) -> s3 -> tiny10
 #   3  b4-l0125-f3072 joint: one KD stage with the combined loss on KD_S1_ITEMS + KD_S2_ITEMS texts -> s3 -> tiny10
@@ -16,7 +17,7 @@
 # "b4 vs control" and "staged vs joint", not "ALBERT vs b4".
 # Budget (3060 Ti, estimates): KD ~35 min per arm at 200 k texts, stage 3 with the fast head ~20-40 min, tiny10 ~10 min,
 # measurements ~5 min per arm -> 4-5 h in all.
-# Start (only when the user says so): setsid nohup bash experiments/polish-splade-small-2026-11/queues/queue_s1.sh > logs/queue_s1.out 2>&1 < /dev/null &
+# Start: setsid nohup bash experiments/polish-splade-small-2026-11/queues/queue_s1.sh > logs/queue_s1.out 2>&1 < /dev/null &
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 export QUEUE_TAG=s1 MIN_RAM_GB=6
@@ -77,6 +78,22 @@ build_student() {  # build_student NAME ARGS...: distill.student from soup-v9b o
 build_student b4-l0125-f3072 --keep-layers 0,1,2,5
 build_student b4-l0125-f1536-hl-r256-w --keep-layers 0,1,2,5 --intermediate-size 1536 --embedding-rank 256 --head-layer \
     --token-counts "$EXP_ROOT/results/token_counts_kd_v1_sample.json" --calibration-texts datasets/synth/chunks_pool.jsonl --calibration-sample 96
+
+fp16_check() {  # the head-layer student in three modes on cuda: fp32, stock fp16 (what inference sees), fp16 with the fp32 head path (the KD trainer)
+    local st=models/students/b4-l0125-f1536-hl-r256-w mode out line=""
+    for mode in "fp32" "fp16" "fp16 --fp32-head"; do
+        set -- $mode
+        out="$RESULTS_ROOT/fidelity/b4-l0125-f1536-hl-r256-w.cuda-$1${2:+-fp32head}.json"
+        [ -f "$out" ] || timeout -k 60 1800 "$PY" -m distill.fidelity --teacher models/soup-v9b --student "$st" --texts "$CORPUS" --n 256 \
+            --device cuda --dtype "$1" ${2:-} --output "$out" > "$LOGS/fidelity_fp16check_$1${2:+-fp32head}.log" 2>&1
+        if [ -f "$out" ]; then
+            line+="[$mode] $("$PY" -c "import json;a=json.load(open('$out'))['kinds']['all'];print('cos %.4f l1 %.3f dims %.0f/%.0f' % (a['cosine']['mean'], a['l1_relative_error']['mean'], a['student_active_dims']['mean'], a['teacher_active_dims']['mean']))")  "
+            record "fidelity:hl-r256-w.cuda-$1${2:+-fp32head}" ok "-" "-"
+        else line+="[$mode] FAILED  "; record "fidelity:hl-r256-w.cuda-$1${2:+-fp32head}" FAILED "-" "-"; fi
+    done
+    log "fp16 check hl-r256-w (256 corpus texts, cuda): $line"
+}
+fp16_check
 
 memcheck() {  # memcheck STUDENT: peak GB of one stage-3 step with the fast head and no checkpointing; "OOM" on failure
     "$PY" scripts/splade_head_memcheck.py --model "$1" --head exact --no-checkpointing --max-seq-length 512 --columns 12 --micro-batch 2 \
