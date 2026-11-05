@@ -1,0 +1,46 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "base": {
+      "doc_active_mean": 450.0451851851852,
+      "doc_active_median": 432.0,
+      "query_active_mean": 138.58,
+      "query_active_median": 76.0,
+      "postings_per_query": 16414.82074074074,
+      "flops": 2.643812894821167,
+      "doc_weight_sum_mean": 188.88064575195312,
+      "query_weight_sum_mean": 61.94696807861328
+    },
+    "kl-n1v2": {
+      "doc_active_mean": 442.15777777777777,
+      "doc_active_median": 439.5,
+      "query_active_mean": 153.32296296296298,
+      "query_active_median": 94.0,
+      "postings_per_query": 18881.287407407406,
+      "flops": 3.4293980598449707,
+      "doc_weight_sum_mean": 204.96258544921875,
+      "query_weight_sum_mean": 76.6888427734375
+    },
+    "qreg4x": {
+      "doc_active_mean": 434.7303703703704,
+      "doc_active_median": 434.0,
+      "query_active_mean": 150.49851851851852,
+      "query_active_median": 92.0,
+      "postings_per_query": 18185.942962962963,
+      "flops": 3.3431990146636963,
+      "doc_weight_sum_mean": 202.83251953125,
+      "query_weight_sum_mean": 75.61509704589844
+    },
+    "qreg10x": {
+      "doc_active_mean": 442.37851851851855,
+      "doc_active_median": 440.5,
+      "query_active_mean": 151.44444444444446,
+      "query_active_median": 92.0,
+      "postings_per_query": 18398.96148148148,
+      "flops": 3.3518383502960205,
+      "doc_weight_sum_mean": 205.56027221679688,
+      "query_weight_sum_mean": 75.4633560180664
+    }
+  }
+}
