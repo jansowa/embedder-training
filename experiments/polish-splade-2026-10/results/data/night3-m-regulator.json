@@ -1,0 +1,172 @@
+{
+  "config": {
+    "warmup_steps": 1000,
+    "density": {
+      "reference_model": null,
+      "reference_dims": 436.0,
+      "band": [
+        0.75,
+        1.05
+      ],
+      "interval_steps": 250,
+      "factor": 1.25,
+      "min_document_weight": 0.0005,
+      "max_document_weight": 0.03,
+      "query_ratio": 0.05,
+      "sample_size": 256,
+      "batch_size": 8,
+      "quantization_factor": 100,
+      "max_seq_length": null,
+      "start_step": null
+    }
+  },
+  "target_document_weight": 0.003,
+  "target_query_weight": 0.00015,
+  "document_dims_reference": 436.0,
+  "events": [
+    {
+      "step": 0,
+      "event": "train_begin",
+      "document_weight": 0.0,
+      "query_weight": 0.0
+    },
+    {
+      "step": 1000,
+      "event": "warmup_end",
+      "document_weight": 0.003,
+      "query_weight": 0.00015
+    },
+    {
+      "step": 1000,
+      "event": "control",
+      "document_weight": 0.0024000000000000002,
+      "query_weight": 0.00012000000000000002,
+      "document_dims_mean": 301.12890625,
+      "document_dims_ratio": 0.6906626290137615,
+      "action": "down"
+    },
+    {
+      "step": 1250,
+      "event": "control",
+      "document_weight": 0.0019200000000000003,
+      "query_weight": 9.600000000000002e-05,
+      "document_dims_mean": 293.94921875,
+      "document_dims_ratio": 0.6741954558486238,
+      "action": "down"
+    },
+    {
+      "step": 1500,
+      "event": "control",
+      "document_weight": 0.0015360000000000003,
+      "query_weight": 7.680000000000002e-05,
+      "document_dims_mean": 251.02734375,
+      "document_dims_ratio": 0.5757507884174312,
+      "action": "down"
+    },
+    {
+      "step": 1750,
+      "event": "control",
+      "document_weight": 0.0015360000000000003,
+      "query_weight": 7.680000000000002e-05,
+      "document_dims_mean": 353.640625,
+      "document_dims_ratio": 0.8111023509174312,
+      "action": "hold"
+    },
+    {
+      "step": 2000,
+      "event": "control",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05,
+      "document_dims_mean": 239.19921875,
+      "document_dims_ratio": 0.548622061353211,
+      "action": "down"
+    },
+    {
+      "step": 2250,
+      "event": "control",
+      "document_weight": 0.0015360000000000003,
+      "query_weight": 7.680000000000002e-05,
+      "document_dims_mean": 505.71484375,
+      "document_dims_ratio": 1.159896430619266,
+      "action": "up"
+    },
+    {
+      "step": 2500,
+      "event": "control",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05,
+      "document_dims_mean": 263.71484375,
+      "document_dims_ratio": 0.604850559059633,
+      "action": "down"
+    },
+    {
+      "step": 2750,
+      "event": "control",
+      "document_weight": 0.0009830400000000001,
+      "query_weight": 4.9152000000000006e-05,
+      "document_dims_mean": 261.55078125,
+      "document_dims_ratio": 0.5998871129587156,
+      "action": "down"
+    },
+    {
+      "step": 3000,
+      "event": "control",
+      "document_weight": 0.0009830400000000001,
+      "query_weight": 4.9152000000000006e-05,
+      "document_dims_mean": 387.71875,
+      "document_dims_ratio": 0.8892631880733946,
+      "action": "hold"
+    },
+    {
+      "step": 3250,
+      "event": "control",
+      "document_weight": 0.0009830400000000001,
+      "query_weight": 4.9152000000000006e-05,
+      "document_dims_mean": 453.16796875,
+      "document_dims_ratio": 1.039376075114679,
+      "action": "hold"
+    },
+    {
+      "step": 3500,
+      "event": "control",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05,
+      "document_dims_mean": 500.6640625,
+      "document_dims_ratio": 1.1483120699541285,
+      "action": "up"
+    },
+    {
+      "step": 3750,
+      "event": "control",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05,
+      "document_dims_mean": 370.02734375,
+      "document_dims_ratio": 0.848686568233945,
+      "action": "hold"
+    },
+    {
+      "step": 4000,
+      "event": "control",
+      "document_weight": 0.0009830400000000001,
+      "query_weight": 4.9152000000000006e-05,
+      "document_dims_mean": 221.0078125,
+      "document_dims_ratio": 0.5068986525229358,
+      "action": "down"
+    },
+    {
+      "step": 4250,
+      "event": "control",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05,
+      "document_dims_mean": 752.0703125,
+      "document_dims_ratio": 1.7249319094036697,
+      "action": "up"
+    },
+    {
+      "step": 4306,
+      "event": "train_end",
+      "document_weight": 0.0012288000000000002,
+      "query_weight": 6.144000000000001e-05
+    }
+  ]
+}

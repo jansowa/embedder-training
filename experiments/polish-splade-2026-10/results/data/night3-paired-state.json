@@ -33,17 +33,26 @@
   ],
   "runs": {
     "m": {
-      "phase": "training",
+      "phase": "trained",
       "attempt": 1,
       "run": "runs/night3-paired-m/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-103554",
       "telemetry": {
-        "step": 100,
-        "seconds_per_step": 3.72143799782653,
-        "peak_allocated_mib": 11467.68359375,
-        "peak_reserved_mib": 11706.0,
-        "peak_nvidia_sampled_mib": 13071.0
+        "step": 4300,
+        "seconds_per_step": 3.869016043770291,
+        "peak_allocated_mib": 11540.2314453125,
+        "peak_reserved_mib": 11708.0,
+        "peak_nvidia_sampled_mib": 13073.0
       },
-      "reported_100": "2026-11-05T10:42:55+01:00"
+      "reported_100": "2026-11-05T10:42:55+01:00",
+      "attempts": [
+        {
+          "rc": 0,
+          "seconds": 16775.3,
+          "log": "night3_m_attempt1.log"
+        }
+      ],
+      "training_complete": true,
+      "trainer_epoch": 1.0002322610614331
     },
     "a": {}
   },
