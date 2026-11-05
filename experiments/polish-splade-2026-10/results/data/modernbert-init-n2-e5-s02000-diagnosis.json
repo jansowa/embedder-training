@@ -1,0 +1,225 @@
+{
+  "texts": [
+    "Warszawa jest stolicą Polski i leży nad Wisłą.",
+    "Jakie miasto jest stolicą Polski?",
+    "Podatek dochodowy jest naliczany od uzyskanego dochodu.",
+    "Woda wrze w temperaturze stu stopni Celsjusza przy normalnym ciśnieniu."
+  ],
+  "models": [
+    {
+      "label": "modernbert-init-n2-e5-s02000",
+      "model": "/mnt/c/work/embedder-training-v2/models/modernbert-init-n2-e5-s02000",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.3294393718242645,
+          "max": 0.29431191086769104,
+          "norm": 13.982821464538574
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.0020244638435542583,
+          "max": 0.0022055867593735456,
+          "norm": 0.016498791053891182
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.827047824859619,
+          "max": 15.010235786437988,
+          "norm": 196.6455535888672
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10485616326332092,
+          "max": 0.09283709526062012,
+          "norm": 111.16238403320312
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -21.504384994506836,
+          "max": -10.285265922546387,
+          "norm": 2721.557373046875
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -33.17681884765625,
+          "logits_max": 13.638277053833008,
+          "pooled_all_finite": true,
+          "pooled_max": 2.6836397647857666,
+          "raw_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "quantized_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "valid_token_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "peak_vram_gib": 0.6145238876342773
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -33.17681884765625,
+          "logits_max": 13.638277053833008,
+          "pooled_all_finite": true,
+          "pooled_max": 2.6836397647857666,
+          "raw_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "quantized_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "valid_token_active_dims_per_text": [
+            35,
+            22,
+            19,
+            27
+          ],
+          "peak_vram_gib": 0.6145238876342773
+        }
+      ],
+      "seconds": 9.237237930297852
+    },
+    {
+      "label": "modernbert-init-n2-e5-s02000",
+      "model": "/mnt/c/work/embedder-training-v2/models/modernbert-init-n2-e5-s02000",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.330078125,
+          "max": 0.294921875,
+          "norm": 13.982719421386719
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.0020294189453125,
+          "max": 0.0022125244140625,
+          "norm": 0.016499077901244164
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.64413452148438
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10498046875,
+          "max": 0.0927734375,
+          "norm": 111.16220092773438
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -21.5,
+          "max": -10.3125,
+          "norm": 2721.55810546875
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -33.25,
+          "logits_max": 13.6875,
+          "pooled_all_finite": true,
+          "pooled_max": 2.6869966983795166,
+          "raw_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "quantized_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "valid_token_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -33.25,
+          "logits_max": 13.6875,
+          "pooled_all_finite": true,
+          "pooled_max": 2.6869966983795166,
+          "raw_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "quantized_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "valid_token_active_dims_per_text": [
+            35,
+            22,
+            20,
+            27
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 1.1893095970153809
+    }
+  ],
+  "history": []
+}
