@@ -114,14 +114,17 @@
             "seconds": 40.1,
             "log": "night3_a_2150_sparsity.log"
           },
-          "dims": 49240.45962962963,
+          "dims": 339.0625925925926,
           "tiny_process": {
             "rc": 0,
             "seconds": 550.9,
             "log": "night3_a_2150_tiny10.log"
           },
           "tiny10": 55.14478826391921,
-          "in_band": false
+          "in_band": true,
+          "invalid_original_fp32_dims": 49240.45962962963,
+          "sparsity_loading_fix": "device_map=cpu; tied decoder bias retained",
+          "sparsity_audit_log": "bias_audit_02150.log"
         },
         "4306": {
           "sparsity_process": {
@@ -129,18 +132,22 @@
             "seconds": 40.1,
             "log": "night3_a_4306_sparsity.log"
           },
-          "dims": 49671.747037037036,
+          "dims": 459.1296296296296,
           "tiny_process": {
             "rc": 0,
             "seconds": 610.7,
             "log": "night3_a_4306_tiny10.log"
           },
           "tiny10": 56.73166809621764,
-          "in_band": false
+          "in_band": false,
+          "invalid_original_fp32_dims": 49671.747037037036,
+          "sparsity_loading_fix": "device_map=cpu; tied decoder bias retained",
+          "sparsity_audit_log": "bias_audit_04306.log"
         }
       }
     }
   },
   "errors": [],
-  "GM": "nieporównywalne przy tej gęstości"
+  "GM": "nieporównywalne przy tej gęstości",
+  "bias_audit": "results/data/night3-bias-audit.json"
 }

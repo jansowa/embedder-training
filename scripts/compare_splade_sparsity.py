@@ -315,7 +315,12 @@ class SpladeCounter:
         dtype = torch.float16 if args.fp16 and self.device == "cuda" else torch.float32
         self.tokenizer = AutoTokenizer.from_pretrained(model.name_or_path)
         self.tokenizer.model_max_length = self.max_seq_length
-        self.model = AutoModelForMaskedLM.from_pretrained(model.name_or_path, torch_dtype=dtype)
+        # Transformers 4.48 can reset RoBERTa's shared decoder bias to zero
+        # during an ordinary FP32 load. The meta-device loading path preserves
+        # that alias and the saved value. Transfer to the requested device below.
+        self.model = AutoModelForMaskedLM.from_pretrained(
+            model.name_or_path, torch_dtype=dtype, device_map="cpu"
+        )
         self.model.to(self.device)
         self.model.eval()
 

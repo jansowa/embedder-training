@@ -6,10 +6,10 @@ export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 TORCHINDUCTOR_COMPILE_THREADS=1
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false PYTHONPATH=.
 ulimit -c 0
 source scripts/queue_lib.sh
+guard_alive
 exec 9>logs/gpu_queue.lock
 flock -n 9 || { log 'Another paired queue holds GPU lock'; exit 1; }
 echo $$ > logs/queue_mlm3.pid
-guard_alive
 log 'Waiting for idle GPU; paired M then A, 4306 steps each, no resumes'
 while [ "$(gpu_busy)" != 0 ]; do sleep 30; done
 sleep 10

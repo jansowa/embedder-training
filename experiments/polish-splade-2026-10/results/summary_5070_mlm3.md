@@ -1,6 +1,6 @@
 # Noc 3 — parowany bieg MLM, seed 42
 
-Updated: 2026-11-05T18:47:10+01:00
+Updated: 2026-11-05T20:06:17+01:00
 
 **137 773 przykładów po bramce i rozwinięciu pozytywów; identyczna lista i kolejność dla M i A.** MS MARCO: fallback `datasets/judged/msmarco-rejected-20000.jsonl` (HF 401). Natywna bramka SQuAD-v2: 56 093 wiersze / 56 437 przykładów. Zatwierdzony plan: nominalnie jedna epoka, max_steps=4306, checkpointy 2150/4306, próg miejsca przed parą 35 GB. M: BF16, A: FP16; oba od oryginalnego MLM, bias shift auto→400, scale=1, LR=2e-5, warmup LR 250, lambda warmup 1000, regulator 436×[0.75,1.05]. Żaden retry nie używa resume. Optymalizator/scheduler są usuwane dopiero po zakończeniu procesu treningu.
 
@@ -23,8 +23,8 @@ Updated: 2026-11-05T18:47:10+01:00
 |---|---:|---:|---:|
 | M | 2150 | 364.27 | 54.16 |
 | M | 4306 | 327.85 | 53.75 |
-| A | 2150 | 49240.46 | 55.14 |
-| A | 4306 | 49671.75 | 56.73 |
+| A | 2150 | 339.06 | 55.14 |
+| A | 4306 | 459.13 | 56.73 |
 
 **GM s04306: nieporównywalne przy tej gęstości.** Wyłącznie końcowe checkpointy obu modeli w paśmie 327–458; stara krzywa A i E5 s2500 nie są używane do GM.
 
@@ -48,3 +48,7 @@ Referencje: base-splade-wrapped 61.60, mlm-msmarco-ep1 59.29. Stara A: s2500=56.
 Krok 0: M s1500=55.63 /356 dims, M s2000=56.61 /404 dims; A s1875=55.70 /391 dims; M−A=+0.91. E5 s2500 wyłączony z werdyktu.
 
 Free C: before pair: 47.23 GB. Training timeouts: 12h, retry from zero 18h. CUDA peak is allocator peak; NVIDIA peak is sampled total card use.
+
+## Corrected FP32 sparsity audit
+
+Transformers 4.48.2 silently reset the tied RoBERTa decoder bias on ordinary FP32 loading: saved mean -20.14767, loaded mean 0. Loading with device_map="cpu" preserves the saved shared bias. The original A sparsity values (~49k dimensions) were invalid, not a training collapse. Both A checkpoint sparsity measurements were repeated in FP32 on the same 2700 passages. FP16 vectors before/after the fix were exactly equal on 8 real passages; the FP16 tiny10 scores remain valid. A tiny randomly initialized RoBERTa checkpoint reproduces the bug; two regression tests pass. Raw invalid results and diagnosis are preserved in results/data/night3-bias-audit.json.
