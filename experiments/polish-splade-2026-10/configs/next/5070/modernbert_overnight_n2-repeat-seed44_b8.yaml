@@ -1,0 +1,82 @@
+backend: sentence-transformers
+training_type: splade
+runs_dir: runs/modernbert-init-n2-repeat-seed44-b8
+timestamp_output_dir: true
+save_resolved_config: true
+train_data:
+- path: datasets/judged/msmarco-clean-20000.jsonl
+- path: datasets/judged/msmarco-plain-20000.jsonl
+- path: datasets/arms/squadv2-fresh-16000.jsonl
+- path: datasets/arms/squadv2-2073.jsonl
+- path: datasets/arms/fiqa-2073.jsonl
+dataset_mix_strategy: concat_shuffle
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+architectures:
+- OPI-PIB/pl-ModernBERT-512-base
+hparams:
+- learning_rate: 2.0e-05
+  num_train_epochs: 12
+  document_regularizer_weight: 0.003
+  loss: sparse_multiple_negatives_ranking
+sentence_transformers:
+  max_seq_length: 256
+  max_steps: 500
+  warmup_ratio: 0.0
+  lr_scheduler_type: constant_with_warmup
+  train_batch_size: 8
+  gradient_accumulation_steps: 4
+  batch_sampler: no_duplicates
+  gradient_checkpointing: true
+  bf16: true
+  fp16: false
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 6
+  query_regularizer_weight: 0.00015
+  save_strategy: steps
+  save_steps: 250
+  save_total_limit: 1
+  keep_step_checkpoints:
+  - 250
+  - 500
+  keep_epoch_checkpoints: false
+  logging_steps: 25
+  splade_activation_stats:
+    interval_steps: 50
+    sample_size: 256
+    batch_size: 8
+    include_negatives: true
+    stop_below: 5
+  document_regularizer_threshold: null
+  query_regularizer_threshold: null
+  regularizer_control:
+    warmup_steps: 1000
+    density:
+      band:
+      - 0.75
+      - 1.05
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05
+      sample_size: 256
+      batch_size: 8
+      quantization_factor: 100
+      reference_dims: 436
+  report_to: []
+  warmup_steps: 250
+  seed: 44
+  scale: 1.0
+  splade_regularizer_scheduler: false
+  splade_head_learning_rate: 2.0e-05
+  splade_train_only_head: false
+  splade_decoder_bias_shift: auto
+  splade_decoder_bias_target: 400
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ''
+  checkpoints:
+  - final
