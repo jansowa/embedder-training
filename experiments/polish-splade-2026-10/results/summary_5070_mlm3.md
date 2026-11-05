@@ -1,6 +1,6 @@
 # Noc 3 — parowany bieg MLM, seed 42
 
-Updated: 2026-11-05T18:47:08+01:00
+Updated: 2026-11-05T18:47:10+01:00
 
 **137 773 przykładów po bramce i rozwinięciu pozytywów; identyczna lista i kolejność dla M i A.** MS MARCO: fallback `datasets/judged/msmarco-rejected-20000.jsonl` (HF 401). Natywna bramka SQuAD-v2: 56 093 wiersze / 56 437 przykładów. Zatwierdzony plan: nominalnie jedna epoka, max_steps=4306, checkpointy 2150/4306, próg miejsca przed parą 35 GB. M: BF16, A: FP16; oba od oryginalnego MLM, bias shift auto→400, scale=1, LR=2e-5, warmup LR 250, lambda warmup 1000, regulator 436×[0.75,1.05]. Żaden retry nie używa resume. Optymalizator/scheduler są usuwane dopiero po zakończeniu procesu treningu.
 
