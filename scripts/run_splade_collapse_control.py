@@ -25,6 +25,8 @@ def main() -> int:
     from transformers import TrainerCallback
     from training.train import main as train_main
 
+    monitor_only = '--monitor-only' in sys.argv
+    argv = [arg for arg in sys.argv[1:] if arg != '--monitor-only']
     started = time.monotonic()
 
     class ControlMonitor(TrainerCallback):
@@ -32,7 +34,8 @@ def main() -> int:
             self.zero_streak = 0
 
         def on_train_begin(self, args, state, control, **kwargs):
-            print("[CONTROL] dead-gradient guard installed (3 logged zero norms)", flush=True)
+            self.train_started = time.monotonic()
+            print("[CONTROL] telemetry installed" if monitor_only else "[CONTROL] dead-gradient guard installed (3 logged zero norms)", flush=True)
 
         def on_train_end(self, args, state, control, **kwargs):
             save_control_state(state, args.output_dir)
@@ -43,12 +46,17 @@ def main() -> int:
             grad = logs.get("grad_norm")
             self.zero_streak = update_zero_streak(self.zero_streak, grad)
             reason = None
-            if self.zero_streak >= 3:
+            if self.zero_streak >= 3 and not monitor_only:
                 reason = "three consecutive logged zero gradient norms"
-            if any(not math.isfinite(float(logs[k])) for k in ("loss", "grad_norm") if k in logs):
+            if not monitor_only and any(not math.isfinite(float(logs[k])) for k in ("loss", "grad_norm") if k in logs):
                 reason = "nonfinite training loss or gradient norm"
             row = {"step": state.global_step, "elapsed_seconds": time.monotonic() - started,
+                   "elapsed_train_seconds": time.monotonic() - getattr(self, 'train_started', started),
                    "metrics": logs, "stop_reason": reason}
+            import torch
+            if torch.cuda.is_available():
+                row['peak_allocated_mib'] = torch.cuda.max_memory_allocated() / 1024**2
+                row['peak_reserved_mib'] = torch.cuda.max_memory_reserved() / 1024**2
             try:
                 row["gpu"] = subprocess.check_output(
                     ["nvidia-smi", "--query-gpu=memory.used,utilization.gpu", "--format=csv,noheader,nounits"],
@@ -74,7 +82,7 @@ def main() -> int:
             self.add_callback(ControlMonitor())
 
     sparse_encoder.SparseEncoderTrainer = DiagnosticTrainer
-    return train_main(sys.argv[1:])
+    return train_main(argv)
 
 
 if __name__ == "__main__":

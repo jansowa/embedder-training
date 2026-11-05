@@ -31,14 +31,14 @@ def paired_configs(msmarco):
             'dataset_filter_cache_dir':'cache/filtered_datasets',
             'hparams':[{'learning_rate':2e-5,'num_train_epochs':1,'document_regularizer_weight':0.003,'loss':'sparse_multiple_negatives_ranking'}],
             'sentence_transformers':{
-                'max_steps':5000,'max_seq_length':256,'train_batch_size':8,'gradient_accumulation_steps':4,
+                'max_steps':4306,'max_seq_length':256,'train_batch_size':8,'gradient_accumulation_steps':4,
                 'gradient_checkpointing':True,'splade_pooling_chunk_size':8,'batch_sampler':'no_duplicates',
                 'seed':42,'warmup_steps':250,'warmup_ratio':0.0,'lr_scheduler_type':'constant_with_warmup',
                 'scale':1.0,'negatives_per_query':6,'query_prefix':'','passage_prefix':'',
                 'query_regularizer_weight':0.00015,'splade_regularizer_scheduler':False,
                 'splade_decoder_bias_shift':'auto','splade_decoder_bias_target':400,'splade_train_only_head':False,
-                'save_strategy':'steps','save_steps':2500,'save_total_limit':1,
-                'keep_step_checkpoints':[2500,5000],'keep_epoch_checkpoints':False,'logging_steps':25,
+                'save_strategy':'steps','save_steps':4306,'save_total_limit':None,
+                'keep_step_checkpoints':[2150,4306],'keep_epoch_checkpoints':False,'logging_steps':25,
                 'splade_activation_stats':{'interval_steps':250,'sample_size':256,'batch_size':8,'include_negatives':True,'stop_below':5},
                 'regularizer_control':{'warmup_steps':1000,'density':{
                     'reference_dims':436,'band':[0.75,1.05],'interval_steps':250,'factor':1.25,
@@ -55,9 +55,9 @@ def paired_configs(msmarco):
     return configs
 
 
-def budget_blockers(examples,free_bytes,steps=5000,min_free_gb=40):
+def budget_blockers(examples,free_bytes,steps=4306,min_free_gb=35):
     blockers=[]
-    if examples<steps*32:
+    if math.ceil(examples/32)<steps:
         blockers.append(f'One epoch versus {steps} steps: {examples} examples, but {steps}x32={steps*32} presentations ({steps*32/examples:.4f} epochs).')
     if free_bytes<min_free_gb*1e9:
         blockers.append(f'Disk prerequisite: {free_bytes/1e9:.3f} GB free on C:, below required {min_free_gb} GB.')

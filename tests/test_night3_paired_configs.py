@@ -18,10 +18,11 @@ def test_paired_configs_have_identical_data_seed_and_recipe():
     assert a['architectures']==['sdadas/polish-distilroberta']
     for cfg in (m,a):
         st=cfg['sentence_transformers']
-        assert st['seed']==42 and st['scale']==1 and st['max_steps']==5000
+        assert st['seed']==42 and st['scale']==1 and st['max_steps']==4306
         assert st['train_batch_size']*st['gradient_accumulation_steps']==32
         assert st['warmup_steps']==250 and st['warmup_ratio']==0
-        assert st['keep_step_checkpoints']==[2500,5000]
+        assert st['keep_step_checkpoints']==[2150,4306]
+        assert st['save_total_limit'] is None
         assert st['regularizer_control']['warmup_steps']==1000
         assert st['regularizer_control']['density']['reference_dims']==436
         assert st['splade_decoder_bias_shift']=='auto' and st['splade_decoder_bias_target']==400
@@ -37,9 +38,11 @@ def test_hf_subsampling_is_after_filter():
 
 
 def test_preflight_catches_repetitions_and_disk_shortfall():
-    reasons=night3.budget_blockers(137773,36.38e9)
+    reasons=night3.budget_blockers(137773,36.38e9,steps=5000,min_free_gb=40)
     assert len(reasons)==2
     assert '1.1613 epochs' in reasons[0]
     assert '40 GB' in reasons[1]
     assert night3.budget_blockers(160000,40e9)==[]
-    assert len(night3.budget_blockers(160000,39.99e9))==1
+    assert len(night3.budget_blockers(160000,39.99e9,min_free_gb=40))==1
+    assert night3.budget_blockers(137773,35e9)==[]
+    assert len(night3.budget_blockers(137773,34.99e9))==1

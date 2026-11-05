@@ -141,11 +141,19 @@
     "epochs_at_5000": 1.1613305945286811,
     "prepared_query_positive_order_sha256": "4a13aff9f788de1f7c0e01c76f981210b9766c8149d5fc93d2019bd5a11be2e1",
     "same_ordered_sources_and_seed": true,
-    "free_gb": 36.376621056,
-    "blockers": [
-      "One epoch versus 5000 steps: 137773 examples, but 5000x32=160000 presentations (1.1613 epochs).",
-      "Disk prerequisite: 36.377 GB free on C:, below required 40 GB."
-    ],
-    "training_started": false
+    "free_gb": 47.2316928,
+    "blockers": [],
+    "training_started": false,
+    "historical_blockers": [],
+    "approved_plan": {
+      "max_steps": 4306,
+      "checkpoints": [
+        2150,
+        4306
+      ],
+      "minimum_free_gb": 35,
+      "examples": 137773,
+      "hf_deferred_until": "night4"
+    }
   }
 }

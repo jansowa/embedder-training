@@ -1,8 +1,10 @@
-# Night 3: paired-run preflight — not started
+# Noc 3 — parowany bieg MLM, seed 42
 
-Both configs start from their original MLM, use the same ordered input files and seed 42, effective batch 32, bias initialization target 400, scale 1, LR 2e-5, 250 LR warmup steps, lambda warmup 1000 and density reference 436. M uses BF16; A uses FP16. Requested checkpoints: s2500/s5000. No resume is configured.
+Updated: 2026-11-05T10:33:10+01:00
 
-| Source | Gated rows | Training examples |
+**137 773 przykładów po bramce i rozwinięciu pozytywów; identyczna lista i kolejność dla M i A.** MS MARCO: fallback `datasets/judged/msmarco-rejected-20000.jsonl` (HF 401). Natywna bramka SQuAD-v2: 56 093 wiersze / 56 437 przykładów. Zatwierdzony plan: nominalnie jedna epoka, max_steps=4306, checkpointy 2150/4306, próg miejsca przed parą 35 GB. M: BF16, A: FP16; oba od oryginalnego MLM, bias shift auto→400, scale=1, LR=2e-5, warmup LR 250, lambda warmup 1000, regulator 436×[0.75,1.05]. Żaden retry nie używa resume. Optymalizator/scheduler są usuwane dopiero po zakończeniu procesu treningu.
+
+| Składnik | Wiersze po bramce | Przykłady |
 |---|---:|---:|
 | datasets/arms/squadv2-v2-all.jsonl | 56093 | 56437 |
 | datasets/judged/msmarco-rejected-20000.jsonl | 20000 | 20000 |
@@ -12,16 +14,37 @@ Both configs start from their original MLM, use the same ordered input files and
 | datasets/arms/squadv2-2073.jsonl | 2073 | 2089 |
 | datasets/arms/fiqa-2073.jsonl | 2073 | 3161 |
 
-**Total: 137773 examples.** 5000 steps = 160000 presentations = 1.1613 epochs.
-Approximate one-epoch step count: 4306.
-MS MARCO selection: fallback msmarco-rejected-20000. HF request returned 401; authorized fallback selected.
-Free C: space after preparation: 36.377 GB.
+| Model | Status | krok | s/krok | peak CUDA / NVIDIA sampled MiB | ETA treningu |
+|---|---|---:|---:|---|---|
+| M | pending | 0 | — | — / — | — |
+| A | pending | 0 | — | — / — | — |
 
-## Start blockers
+| Model | checkpoint | dims/doc (FP32, 512) | tiny10 nDCG@10 |
+|---|---:|---:|---:|
+| M | 2150 | — | — |
+| M | 4306 | — | — |
+| A | 2150 | — | — |
+| A | 4306 | — | — |
 
-- One epoch versus 5000 steps: 137773 examples, but 5000x32=160000 presentations (1.1613 epochs).
-- Disk prerequisite: 36.377 GB free on C:, below required 40 GB.
+**GM s04306: pending.** Wyłącznie końcowe checkpointy obu modeli w paśmie 327–458; stara krzywa A i E5 s2500 nie są używane do GM.
 
-No GPU training, throughput, peak VRAM or night completion time is reported because the run has not started. Inputs and configs are ready for review; the original stop-before-start instruction is honored.
+## Per task — ten sam quantized tiny10, 512 tokenów
 
-Step 0: M s1500 = 55.63 at 356 dims; M s2000 = 56.61 at 404 dims; A s1875 = 55.70 at 391 dims. M s2000 − A s1875 = +0.91 nDCG points at similar density; E5 s2500 excluded.
+| Task | M s2150 | A s2150 | M s4306 | A s4306 | base | mlm-msmarco-ep1 |
+|---|---:|---:|---:|---:|---:|---:|
+| maupqa-gpt3-cc | — | — | — | — | 18.43 | 18.69 |
+| maupqa-mkqa | — | — | — | — | 63.92 | 61.66 |
+| maupqa-poleval2021-pairs | — | — | — | — | 82.67 | 80.65 |
+| maupqa-templates | — | — | — | — | 75.02 | 74.17 |
+| poleval-2022-test-A-allegro-faq | — | — | — | — | 73.76 | 71.52 |
+| poleval-2022-test-B-allegro-faq | — | — | — | — | 71.81 | 67.76 |
+| arguana-pl | — | — | — | — | 37.14 | 29.94 |
+| nfcorpus-pl | — | — | — | — | 30.07 | 32.57 |
+| scifact-pl | — | — | — | — | 64.52 | 57.95 |
+| gpt-exams | — | — | — | — | 98.63 | 98.12 |
+
+Referencje: base-splade-wrapped 61.60, mlm-msmarco-ep1 59.29. Stara A: s2500=56.33 przy 297 dims, s5000=55.37 przy 311 dims — tylko odniesienie, stała lambda i dryfująca gęstość.
+
+Krok 0: M s1500=55.63 /356 dims, M s2000=56.61 /404 dims; A s1875=55.70 /391 dims; M−A=+0.91. E5 s2500 wyłączony z werdyktu.
+
+Free C: before pair: 47.23 GB. Training timeouts: 12h, retry from zero 18h. CUDA peak is allocator peak; NVIDIA peak is sampled total card use.

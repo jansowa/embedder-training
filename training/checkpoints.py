@@ -330,7 +330,7 @@ class EpochCheckpointCallback:
 
 
 class StepCheckpointCallback:
-    """Copy selected step checkpoints outside Trainer's save_total_limit rotation."""
+    """Save selected steps and copy them outside Trainer's checkpoint rotation."""
 
     def __init__(
         self,
@@ -351,6 +351,13 @@ class StepCheckpointCallback:
             return control
 
         return _noop
+
+    def on_step_end(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
+        # Explicit checkpoints need not be multiples of save_steps. Request the
+        # save on every rank; only the filesystem copy below is main-rank-only.
+        if int(getattr(state, "global_step", 0) or 0) in self.steps:
+            control.should_save = True
+        return control
 
     def on_save(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
         if not is_main_process():

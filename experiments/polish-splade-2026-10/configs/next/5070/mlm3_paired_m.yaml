@@ -1,4 +1,3 @@
-# Prepared; preflight must pass before any queue launch. No resumes.
 backend: sentence-transformers
 training_type: splade
 timestamp_output_dir: true
@@ -20,7 +19,7 @@ hparams:
   document_regularizer_weight: 0.003
   loss: sparse_multiple_negatives_ranking
 sentence_transformers:
-  max_steps: 5000
+  max_steps: 4306
   max_seq_length: 256
   train_batch_size: 8
   gradient_accumulation_steps: 4
@@ -41,11 +40,11 @@ sentence_transformers:
   splade_decoder_bias_target: 400
   splade_train_only_head: false
   save_strategy: steps
-  save_steps: 2500
-  save_total_limit: 1
+  save_steps: 4306
+  save_total_limit: null
   keep_step_checkpoints:
-  - 2500
-  - 5000
+  - 2150
+  - 4306
   keep_epoch_checkpoints: false
   logging_steps: 25
   splade_activation_stats:

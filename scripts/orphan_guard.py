@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 WORKER = re.compile(r"(\.venv|venv-[a-z0-9-]+)/bin/python.*(training\.train|run_experiments\.py|run_benchmark\.py|"
-                    r"compare_splade_sparsity|splade_index_cost|splade_pair_loss|merge_splade_weights)")
+                    r"compare_splade_sparsity|splade_index_cost|splade_pair_loss|merge_splade_weights|run_splade_collapse_control\.py)")
 LEGIT_ANCESTOR = re.compile(r"bash .*(scripts|queues)/\S+\.sh")
 LOG = Path("logs/orphan_guard.log")
 CLK = os.sysconf("SC_CLK_TCK")
