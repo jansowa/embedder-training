@@ -1,0 +1,52 @@
+backend: sentence-transformers
+training_type: splade
+
+# Query-cost probe (queue v37, 5.11): arm-distil-v9b-kl-n1v2 (63.25 / 42.62) with the query regularizer x4
+# (2e-4 instead of 5e-5). The v11 soups write sparser documents than the base (394-412 vs 436 dims) but denser
+# queries (148-151 vs 139 active dims), so their search cost (postings per query) is 2-12 % ABOVE the base's.
+# Does a stronger query FLOPS term cut the query side without losing tiny10? Same rows, recipe and seed as
+# kl-n1v2; the sparse-gradient head without checkpointing (v34-speed PASS, 2.27x).
+runs_dir: runs/arm-distil-v9b-kl-n1v2-qreg4x
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2v2-tv9b.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.0002
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
