@@ -373,7 +373,7 @@ def trial(state,name,recipe,branch,*,steps=500,source=None,seed=42):
                 cfg = configuration(name,recipe,steps=steps,source=source,batch=batch,seed=seed)
                 row['physical_batch']=batch
                 result = command(state,[PY,'-m','training.train','--backend','sentence-transformers','--training-type','splade',
-                                       '--config',str(cfg)],f'overnight_{name}_train_b{batch}.log',7200 if steps>500 else 3600)
+                                       '--config',str(cfg)],f'overnight_{name}_train_b{batch}.log',14400 if steps>500 else 3600)
                 row.setdefault('training_attempts',[]).append(result)
                 text = (ROOT/result['log']).read_text(errors='replace')
                 if result['rc']!=0 and is_oom(text) and batch==8:

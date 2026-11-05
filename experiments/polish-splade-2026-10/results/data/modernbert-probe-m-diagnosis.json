@@ -1,0 +1,956 @@
+{
+  "texts": [
+    "Warszawa jest stolicą Polski i leży nad Wisłą.",
+    "Jakie miasto jest stolicą Polski?",
+    "Podatek dochodowy jest naliczany od uzyskanego dochodu.",
+    "Woda wrze w temperaturze stu stopni Celsjusza przy normalnym ciśnieniu."
+  ],
+  "models": [
+    {
+      "label": "original",
+      "model": "OPI-PIB/pl-ModernBERT-512-base",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.32819172739982605,
+          "max": 0.2923283576965332,
+          "norm": 13.931167602539062
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": 0.0,
+          "max": 0.0,
+          "norm": 0.0
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.826469898223877,
+          "max": 15.007036209106445,
+          "norm": 196.66232299804688
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10583571344614029,
+          "max": 0.0922669991850853,
+          "norm": 111.27180480957031
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.759398460388184,
+          "max": 1.4600499868392944,
+          "norm": 112.01737976074219
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -21.853235244750977,
+          "logits_max": 25.949481964111328,
+          "pooled_all_finite": true,
+          "pooled_max": 3.293964147567749,
+          "raw_active_dims_per_text": [
+            11776,
+            8143,
+            25878,
+            33005
+          ],
+          "quantized_active_dims_per_text": [
+            11732,
+            8122,
+            25829,
+            32955
+          ],
+          "valid_token_active_dims_per_text": [
+            11732,
+            8122,
+            25829,
+            32949
+          ],
+          "peak_vram_gib": 0.6314697265625
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -21.853235244750977,
+          "logits_max": 25.949481964111328,
+          "pooled_all_finite": true,
+          "pooled_max": 3.293964147567749,
+          "raw_active_dims_per_text": [
+            11776,
+            8143,
+            25878,
+            33005
+          ],
+          "quantized_active_dims_per_text": [
+            11732,
+            8122,
+            25829,
+            32955
+          ],
+          "valid_token_active_dims_per_text": [
+            11732,
+            8122,
+            25829,
+            32949
+          ],
+          "peak_vram_gib": 0.6145238876342773
+        }
+      ],
+      "seconds": 11.416252374649048
+    },
+    {
+      "label": "original",
+      "model": "OPI-PIB/pl-ModernBERT-512-base",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.328125,
+          "max": 0.29296875,
+          "norm": 13.930669784545898
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": 0.0,
+          "max": 0.0,
+          "norm": 0.0
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.64892578125
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10595703125,
+          "max": 0.09228515625,
+          "norm": 111.27162170410156
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.75,
+          "max": 1.4609375,
+          "norm": 112.01699829101562
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -21.75,
+          "logits_max": 25.75,
+          "pooled_all_finite": true,
+          "pooled_max": 3.286534547805786,
+          "raw_active_dims_per_text": [
+            12289,
+            9134,
+            25589,
+            33505
+          ],
+          "quantized_active_dims_per_text": [
+            12236,
+            9091,
+            25530,
+            33450
+          ],
+          "valid_token_active_dims_per_text": [
+            12236,
+            9091,
+            25530,
+            33444
+          ],
+          "peak_vram_gib": 0.3419828414916992
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -21.75,
+          "logits_max": 25.75,
+          "pooled_all_finite": true,
+          "pooled_max": 3.286534547805786,
+          "raw_active_dims_per_text": [
+            12289,
+            9134,
+            25589,
+            33505
+          ],
+          "quantized_active_dims_per_text": [
+            12236,
+            9091,
+            25530,
+            33450
+          ],
+          "valid_token_active_dims_per_text": [
+            12236,
+            9091,
+            25530,
+            33444
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 1.7849626541137695
+    },
+    {
+      "label": "step625",
+      "model": "models/modernbert-probe-m-s00625",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.3280203938484192,
+          "max": 0.2946627736091614,
+          "norm": 13.953078269958496
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.002777531510218978,
+          "max": 0.0028620583470910788,
+          "norm": 0.03447882831096649
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.82629132270813,
+          "max": 15.008186340332031,
+          "norm": 196.65232849121094
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.1056426614522934,
+          "max": 0.09249179065227509,
+          "norm": 111.29155731201172
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.760815620422363,
+          "max": 1.4584523439407349,
+          "norm": 112.07052612304688
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -27.384868621826172,
+          "logits_max": -3.5479416847229004,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -27.384868621826172,
+          "logits_max": -3.5479416847229004,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        }
+      ],
+      "seconds": 0.7527697086334229
+    },
+    {
+      "label": "step625",
+      "model": "models/modernbert-probe-m-s00625",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.328125,
+          "max": 0.294921875,
+          "norm": 13.953110694885254
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.002777099609375,
+          "max": 0.00286865234375,
+          "norm": 0.034481730312108994
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.64154052734375
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10546875,
+          "max": 0.09228515625,
+          "norm": 111.29145812988281
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.75,
+          "max": 1.4609375,
+          "norm": 112.06965637207031
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -27.375,
+          "logits_max": -3.515625,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -27.375,
+          "logits_max": -3.515625,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 0.9139647483825684
+    },
+    {
+      "label": "step5000",
+      "model": "models/modernbert-probe-m-s05000",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.3280203938484192,
+          "max": 0.2946627736091614,
+          "norm": 13.953078269958496
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.002777531510218978,
+          "max": 0.0028620583470910788,
+          "norm": 0.03447882831096649
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.82629132270813,
+          "max": 15.008186340332031,
+          "norm": 196.65232849121094
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.1056426614522934,
+          "max": 0.09249179065227509,
+          "norm": 111.29155731201172
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.760815620422363,
+          "max": 1.4584523439407349,
+          "norm": 112.07052612304688
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -27.384868621826172,
+          "logits_max": -3.5479416847229004,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -27.384868621826172,
+          "logits_max": -3.5479416847229004,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        }
+      ],
+      "seconds": 0.70200514793396
+    },
+    {
+      "label": "step5000",
+      "model": "models/modernbert-probe-m-s05000",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.328125,
+          "max": 0.294921875,
+          "norm": 13.953110694885254
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.002777099609375,
+          "max": 0.00286865234375,
+          "norm": 0.034481730312108994
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.64154052734375
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10546875,
+          "max": 0.09228515625,
+          "norm": 111.29145812988281
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.75,
+          "max": 1.4609375,
+          "norm": 112.06965637207031
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -27.375,
+          "logits_max": -3.515625,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -27.375,
+          "logits_max": -3.515625,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 1.0182163715362549
+    }
+  ],
+  "history": [
+    {
+      "base_loss": 3457.6489,
+      "document_regularizer_loss": 0.0702,
+      "epoch": 0.013042911177774879,
+      "grad_norm": 282915.59375,
+      "learning_rate": 5e-06,
+      "loss": 13830.8787,
+      "query_regularizer_loss": 0.0001,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 1.8750000000000005e-06,
+      "regularizer/query_weight": 9.375000000000002e-08,
+      "step": 25
+    },
+    {
+      "base_loss": 160.7076,
+      "document_regularizer_loss": 0.9461,
+      "epoch": 0.026085822355549758,
+      "grad_norm": 7489.06494140625,
+      "learning_rate": 1e-05,
+      "loss": 646.6159,
+      "query_regularizer_loss": 0.0001,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 7.500000000000002e-06,
+      "regularizer/query_weight": 3.7500000000000006e-07,
+      "step": 50
+    },
+    {
+      "base_loss": 8.8781,
+      "document_regularizer_loss": 2.7491,
+      "epoch": 0.03912873353332464,
+      "grad_norm": 722.0370483398438,
+      "learning_rate": 1.5e-05,
+      "loss": 46.5091,
+      "query_regularizer_loss": 0.0001,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 1.6875e-05,
+      "regularizer/query_weight": 8.437499999999999e-07,
+      "step": 75
+    },
+    {
+      "base_loss": 4.0573,
+      "document_regularizer_loss": 0.0718,
+      "epoch": 0.052171644711099516,
+      "grad_norm": 32.717979431152344,
+      "learning_rate": 2e-05,
+      "loss": 16.5166,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 3.0000000000000008e-05,
+      "regularizer/query_weight": 1.5000000000000002e-06,
+      "step": 100
+    },
+    {
+      "base_loss": 3.9498,
+      "document_regularizer_loss": 0.0022,
+      "epoch": 0.0652145558888744,
+      "grad_norm": 133.7262725830078,
+      "learning_rate": 2.5e-05,
+      "loss": 15.8081,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 4.6875e-05,
+      "regularizer/query_weight": 2.34375e-06,
+      "step": 125
+    },
+    {
+      "base_loss": 3.9259,
+      "document_regularizer_loss": 0.0027,
+      "epoch": 0.07825746706664928,
+      "grad_norm": 99.0097427368164,
+      "learning_rate": 3e-05,
+      "loss": 15.7147,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 6.75e-05,
+      "regularizer/query_weight": 3.3749999999999995e-06,
+      "step": 150
+    },
+    {
+      "base_loss": 3.8932,
+      "document_regularizer_loss": 0.0011,
+      "epoch": 0.09130037824442415,
+      "grad_norm": 66.81982421875,
+      "learning_rate": 3.5e-05,
+      "loss": 15.5784,
+      "query_regularizer_loss": 0.0003,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 9.187499999999998e-05,
+      "regularizer/query_weight": 4.593749999999999e-06,
+      "step": 175
+    },
+    {
+      "base_loss": 3.8973,
+      "document_regularizer_loss": 0.001,
+      "epoch": 0.10434328942219903,
+      "grad_norm": 81.53163146972656,
+      "learning_rate": 4e-05,
+      "loss": 15.5935,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.00012000000000000003,
+      "regularizer/query_weight": 6.000000000000001e-06,
+      "step": 200
+    },
+    {
+      "base_loss": 3.9597,
+      "document_regularizer_loss": 0.0011,
+      "epoch": 0.11738620059997391,
+      "grad_norm": 143.95985412597656,
+      "learning_rate": 4.5e-05,
+      "loss": 15.8433,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.00015187500000000002,
+      "regularizer/query_weight": 7.59375e-06,
+      "step": 225
+    },
+    {
+      "base_loss": 3.8666,
+      "document_regularizer_loss": 0.0013,
+      "epoch": 0.1304291117777488,
+      "grad_norm": 48.770606994628906,
+      "learning_rate": 5e-05,
+      "loss": 15.4718,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.0001875,
+      "regularizer/query_weight": 9.375e-06,
+      "step": 250,
+      "train/splade_activation_stats/document_active_dims_max": 15,
+      "train/splade_activation_stats/document_active_dims_mean": 3.2890625,
+      "train/splade_activation_stats/document_active_dims_median": 3.0,
+      "train/splade_activation_stats/document_active_dims_p90": 4.0,
+      "train/splade_activation_stats/document_active_dims_p95": 7.0,
+      "train/splade_activation_stats/document_active_dims_p99": 10.899999999999977,
+      "train/splade_activation_stats/document_active_dims_samples": 256,
+      "train/splade_activation_stats/quantization_factor": 100,
+      "train/splade_activation_stats/query_active_dims_max": 4,
+      "train/splade_activation_stats/query_active_dims_mean": 1.06640625,
+      "train/splade_activation_stats/query_active_dims_median": 0.0,
+      "train/splade_activation_stats/query_active_dims_p90": 3.0,
+      "train/splade_activation_stats/query_active_dims_p95": 3.0,
+      "train/splade_activation_stats/query_active_dims_p99": 3.0,
+      "train/splade_activation_stats/query_active_dims_samples": 256
+    },
+    {
+      "base_loss": 3.8623,
+      "document_regularizer_loss": 0.0042,
+      "epoch": 0.14347202295552366,
+      "grad_norm": 248.71510314941406,
+      "learning_rate": 5e-05,
+      "loss": 15.466,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.00022687500000000005,
+      "regularizer/query_weight": 1.1343750000000001e-05,
+      "step": 275
+    },
+    {
+      "base_loss": 3.8597,
+      "document_regularizer_loss": 0.0059,
+      "epoch": 0.15651493413329856,
+      "grad_norm": 46.585693359375,
+      "learning_rate": 5e-05,
+      "loss": 15.4628,
+      "query_regularizer_loss": 0.0001,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.00027,
+      "regularizer/query_weight": 1.3499999999999998e-05,
+      "step": 300
+    },
+    {
+      "base_loss": 4.0254,
+      "document_regularizer_loss": 0.0,
+      "epoch": 0.2608582235554976,
+      "grad_norm": 0.0,
+      "learning_rate": 5e-05,
+      "loss": 16.1014,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.00075,
+      "regularizer/query_weight": 3.75e-05,
+      "step": 500,
+      "train/splade_activation_stats/document_active_dims_max": 0,
+      "train/splade_activation_stats/document_active_dims_mean": 0.0,
+      "train/splade_activation_stats/document_active_dims_median": 0.0,
+      "train/splade_activation_stats/document_active_dims_p90": 0.0,
+      "train/splade_activation_stats/document_active_dims_p95": 0.0,
+      "train/splade_activation_stats/document_active_dims_p99": 0.0,
+      "train/splade_activation_stats/document_active_dims_samples": 256,
+      "train/splade_activation_stats/quantization_factor": 100,
+      "train/splade_activation_stats/query_active_dims_max": 0,
+      "train/splade_activation_stats/query_active_dims_mean": 0.0,
+      "train/splade_activation_stats/query_active_dims_median": 0.0,
+      "train/splade_activation_stats/query_active_dims_p90": 0.0,
+      "train/splade_activation_stats/query_active_dims_p95": 0.0,
+      "train/splade_activation_stats/query_active_dims_p99": 0.0,
+      "train/splade_activation_stats/query_active_dims_samples": 256
+    },
+    {
+      "base_loss": 4.0254,
+      "document_regularizer_loss": 0.0,
+      "epoch": 0.32607277944437196,
+      "grad_norm": 0.0,
+      "learning_rate": 5e-05,
+      "loss": 16.1014,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.001171875,
+      "regularizer/query_weight": 5.859375e-05,
+      "step": 625
+    },
+    {
+      "base_loss": 4.0254,
+      "document_regularizer_loss": 0.0,
+      "epoch": 0.5217164471109952,
+      "grad_norm": 0.0,
+      "learning_rate": 5e-05,
+      "loss": 16.1014,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_mean": 0.0,
+      "regularizer/document_dims_ratio": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.0024000000000000002,
+      "regularizer/query_weight": 0.00012000000000000002,
+      "step": 1000,
+      "train/splade_activation_stats/document_active_dims_max": 0,
+      "train/splade_activation_stats/document_active_dims_mean": 0.0,
+      "train/splade_activation_stats/document_active_dims_median": 0.0,
+      "train/splade_activation_stats/document_active_dims_p90": 0.0,
+      "train/splade_activation_stats/document_active_dims_p95": 0.0,
+      "train/splade_activation_stats/document_active_dims_p99": 0.0,
+      "train/splade_activation_stats/document_active_dims_samples": 256,
+      "train/splade_activation_stats/quantization_factor": 100,
+      "train/splade_activation_stats/query_active_dims_max": 0,
+      "train/splade_activation_stats/query_active_dims_mean": 0.0,
+      "train/splade_activation_stats/query_active_dims_median": 0.0,
+      "train/splade_activation_stats/query_active_dims_p90": 0.0,
+      "train/splade_activation_stats/query_active_dims_p95": 0.0,
+      "train/splade_activation_stats/query_active_dims_p99": 0.0,
+      "train/splade_activation_stats/query_active_dims_samples": 256
+    },
+    {
+      "base_loss": 4.0254,
+      "document_regularizer_loss": 0.0,
+      "epoch": 1.3041606886657102,
+      "grad_norm": 0.0,
+      "learning_rate": 5e-05,
+      "loss": 16.1014,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_mean": 0.0,
+      "regularizer/document_dims_ratio": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.0006291456000000001,
+      "regularizer/query_weight": 3.1457280000000007e-05,
+      "step": 2500,
+      "train/splade_activation_stats/document_active_dims_max": 0,
+      "train/splade_activation_stats/document_active_dims_mean": 0.0,
+      "train/splade_activation_stats/document_active_dims_median": 0.0,
+      "train/splade_activation_stats/document_active_dims_p90": 0.0,
+      "train/splade_activation_stats/document_active_dims_p95": 0.0,
+      "train/splade_activation_stats/document_active_dims_p99": 0.0,
+      "train/splade_activation_stats/document_active_dims_samples": 256,
+      "train/splade_activation_stats/quantization_factor": 100,
+      "train/splade_activation_stats/query_active_dims_max": 0,
+      "train/splade_activation_stats/query_active_dims_mean": 0.0,
+      "train/splade_activation_stats/query_active_dims_median": 0.0,
+      "train/splade_activation_stats/query_active_dims_p90": 0.0,
+      "train/splade_activation_stats/query_active_dims_p95": 0.0,
+      "train/splade_activation_stats/query_active_dims_p99": 0.0,
+      "train/splade_activation_stats/query_active_dims_samples": 256
+    },
+    {
+      "base_loss": 4.0254,
+      "document_regularizer_loss": 0.0,
+      "epoch": 2.6083213773314204,
+      "grad_norm": 0.0,
+      "learning_rate": 5e-05,
+      "loss": 16.1014,
+      "query_regularizer_loss": 0.0,
+      "regularizer/document_dims_mean": 0.0,
+      "regularizer/document_dims_ratio": 0.0,
+      "regularizer/document_dims_reference": 317.5859375,
+      "regularizer/document_weight": 0.0005,
+      "regularizer/query_weight": 2.5e-05,
+      "step": 5000,
+      "train/splade_activation_stats/document_active_dims_max": 0,
+      "train/splade_activation_stats/document_active_dims_mean": 0.0,
+      "train/splade_activation_stats/document_active_dims_median": 0.0,
+      "train/splade_activation_stats/document_active_dims_p90": 0.0,
+      "train/splade_activation_stats/document_active_dims_p95": 0.0,
+      "train/splade_activation_stats/document_active_dims_p99": 0.0,
+      "train/splade_activation_stats/document_active_dims_samples": 256,
+      "train/splade_activation_stats/quantization_factor": 100,
+      "train/splade_activation_stats/query_active_dims_max": 0,
+      "train/splade_activation_stats/query_active_dims_mean": 0.0,
+      "train/splade_activation_stats/query_active_dims_median": 0.0,
+      "train/splade_activation_stats/query_active_dims_p90": 0.0,
+      "train/splade_activation_stats/query_active_dims_p95": 0.0,
+      "train/splade_activation_stats/query_active_dims_p99": 0.0,
+      "train/splade_activation_stats/query_active_dims_samples": 256
+    }
+  ]
+}

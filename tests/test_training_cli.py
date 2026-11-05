@@ -3581,6 +3581,13 @@ def test_sentence_transformers_splade_runs_training_with_mocks(monkeypatch, tmp_
         ),
     )
     monkeypatch.setitem(sys.modules, "wandb", FakeWandb)
+    # This test uses a fake MLM module; keep real Transformers/processor imports
+    # outside the mocked training path, including its fake W&B module.
+    monkeypatch.setattr(
+        sentence_transformers_backend,
+        "_build_mlm_transformer",
+        lambda transformer_cls, name, kwargs: transformer_cls(name, **kwargs),
+    )
 
     request = TrainingRequest(
         backend="sentence-transformers",

@@ -1,0 +1,439 @@
+{
+  "texts": [
+    "Warszawa jest stolicą Polski i leży nad Wisłą.",
+    "Jakie miasto jest stolicą Polski?",
+    "Podatek dochodowy jest naliczany od uzyskanego dochodu.",
+    "Woda wrze w temperaturze stu stopni Celsjusza przy normalnym ciśnieniu."
+  ],
+  "models": [
+    {
+      "label": "noreg-scale1",
+      "model": "runs/modernbert-control-noreg-scale1/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-5e-5-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0/final",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.3282238841056824,
+          "max": 0.2929960787296295,
+          "norm": 13.943280220031738
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.0014330047415569425,
+          "max": 0.001506187254562974,
+          "norm": 0.016670065000653267
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.82745361328125,
+          "max": 15.007368087768555,
+          "norm": 196.6598358154297
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10622658580541611,
+          "max": 0.09233298152685165,
+          "norm": 111.28231048583984
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.760231971740723,
+          "max": 1.4594676494598389,
+          "norm": 112.0312728881836
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -31.14412498474121,
+          "logits_max": -5.319114685058594,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6145238876342773
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -31.14412498474121,
+          "logits_max": -5.319114685058594,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.6145238876342773
+        }
+      ],
+      "seconds": 11.511673927307129
+    },
+    {
+      "label": "noreg-scale1",
+      "model": "runs/modernbert-control-noreg-scale1/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-5e-5-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0/final",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.328125,
+          "max": 0.29296875,
+          "norm": 13.943479537963867
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.001434326171875,
+          "max": 0.00150299072265625,
+          "norm": 0.01666923239827156
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.65060424804688
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.1064453125,
+          "max": 0.09228515625,
+          "norm": 111.28213500976562
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.75,
+          "max": 1.4609375,
+          "norm": 112.02951049804688
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -31.125,
+          "logits_max": -5.3125,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -31.125,
+          "logits_max": -5.3125,
+          "pooled_all_finite": true,
+          "pooled_max": 0.0,
+          "raw_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "quantized_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "valid_token_active_dims_per_text": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 2.579787015914917
+    },
+    {
+      "label": "noreg-scale1e-4",
+      "model": "runs/modernbert-control-noreg-scale1e-4/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-5e-5-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-213337/final",
+      "dtype": "fp32",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.3281535506248474,
+          "max": 0.29225224256515503,
+          "norm": 14.018142700195312
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.0020481450483202934,
+          "max": 0.004083388019353151,
+          "norm": 0.017061905935406685
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.8329858779907227,
+          "max": 15.011058807373047,
+          "norm": 196.7360076904297
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10380485653877258,
+          "max": 0.09446518868207932,
+          "norm": 112.86687469482422
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.759398460388184,
+          "max": 1.456390619277954,
+          "norm": 111.74725341796875
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -22.7276554107666,
+          "logits_max": 33.077720642089844,
+          "pooled_all_finite": true,
+          "pooled_max": 3.528643846511841,
+          "raw_active_dims_per_text": [
+            33444,
+            31432,
+            28070,
+            31294
+          ],
+          "quantized_active_dims_per_text": [
+            33425,
+            31413,
+            28043,
+            31280
+          ],
+          "valid_token_active_dims_per_text": [
+            33425,
+            31413,
+            28042,
+            31274
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -22.7276554107666,
+          "logits_max": 33.077720642089844,
+          "pooled_all_finite": true,
+          "pooled_max": 3.528643846511841,
+          "raw_active_dims_per_text": [
+            33444,
+            31432,
+            28070,
+            31294
+          ],
+          "quantized_active_dims_per_text": [
+            33425,
+            31413,
+            28043,
+            31280
+          ],
+          "valid_token_active_dims_per_text": [
+            33425,
+            31413,
+            28042,
+            31274
+          ],
+          "peak_vram_gib": 0.6142797470092773
+        }
+      ],
+      "seconds": 2.3804702758789062
+    },
+    {
+      "label": "noreg-scale1e-4",
+      "model": "runs/modernbert-control-noreg-scale1e-4/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-5e-5-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-213337/final",
+      "dtype": "bf16",
+      "nonfinite_weights": [],
+      "head_weights": {
+        "head.dense.weight": {
+          "shape": [
+            768,
+            768
+          ],
+          "min": -0.328125,
+          "max": 0.29296875,
+          "norm": 14.017973899841309
+        },
+        "head.dense.bias": {
+          "shape": [
+            768
+          ],
+          "min": -0.002044677734375,
+          "max": 0.00408935546875,
+          "norm": 0.017061986029148102
+        },
+        "head.norm.weight": {
+          "shape": [
+            768
+          ],
+          "min": -2.828125,
+          "max": 15.0,
+          "norm": 196.71592712402344
+        },
+        "decoder.weight": {
+          "shape": [
+            50008,
+            768
+          ],
+          "min": -0.10400390625,
+          "max": 0.09423828125,
+          "norm": 112.86678314208984
+        },
+        "decoder.bias": {
+          "shape": [
+            50008
+          ],
+          "min": -9.75,
+          "max": 1.453125,
+          "norm": 111.74663543701172
+        }
+      },
+      "outputs": [
+        {
+          "max_length": 256,
+          "logits_all_finite": true,
+          "logits_min": -22.75,
+          "logits_max": 33.0,
+          "pooled_all_finite": true,
+          "pooled_max": 3.526360511779785,
+          "raw_active_dims_per_text": [
+            33324,
+            31271,
+            27951,
+            31292
+          ],
+          "quantized_active_dims_per_text": [
+            33295,
+            31241,
+            27927,
+            31273
+          ],
+          "valid_token_active_dims_per_text": [
+            33295,
+            31241,
+            27926,
+            31267
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        },
+        {
+          "max_length": 512,
+          "logits_all_finite": true,
+          "logits_min": -22.75,
+          "logits_max": 33.0,
+          "pooled_all_finite": true,
+          "pooled_max": 3.526360511779785,
+          "raw_active_dims_per_text": [
+            33324,
+            31271,
+            27951,
+            31292
+          ],
+          "quantized_active_dims_per_text": [
+            33295,
+            31241,
+            27927,
+            31273
+          ],
+          "valid_token_active_dims_per_text": [
+            33295,
+            31241,
+            27926,
+            31267
+          ],
+          "peak_vram_gib": 0.32050466537475586
+        }
+      ],
+      "seconds": 2.381652593612671
+    }
+  ],
+  "history": []
+}

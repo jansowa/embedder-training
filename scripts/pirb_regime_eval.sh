@@ -38,7 +38,10 @@ OUT="$OUT_DIR/$TASKSET.json"
 LOG="$REPO/logs/regimes/${REGIME}_${LABEL}_${TASKSET}.log"
 CACHE="$REPO/cache/regimes/${REGIME}_${LABEL}_${TASKSET}"; mkdir -p "$CACHE"
 CFG="$CACHE/models_config.json"
-export JAVA_HOME=/home/jsowa/opt/jdk-21.0.5+11
+if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/java" ]; then
+    JAVA_HOME=$(ls -d "$HOME"/opt/jdk-21* /usr/lib/jvm/*21* 2>/dev/null | head -1)
+fi
+export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
 export ORPHAN_GUARD_EXEMPT=1
 THREADS=6

@@ -1,0 +1,77 @@
+{
+  "files": [
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/checkpoint-250/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/checkpoint-250/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/checkpoint-250/scheduler.pt",
+      "bytes": 1465
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-250/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-250/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-250/scheduler.pt",
+      "bytes": 1465
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-500/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-500/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e2/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_0-20261104-223041/step-checkpoints/step-500/scheduler.pt",
+      "bytes": 1465
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/checkpoint-250/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/checkpoint-250/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/checkpoint-250/scheduler.pt",
+      "bytes": 1465
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-250/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-250/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-250/scheduler.pt",
+      "bytes": 1465
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-500/optimizer.pt",
+      "bytes": 1195150155
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-500/rng_state.pth",
+      "bytes": 14645
+    },
+    {
+      "path": "/mnt/c/work/embedder-training-v2/runs/modernbert-init-e3/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-230305/step-checkpoints/step-500/scheduler.pt",
+      "bytes": 1465
+    }
+  ],
+  "bytes": 7170997590
+}
