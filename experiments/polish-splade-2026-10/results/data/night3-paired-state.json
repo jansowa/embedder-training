@@ -86,7 +86,19 @@
         }
       }
     },
-    "a": {}
+    "a": {
+      "phase": "training",
+      "attempt": 1,
+      "run": "runs/night3-paired-a/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-152713",
+      "telemetry": {
+        "step": 100,
+        "seconds_per_step": 2.6513395863732634,
+        "peak_allocated_mib": 9708.04638671875,
+        "peak_reserved_mib": 10112.0,
+        "peak_nvidia_sampled_mib": 11243.0
+      },
+      "reported_100": "2026-11-05T15:32:04+01:00"
+    }
   },
   "errors": [],
   "GM": "pending"
