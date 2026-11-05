@@ -1,0 +1,109 @@
+# Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
+
+Aktualizacja: 2026-11-05T22:08:02+01:00
+
+| Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
+|---|---:|---:|---:|
+| night3-paired-a-s04306 | 56.73 | — | 459.13 |
+| night3-paired-m-s04306 | 53.75 | — | 327.85 |
+
+A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).
+Kotwice tiny10: baza 61.60; mlm-msmarco-ep1 59.29.
+
+P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB na cache.
+Scoring pd400: surowe cosinusy, scale=1; sonda KD czeka na S i zgodę użytkownika.
+
+Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9; dbpedia 28.42; hotpotqa 55.17.
+
+### wikitrivia
+
+(no results)
+
+### dbpediapl
+
+(no results)
+
+### hotpotqapl
+
+(no results)
+
+
+
+## Scoring PolDense-400M
+
+```
+Oczekuje na oba heldout8.
+```
+
+## Stan kolejki
+
+```
+train:arm-n1-cluster-fiqa-plus-squadv2	FAILED	-	7200s
+train:arm-n2-cluster-fiqa-2073	FAILED	-	7200s
+train:arm-n3-cluster-fiqa-plus-squadv2-10k	FAILED	-	7200s
+train:arm-n4-cluster-mix3-6219	FAILED	-	7200s
+train:arm-n5-cluster-fiqa-plus-squadv2-b16	FAILED	-	47s
+train:arm-n6-mmse-fiqa-plus-squadv2	FAILED	-	7200s
+regime:quantized:soup-v2b:tiny10	ok	62.99 10	425s
+train:arm-n1-cluster-fiqa-plus-squadv2	ok	-	13969s
+bench:arm-n1-cluster-fiqa-plus-squadv2	ok	62.1	536s
+train:arm-n2-cluster-fiqa-2073	ok	-	9572s
+bench:arm-n2-cluster-fiqa-2073	ok	61.79	491s
+train:arm-n3-cluster-fiqa-plus-squadv2-10k	ok	-	23084s
+bench:arm-n3-cluster-fiqa-plus-squadv2-10k	ok	62.01	509s
+train:arm-n4-cluster-mix3-6219	ok	-	19480s
+regime:quantized:mlm-path-ep3:tiny10	ok	55.62 10	531s
+regime:quantized:mlm-msmarco-ep1:tiny10	ok	59.3 10	597s
+train:arm-mlm-probe-a	FAILED	-	7s
+step:probe_train	FAILED	1	
+sparsity:mlm-probe-a-s00625	ok	418.5	33s
+step:probe_train	FAILED	1	
+train:arm-mlm-probe-a	ok	-	16543s
+regime:quantized:mlm-probe-a-s00625:tiny10	ok	54.71 10	496s
+sparsity:mlm-probe-a-s01250	ok	434.9	30s
+regime:quantized:mlm-probe-a-s01250:tiny10	ok	54.73 10	484s
+sparsity:mlm-probe-a-s01875	ok	390.8	30s
+regime:quantized:mlm-probe-a-s01875:tiny10	ok	55.7 10	461s
+sparsity:mlm-probe-a-s02500	ok	297.2	30s
+regime:quantized:mlm-probe-a-s02500:tiny10	ok	56.33 10	422s
+sparsity:mlm-probe-a-s05000	ok	310.6	30s
+regime:quantized:mlm-probe-a-s05000:tiny10	ok	55.37 10	415s
+sparsity:mlm-probe-a-s10000	ok	249.2	30s
+regime:quantized:mlm-probe-a-s10000:tiny10	ok	55.62 10	395s
+sparsity:mlm-probe-a-s15000	ok	222.4	29s
+regime:quantized:mlm-probe-a-s15000:tiny10	ok	52.94 10	383s
+sparsity:mlm-probe-a-s18750	ok	221.0	30s
+regime:quantized:mlm-probe-a-s18750:tiny10	ok	52.44 10	382s
+mlm2:head	ok	stock	2.26s/step
+train:modernbert-probe-m	ok	-	16950s
+sparsity:modernbert-probe-m-s05000	ok	0.0	40s
+regime:quantized:modernbert-probe-m-s05000:tiny10	ok	 0	32s
+sparsity:modernbert-probe-m-s02500	ok	0.0	38s
+regime:quantized:modernbert-probe-m-s02500:tiny10	ok	 0	30s
+sparsity:modernbert-probe-m-s01250	ok	0.0	37s
+regime:quantized:modernbert-probe-m-s01250:tiny10	ok	 0	29s
+sparsity:modernbert-probe-m-s00625	ok	0.0	38s
+regime:quantized:modernbert-probe-m-s00625:tiny10	ok	 0	30s
+sparsity:modernbert-probe-m-s01875	ok	0.0	39s
+regime:quantized:modernbert-probe-m-s01875:tiny10	ok	 0	29s
+sparsity:modernbert-probe-m-s03750	ok	0.0	38s
+regime:quantized:modernbert-probe-m-s03750:tiny10	ok	 0	30s
+regime:quantized:modernbert-probe-m-s05000:tiny10	FAILED	-	96s
+mlm-control:noreg-scale1	0	-	1057s
+mlm-control:noreg-scale1e-4	1	-	1709s
+mlm-controls:analysis	0/0	-	no further training scheduled
+mlm-control:noreg-scale1e-4	139	-	43s
+mlm-controls:analysis	0/0	-	no further training scheduled
+mlm-control:noreg-scale1e-4	2	-	23s
+mlm-controls:analysis	0/0	-	no further training scheduled
+mlm-control:noreg-scale1e-4	0	-	1738s
+mlm-controls:analysis	0/0	-	no further training scheduled
+regime:quantized:modernbert-init-n2-e5-s01500:tiny10	ok	55.63 10	787s
+regime:quantized:modernbert-init-n2-e5-s02000:tiny10	ok	56.61 10	851s
+
+```
+
+## FAILED
+
+```
+```
