@@ -5,14 +5,15 @@
   "taskset": "heldout8",
   "max_seq_length": null,
   "tasks": {
-    "maupqa-gpt3.5-cc": 20.3949,
-    "maupqa-multilingual-nli": 14.6864,
-    "mfaq": 63.3762,
-    "poleval-2022-test-a-legal-questions": 82.728,
-    "maupqa-wiki-def": 66.5926,
-    "scidocs-pl": 14.2547,
-    "maupqa-1z10": 48.7716
+    "maupqa-gpt3.5-cc": 20.394887592091546,
+    "maupqa-multilingual-NLI": 14.686439098816676,
+    "mfaq": 63.37624782893852,
+    "poleval-2022-test-A-legal-questions": 82.72797694150147,
+    "maupqa-wiki-def": 66.59261732811945,
+    "scidocs-pl": 14.254702965571662,
+    "maupqa-1z10": 48.77158349952017,
+    "fiqa-pl": 30.783339867909877
   },
-  "n_tasks": 7,
-  "mean_ndcg@10": 44.40062857142857
+  "n_tasks": 8,
+  "mean_ndcg@10": 42.69847439030867
 }
