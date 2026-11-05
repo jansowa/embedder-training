@@ -1,0 +1,26 @@
+{
+  "points": [
+    {
+      "label": "modernbert-init-n2-e5-s01500",
+      "step": 1500,
+      "dims": 355.80074074074076,
+      "tiny10": 55.634368602439096,
+      "n_tasks": 10
+    },
+    {
+      "label": "modernbert-init-n2-e5-s02000",
+      "step": 2000,
+      "dims": 404.29333333333335,
+      "tiny10": null,
+      "n_tasks": 0
+    },
+    {
+      "label": "mlm-probe-a-s01875",
+      "step": 1875,
+      "dims": 390.8159259259259,
+      "tiny10": 55.70460659367812,
+      "n_tasks": 10
+    }
+  ],
+  "excluded": "E5 s2500"
+}

@@ -61,3 +61,16 @@ New overnight controllers use reference_dims=436 and band [0.75,1.05] (327–457
 Raw state: `experiments/polish-splade-2026-10/results/data/splade-init-overnight.json`. Night 3 is never launched by this queue.
 
 <!-- overnight-init-end -->
+
+<!-- density-match-step0 -->
+
+## Porównanie przy dopasowanej gęstości — krok 0
+
+| Model | krok | wymiary/dokument | tiny10 nDCG@10 |
+|---|---:|---:|---:|
+| modernbert-init-n2-e5-s01500 | 1500 | 355.80 | 55.63 |
+| modernbert-init-n2-e5-s02000 | 2000 | 404.29 | pending |
+| mlm-probe-a-s01875 | 1875 | 390.82 | 55.70 |
+
+E5 s2500 jest wyłączony z werdyktów porównawczych. Wznowienie zmieniło obserwowaną gęstość; log zgłasza jednak przywrócenie regulatora z kroku 2000 (lambda_d=0.001536), więc utrata stanu pozostaje hipotezą, nie potwierdzoną przyczyną.
+Decyzja: koniec sweepów LR/celu na starych danych; następne porównanie ma użyć świeżych danych i obu backbone’ów. Podobieństwo profilu błędów wskazuje kierunek badań nad danymi, ale samo nie dowodzi sufitu architektury.
