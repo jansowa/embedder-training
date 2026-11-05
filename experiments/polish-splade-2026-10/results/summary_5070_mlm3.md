@@ -16,7 +16,7 @@ Updated: 2026-11-05T15:26:42+01:00
 
 | Model | Status | krok | s/krok | peak CUDA / NVIDIA sampled MiB | ETA treningu |
 |---|---|---:|---:|---|---|
-| M | evaluating 4306 | 4300 | 3.87 | 11540.23 / 13073.00 | — |
+| M | finished | 4300 | 3.87 | 11540.23 / 13073.00 | — |
 | A | pending | 0 | — | — / — | — |
 
 | Model | checkpoint | dims/doc (FP32, 512) | tiny10 nDCG@10 |

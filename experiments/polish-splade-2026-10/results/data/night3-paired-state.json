@@ -33,7 +33,7 @@
   ],
   "runs": {
     "m": {
-      "phase": "evaluating 4306",
+      "phase": "finished",
       "attempt": 1,
       "run": "runs/night3-paired-m/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-103554",
       "telemetry": {
