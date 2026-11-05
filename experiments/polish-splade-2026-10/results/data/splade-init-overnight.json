@@ -1469,7 +1469,7 @@
         "lambda_q": 0.00015,
         "lambda_warmup": 1000
       },
-      "phase": "finished",
+      "phase": "recovery incomplete",
       "physical_batch": 8,
       "training_attempts": [
         {
@@ -1636,7 +1636,14 @@
         "calibration_documents": 256
       },
       "density_stop": null,
-      "error": "no requested final checkpoint; early stop/training failure"
+      "error": null,
+      "recovery_attempts": [
+        {
+          "rc": 2,
+          "seconds": 6,
+          "log": "logs/morning_n2-repeat-seed44_resume.log"
+        }
+      ]
     },
     "n2-repeat-seed45": {
       "branch": "A",
@@ -1754,7 +1761,7 @@
       "time": "2026-11-04T23:02:37+01:00"
     }
   },
-  "updated": "2026-11-05T05:57:27+01:00",
+  "updated": "2026-11-05T05:57:53+01:00",
   "branch": "A",
   "branch_inputs": {
     "e2": {
