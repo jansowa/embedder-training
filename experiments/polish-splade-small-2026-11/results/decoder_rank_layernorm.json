@@ -1,0 +1,44 @@
+{
+  "r128/sigma_cv": 0.30040302872657776,
+  "r128/mu_over_sigma": 0.07178185880184174,
+  "r128/exact": {
+    "splade_rel_err": 0.19607535317404196,
+    "pooled_cosine": 0.8808178901672363
+  },
+  "r128/centred": {
+    "splade_rel_err": 0.24673550447964457,
+    "pooled_cosine": 0.8545697331428528
+  },
+  "r128/ln": {
+    "splade_rel_err": 0.2951186346557644,
+    "pooled_cosine": 0.8466350436210632
+  },
+  "r256/sigma_cv": 0.27229174971580505,
+  "r256/mu_over_sigma": 0.050805360078811646,
+  "r256/exact": {
+    "splade_rel_err": 0.048241633757775806,
+    "pooled_cosine": 0.9720578789710999
+  },
+  "r256/centred": {
+    "splade_rel_err": 0.09584953389141924,
+    "pooled_cosine": 0.9482865333557129
+  },
+  "r256/ln": {
+    "splade_rel_err": 0.13430564772462544,
+    "pooled_cosine": 0.9405465722084045
+  },
+  "r384/sigma_cv": 0.2629268169403076,
+  "r384/mu_over_sigma": 0.04102542996406555,
+  "r384/exact": {
+    "splade_rel_err": 0.017055395319966204,
+    "pooled_cosine": 0.9904707074165344
+  },
+  "r384/centred": {
+    "splade_rel_err": 0.055889591955119756,
+    "pooled_cosine": 0.9714835286140442
+  },
+  "r384/ln": {
+    "splade_rel_err": 0.09219633059592312,
+    "pooled_cosine": 0.9627203345298767
+  }
+}

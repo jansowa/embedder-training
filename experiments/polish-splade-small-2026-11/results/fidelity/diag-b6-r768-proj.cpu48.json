@@ -1,0 +1,61 @@
+{
+  "device": "cpu",
+  "dtype": "fp32",
+  "kinds": {
+    "all": {
+      "cosine": {
+        "mean": 0.9999999900658926,
+        "p10": 0.9999999225139617,
+        "p50": 1.0,
+        "p90": 1.0000001192092896
+      },
+      "jaccard_active": {
+        "mean": 1.0,
+        "p10": 1.0,
+        "p50": 1.0,
+        "p90": 1.0
+      },
+      "l1_relative_error": {
+        "mean": 2.6164004367501548e-06,
+        "p10": 2.2309927089736446e-06,
+        "p50": 2.5687535298857256e-06,
+        "p90": 3.0995642191555816e-06
+      },
+      "n": 48,
+      "student_active_dims": {
+        "mean": 637.125,
+        "p10": 523.4,
+        "p50": 640.5,
+        "p90": 748.2
+      },
+      "teacher_active_dims": {
+        "mean": 637.125,
+        "p10": 523.4,
+        "p50": 640.5,
+        "p90": 748.2
+      },
+      "teacher_active_recall": {
+        "mean": 1.0,
+        "p10": 1.0,
+        "p50": 1.0,
+        "p90": 1.0
+      },
+      "tokens": {
+        "mean": 251.83333333333334,
+        "p10": 235.7,
+        "p50": 256.0,
+        "p90": 256.0
+      }
+    }
+  },
+  "max_seq_length": 256,
+  "n": 48,
+  "seconds_per_text": {
+    "student": 0.21314520608090484,
+    "teacher": 0.21359290037556397
+  },
+  "student": "models/students/diag-b6-r768-proj",
+  "student_speedup": 1.002100419253573,
+  "teacher": "models/soup-v9b",
+  "texts": "datasets/synth/chunks_pool.jsonl"
+}

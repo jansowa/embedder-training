@@ -172,6 +172,34 @@ split_block() {  # split_block SRC TAG...: train all, tiny all, held-out for con
         holdout "arm-$src-rand" "models/arm-$src-rand"; holdout "arm-$best" "models/arm-$best"
     else log "split block $src: no split beats the random half by 0.4 on tiny; no held-out"; fi
 }
+KD_TIMEOUT="${KD_TIMEOUT:-10800}"
+kd() {  # kd NAME STUDENT_DIR [train_kd args...]: distill.train_kd into runs/kd-NAME, copy final/ to models/kd-NAME
+    local tag="$1" student="$2"; shift 2
+    [ -d "models/kd-$tag" ] && return 0
+    [ -d "$student" ] || { log "kd $tag: student $student missing"; record "kd:$tag" SKIPPED "no student"; return 1; }
+    need_space || return 1; wait_gpu_free; wait_ram
+    log "kd $tag ($*)"; local s=$SECONDS
+    timeout -k 60 "$KD_TIMEOUT" "$PY" -m distill.train_kd --student "$student" --out "runs/kd-$tag" "$@" > "$LOGS/kd_$tag.log" 2>&1
+    local e=$((SECONDS - s))
+    [ -f "runs/kd-$tag/final/model.safetensors" ] || { log "kd $tag: no final checkpoint after ${e}s"; record "kd:$tag" FAILED "-" "${e}s"; return 1; }
+    cp -r "runs/kd-$tag/final" "models/kd-$tag" || return 1
+    local fid; fid=$("$PY" -c "import json;d=json.load(open('runs/kd-$tag/kd_summary.json'));f=d.get('fidelity') or {};k=f.get('all') or next(iter(f.values()), {});print(round(k.get('cosine',0),4))" 2>/dev/null)
+    log "kd $tag done in ${e}s (fidelity cosine ${fid:-?})"; record "kd:$tag" ok "${fid:--}" "${e}s"
+}
+fidelity() {  # fidelity NAME STUDENT TEXTS [args...]: distill.fidelity against models/soup-v9b, JSON in $RESULTS_ROOT/fidelity/NAME.json
+    local name="$1" student="$2" texts="$3"; shift 3
+    local out="$RESULTS_ROOT/fidelity/$name.json"
+    [ -f "$out" ] && return 0
+    [ -d "$student" ] || { log "fidelity $name: $student missing"; return 1; }
+    wait_gpu_free; wait_ram; mkdir -p "$RESULTS_ROOT/fidelity"
+    log "fidelity $name"; local s=$SECONDS
+    timeout -k 60 1800 "$PY" -m distill.fidelity --teacher "${TEACHER:-models/soup-v9b}" --student "$student" --texts "$texts" \
+        --device cuda --dtype fp16 --output "$out" "$@" > "$LOGS/fidelity_$name.log" 2>&1
+    local e=$((SECONDS - s))
+    if [ -f "$out" ]; then
+        log "fidelity $name -> $(tail -2 "$LOGS/fidelity_$name.log" | head -1) in ${e}s"; record "fidelity:$name" ok "-" "${e}s"
+    else log "fidelity $name FAILED after ${e}s"; record "fidelity:$name" FAILED "-" "${e}s"; return 1; fi
+}
 regime_mean() { "$PY" -c "import json;d=json.load(open('$1'));print(round(d['mean_ndcg@10'],2) if d['mean_ndcg@10'] is not None else '', d['n_tasks'])" 2>/dev/null; }
 regime() {  # regime REGIME LABEL MODEL TASKSET [BATCH] [MAXLEN]: scripts/pirb_regime_eval.sh with the usual guards
     local reg="$1" label="$2" model="$3" ts="$4" bs="${5:-16}" maxlen="${6:-}" out="$REGIMES_ROOT/$1/$2/$4.json"

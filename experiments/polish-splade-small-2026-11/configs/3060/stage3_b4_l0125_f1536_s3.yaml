@@ -1,0 +1,51 @@
+backend: sentence-transformers
+training_type: splade
+
+# Stage 3 of the small-SPLADE probe (3060, queue s1): ranking distillation from soup-v9b on the n4 rows
+# (mix3v2-6219, teacher dot products in pos_scores / neg_scores, suffix -tv9b), the v32 recipe
+# (512 tokens, 10 negatives, lr 2e-5, 2 epochs, 2 x 16, sparse_distill_kl_div, FLOPS 0.001 / 5e-5).
+# Student: models/kd-b4-l0125-f1536-s2 (after the token + pooled KD stages).
+runs_dir: runs/arm-b4-l0125-f1536-s3
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/mix3v2-6219-tv9b.jsonl
+
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - models/kd-b4-l0125-f1536-s2
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
