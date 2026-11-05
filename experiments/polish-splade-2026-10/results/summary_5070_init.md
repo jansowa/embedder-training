@@ -34,7 +34,7 @@ E1 initialization scores, if not explicitly measured before its original trainin
 
 ## Overnight adaptive probes (second queue)
 
-Updated: 2026-11-05T05:20:48+01:00; GPU deadline: **2026-11-05T08:00:00+01:00**. Branch: **A**.
+Updated: 2026-11-05T05:21:08+01:00; GPU deadline: **2026-11-05T08:00:00+01:00**. Branch: **A**.
 
 ALIVE = completed s00500, nonzero FP32 diagnostic vectors, mean document dimensions ≥20; BAND = 150–900; OK = ALIVE + BAND + complete tiny10 ≥50. Above 1500 dimensions tiny10 is skipped. Missing/partial evaluations are not numerical scores.
 
@@ -51,6 +51,7 @@ ALIVE = completed s00500, nonzero FP32 diagnostic vectors, mean document dimensi
 | n2-repeat-seed45 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
 | n2-repeat-seed46 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
 | n2-repeat-seed47 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
+| n2-repeat-seed48 | A | — | — / — / — / — | — | finished; no requested final checkpoint; early stop/training failure |
 
 Recommendation pending; no night-3 training will be started.
 
