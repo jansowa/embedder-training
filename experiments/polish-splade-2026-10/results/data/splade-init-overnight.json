@@ -578,6 +578,30 @@
           "ALIVE": true,
           "BAND": true,
           "OK": false
+        },
+        "2500": {
+          "sparsity_process": {
+            "rc": 0,
+            "seconds": 48,
+            "log": "logs/overnight_n2-e5_s2500_sparsity.log"
+          },
+          "dims": 236.3925925925926,
+          "diagnostic_process": {
+            "rc": 0,
+            "seconds": 30,
+            "log": "logs/overnight_n2-e5_s2500_diagnosis.log"
+          },
+          "fp32_nonzero": true,
+          "tiny_process": {
+            "rc": 0,
+            "seconds": 724,
+            "log": "logs/overnight_n2-e5_s2500_tiny10_b8.log"
+          },
+          "tiny10": 55.328134321571085,
+          "evaluation": "complete",
+          "ALIVE": true,
+          "BAND": true,
+          "OK": true
         }
       },
       "requested_steps": 2500,
@@ -586,7 +610,7 @@
         "lambda_q": 0.00015,
         "lambda_warmup": 1000
       },
-      "phase": "recovery incomplete",
+      "phase": "finished",
       "physical_batch": 8,
       "training_attempts": [
         {
@@ -596,7 +620,7 @@
         }
       ],
       "run": "runs/modernbert-init-n2-e5-b8/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261104-235938",
-      "trained_steps": 2000,
+      "trained_steps": 2500,
       "initialization": {
         "c": 11.744987007106829,
         "target": 400,
@@ -763,6 +787,11 @@
         {
           "rc": 2,
           "seconds": 9,
+          "log": "logs/morning_n2-e5_resume.log"
+        },
+        {
+          "rc": 0,
+          "seconds": 1772,
           "log": "logs/morning_n2-e5_resume.log"
         }
       ]
@@ -1761,7 +1790,7 @@
       "time": "2026-11-04T23:02:37+01:00"
     }
   },
-  "updated": "2026-11-05T05:58:12+01:00",
+  "updated": "2026-11-05T06:42:43+01:00",
   "branch": "A",
   "branch_inputs": {
     "e2": {
