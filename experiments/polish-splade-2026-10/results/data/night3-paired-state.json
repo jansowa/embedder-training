@@ -1,0 +1,52 @@
+{
+  "created": "2026-11-05T10:35:26+01:00",
+  "start_free_gb": 47.229734912,
+  "data_signature": [
+    {
+      "original": "datasets/arms/squadv2-v2-all.jsonl",
+      "sha256": "ecf398a30d8f42ecca54916129c4efab6c227efefd75fdc27dbd78507a3ac179"
+    },
+    {
+      "original": "datasets/judged/msmarco-rejected-20000.jsonl",
+      "sha256": "9120fd6a4d7a266c9c10a50fa870fc02bed6766e804197edd27161373558adc3"
+    },
+    {
+      "original": "datasets/judged/msmarco-clean-20000.jsonl",
+      "sha256": "299109cb03e8f3ecfdbc3429effe4d445f55a24b486b67d359fb7d272b9f9f56"
+    },
+    {
+      "original": "datasets/judged/msmarco-plain-20000.jsonl",
+      "sha256": "c04efefbf3bace254505528cf9f66b9e51ad3b2ce2898e2ff6cb30c236901192"
+    },
+    {
+      "original": "datasets/arms/squadv2-fresh-16000.jsonl",
+      "sha256": "18f1e36e8b128103495dbbe9a4da76090e6d917f411f698cad661e1d391b9b85"
+    },
+    {
+      "original": "datasets/arms/squadv2-2073.jsonl",
+      "sha256": "a86715abec4c7a175b8e19f41feb02cd0224efd4eb0c4aff7413b3ccb00388b4"
+    },
+    {
+      "original": "datasets/arms/fiqa-2073.jsonl",
+      "sha256": "b7904923bcbc52e784255df333915f4cc84709de22d81728da895ab8ada1d41e"
+    }
+  ],
+  "runs": {
+    "m": {
+      "phase": "training",
+      "attempt": 1,
+      "run": "runs/night3-paired-m/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-103554",
+      "telemetry": {
+        "step": 100,
+        "seconds_per_step": 3.72143799782653,
+        "peak_allocated_mib": 11467.68359375,
+        "peak_reserved_mib": 11706.0,
+        "peak_nvidia_sampled_mib": 13071.0
+      },
+      "reported_100": "2026-11-05T10:42:55+01:00"
+    },
+    "a": {}
+  },
+  "errors": [],
+  "GM": "pending"
+}
