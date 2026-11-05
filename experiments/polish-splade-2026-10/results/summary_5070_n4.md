@@ -1,10 +1,10 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-05T22:08:02+01:00
+Aktualizacja: 2026-11-05T22:39:02+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
-| night3-paired-a-s04306 | 56.73 | — | 459.13 |
+| night3-paired-a-s04306 | 56.73 | 39.64 | 459.13 |
 | night3-paired-m-s04306 | 53.75 | — | 327.85 |
 
 A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).
@@ -100,10 +100,13 @@ mlm-control:noreg-scale1e-4	0	-	1738s
 mlm-controls:analysis	0/0	-	no further training scheduled
 regime:quantized:modernbert-init-n2-e5-s01500:tiny10	ok	55.63 10	787s
 regime:quantized:modernbert-init-n2-e5-s02000:tiny10	ok	56.61 10	851s
+regime:quantized:night3-paired-a-s04306:heldout8	ok	39.64 8	1834s
 
 ```
 
 ## FAILED
 
 ```
+[22:08:08] [n4] FAILED publishing results: git push
+[22:08:08] [n4] FAILED initial publishing
 ```
