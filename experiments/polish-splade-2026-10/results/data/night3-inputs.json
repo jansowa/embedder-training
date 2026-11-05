@@ -1,0 +1,151 @@
+{
+  "squadv2": {
+    "rows": 130214,
+    "first_row_keys": [
+      "difference_between_max_scores",
+      "difference_between_mean_scores",
+      "max_neg_score",
+      "mean_neg_score",
+      "mean_pos_score",
+      "neg",
+      "neg_id",
+      "neg_scores",
+      "neg_selection_tier",
+      "original_neg_scores",
+      "original_pos_scores",
+      "pos",
+      "pos_id",
+      "pos_is_synthetic",
+      "pos_scores",
+      "pos_scores_stronger_reranker",
+      "prompt",
+      "query",
+      "query_id",
+      "translation",
+      "translation_source",
+      "type"
+    ],
+    "positives": 1,
+    "negatives": 10,
+    "translation": "squadv2-v2",
+    "bytes": 1383842484,
+    "sha256": "92589582ef3ad75508be01b460ae65268af36974ed2ec559ecabd073fc73624d"
+  },
+  "gzip_sha256": "c6852c42a7cf310cc30a6ae8c39fcb1a4a87e221ef3bf987a78561e81d002388",
+  "c_free_gb_after_unpack": 37.94948096,
+  "squadv2_filter": {
+    "total": 130214,
+    "kept": 56093,
+    "report": {
+      "empty_passages": {
+        "detail_report_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-aa1a0785522095e4/empty_passage_report.jsonl",
+        "enabled": true,
+        "identifiers": [],
+        "removed_samples": 0,
+        "samples_with_empty_neg": 0,
+        "samples_with_empty_pos": 0
+      },
+      "input_path": "/mnt/c/work/embedder-training-v2/datasets/arms/squadv2-v2-all.jsonl",
+      "kept": 56093,
+      "missing_counts": {},
+      "negatives_kept": 560930,
+      "negatives_removed": 741210,
+      "negatives_total": 1302140,
+      "output_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-aa1a0785522095e4/dataset.jsonl",
+      "positives_kept": 56437,
+      "positives_removed": 74335,
+      "positives_total": 130772,
+      "profile_name": "splade_positive_score_gt_23_50_no_metricx",
+      "profile_path": "configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml",
+      "removed": 74121,
+      "removed_by_min_negatives": 0,
+      "removed_by_min_positives": 74121,
+      "total": 130214,
+      "type_mismatch_counts": {}
+    },
+    "output": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-aa1a0785522095e4/dataset.jsonl"
+  },
+  "msmarco_download_error": "Could not download Hugging Face dataset file 'https://huggingface.co/datasets/speakleash/msmarco_pl/resolve/main/train_pl.jsonl': HTTP Error 401: Unauthorized",
+  "msmarco": {
+    "choice": "fallback msmarco-rejected-20000",
+    "path": "/mnt/c/work/embedder-training-v2/datasets/judged/msmarco-rejected-20000.jsonl",
+    "selected_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-d52ba70e6571e86e/dataset.jsonl",
+    "selected_rows": 20000,
+    "sampling": {
+      "path": "/mnt/c/work/embedder-training-v2/datasets/judged/msmarco-rejected-20000.jsonl",
+      "max_samples": 150000,
+      "seed": 42,
+      "sample_stage": "after_filter"
+    }
+  },
+  "c_free_gb_after_preparation": 37.949345792,
+  "paired_preflight": {
+    "configs": {
+      "m": "experiments/polish-splade-2026-10/configs/next/5070/mlm3_paired_m.yaml",
+      "a": "experiments/polish-splade-2026-10/configs/next/5070/mlm3_paired_a.yaml"
+    },
+    "sources": [
+      {
+        "name": "0-squadv2-v2-all-jsonl",
+        "original": "datasets/arms/squadv2-v2-all.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-aa1a0785522095e4/dataset.jsonl",
+        "gated_rows": 56093,
+        "examples": 56437
+      },
+      {
+        "name": "1-msmarco-rejected-20000-jsonl",
+        "original": "datasets/judged/msmarco-rejected-20000.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-d52ba70e6571e86e/dataset.jsonl",
+        "gated_rows": 20000,
+        "examples": 20000
+      },
+      {
+        "name": "2-msmarco-clean-20000-jsonl",
+        "original": "datasets/judged/msmarco-clean-20000.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-089ba79036703336/dataset.jsonl",
+        "gated_rows": 20000,
+        "examples": 20000
+      },
+      {
+        "name": "3-msmarco-plain-20000-jsonl",
+        "original": "datasets/judged/msmarco-plain-20000.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-4d4054db53a142de/dataset.jsonl",
+        "gated_rows": 20000,
+        "examples": 20000
+      },
+      {
+        "name": "4-squadv2-fresh-16000-jsonl",
+        "original": "datasets/arms/squadv2-fresh-16000.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-98d13f547493af9d/dataset.jsonl",
+        "gated_rows": 16000,
+        "examples": 16086
+      },
+      {
+        "name": "5-squadv2-2073-jsonl",
+        "original": "datasets/arms/squadv2-2073.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-4310b87895266966/dataset.jsonl",
+        "gated_rows": 2073,
+        "examples": 2089
+      },
+      {
+        "name": "6-fiqa-2073-jsonl",
+        "original": "datasets/arms/fiqa-2073.jsonl",
+        "prepared_path": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-a507bb0239619a5a/dataset.jsonl",
+        "gated_rows": 2073,
+        "examples": 3161
+      }
+    ],
+    "examples": 137773,
+    "gated_rows": 136239,
+    "one_epoch_steps_approx": 4306,
+    "epochs_at_5000": 1.1613305945286811,
+    "prepared_query_positive_order_sha256": "4a13aff9f788de1f7c0e01c76f981210b9766c8149d5fc93d2019bd5a11be2e1",
+    "same_ordered_sources_and_seed": true,
+    "free_gb": 36.376621056,
+    "blockers": [
+      "One epoch versus 5000 steps: 137773 examples, but 5000x32=160000 presentations (1.1613 epochs).",
+      "Disk prerequisite: 36.377 GB free on C:, below required 40 GB."
+    ],
+    "training_started": false
+  }
+}

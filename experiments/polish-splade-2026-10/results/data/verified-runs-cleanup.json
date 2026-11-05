@@ -1,0 +1,20 @@
+{
+  "freed_gb": 31.791,
+  "free_gb": 38.9,
+  "targets": [
+    "modernbert-control-noreg-scale1e-4",
+    "modernbert-init-e2",
+    "modernbert-init-e3",
+    "modernbert-init-n2-e5-b8",
+    "modernbert-init-n2-e6-b8",
+    "modernbert-init-n2-e7-b8",
+    "modernbert-init-n2-repeat-seed43-b8",
+    "modernbert-init-n2-repeat-seed44-b8"
+  ],
+  "estimated_gb": 31.79,
+  "metadata_archive": "/mnt/c/work/embedder-training-v2/logs/run-metadata-verified-20261105-082426.zip",
+  "archive_sha256": "1852f2d247cdfc5a0b0bccf15ab4dc447f361200456c29acbc0d5b6c9e563d99",
+  "metadata_files": 412,
+  "archive_bytes": 25528352,
+  "audit": "/mnt/c/work/embedder-training-v2/logs/generated_runs_cleanup_audit.json"
+}
