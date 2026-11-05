@@ -1490,6 +1490,30 @@
           "ALIVE": true,
           "BAND": false,
           "OK": false
+        },
+        "500": {
+          "sparsity_process": {
+            "rc": 0,
+            "seconds": 48,
+            "log": "logs/overnight_n2-repeat-seed44_s500_sparsity.log"
+          },
+          "dims": 398.17703703703705,
+          "diagnostic_process": {
+            "rc": 0,
+            "seconds": 27,
+            "log": "logs/overnight_n2-repeat-seed44_s500_diagnosis.log"
+          },
+          "fp32_nonzero": true,
+          "tiny_process": {
+            "rc": 0,
+            "seconds": 769,
+            "log": "logs/overnight_n2-repeat-seed44_s500_tiny10_b8.log"
+          },
+          "tiny10": 54.27904677970578,
+          "evaluation": "complete",
+          "ALIVE": true,
+          "BAND": true,
+          "OK": true
         }
       },
       "requested_steps": 500,
@@ -1498,7 +1522,7 @@
         "lambda_q": 0.00015,
         "lambda_warmup": 1000
       },
-      "phase": "recovery incomplete",
+      "phase": "finished",
       "physical_batch": 8,
       "training_attempts": [
         {
@@ -1508,7 +1532,7 @@
         }
       ],
       "run": "runs/modernbert-init-n2-repeat-seed44-b8/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-12-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-043426",
-      "trained_steps": 250,
+      "trained_steps": 500,
       "initialization": {
         "c": 11.744987007106829,
         "target": 400,
@@ -1671,8 +1695,18 @@
           "rc": 2,
           "seconds": 6,
           "log": "logs/morning_n2-repeat-seed44_resume.log"
+        },
+        {
+          "rc": 0,
+          "seconds": 937,
+          "log": "logs/morning_n2-repeat-seed44_resume.log"
         }
-      ]
+      ],
+      "classification": {
+        "ALIVE": true,
+        "BAND": true,
+        "OK": true
+      }
     },
     "n2-repeat-seed45": {
       "branch": "A",
@@ -1790,7 +1824,7 @@
       "time": "2026-11-04T23:02:37+01:00"
     }
   },
-  "updated": "2026-11-05T06:42:43+01:00",
+  "updated": "2026-11-05T07:12:50+01:00",
   "branch": "A",
   "branch_inputs": {
     "e2": {
