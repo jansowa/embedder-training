@@ -87,7 +87,7 @@
       }
     },
     "a": {
-      "phase": "evaluating 4306",
+      "phase": "finished",
       "attempt": 1,
       "run": "runs/night3-paired-a/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-152713",
       "telemetry": {
