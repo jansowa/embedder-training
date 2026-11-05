@@ -1,0 +1,49 @@
+backend: sentence-transformers
+training_type: splade
+
+# Speed control (queue v34-speed): the exact recipe and rows of arm-n4-3060 (62.89 / 42.01; seeds 62.77 / 42.06 and
+# 62.81 / 41.93) trained with the sparse-gradient SPLADE head (training/backends/splade_fused_head.py) and without
+# gradient checkpointing; the micro-benchmark (runs/bench-speed/head_bench.md) measured 2.55x at fp16-rounding-level
+# gradient differences. Everything else is n4_3060.yaml: mnrl (cluster-like), 512 tokens, 10 negatives, 2 x 16, gate filter.
+runs_dir: runs/arm-n4-3060-fast
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/mix3-6219.jsonl
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_multiple_negatives_ranking
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  fp16: true
+  splade_pooling_chunk_size: 8
+  splade_fused_head: exact
+  negatives_per_query: 10
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
