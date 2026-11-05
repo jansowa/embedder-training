@@ -16,6 +16,8 @@ decoder (`training/backends/splade_fused_head.py`).
 | 2 | `python -m distill.train_kd --pooled-loss mse` | unlabeled text | the pooled SPLADE vector (sparse-gradient max over tokens); optional FLOPS |
 | 3 | `python -m training.train` with `loss: sparse_distill_kl_div` | training rows with teacher scores | ranking, exactly as the v32 arms |
 | check | `python -m distill.fidelity` | a text sample | cosine / active-dimension overlap with the teacher and seconds per text |
+| check | `python -m distill.rank_agreement` | stage-3 rows with teacher scores | Kendall tau / top-1 agreement of the student's dot products with the teacher's per query |
+| check | `python -m distill.vocab_usage` | a text sample | live / dead output dimensions and the mass covered by the top-K |
 
 Every output folder is a complete sentence-transformers SparseEncoder (weights, tokenizer,
 `modules.json`, `1_SpladePooling/`), so `scripts/pirb_regime_eval.sh`, `scripts/compare_splade_sparsity.py`
@@ -55,12 +57,24 @@ Why ALBERT and not a custom class: the student must load through `AutoModelForMa
 sentence-transformers, PIRB (`third_party/pirb/search/splade.py`) and ONNX exporters without
 `trust_remote_code`.
 
+Head-layer students carry `head_layer: true` in their `config.json`; `distill.splade.prepare_head_layer`
+(called by the KD trainer, and by `fidelity` / `rank_agreement` with `--fp32-head`) runs the extra layer's
+feed-forward and the head transform in fp32 and switches that layer's dropout off: the `gelu(n + b) − n`
+cancellation relies on shifted values that fp16 rounds at 1/64–1/16 and that dropout would zero on 10 %
+of the coordinates. Stock inference (sentence-transformers, PIRB) has no such patch and runs the fp16
+path; `fidelity --dtype fp16` without `--fp32-head` measures what that costs.
+
 ## KD trainer (`distill/train_kd.py`)
 
 Plain PyTorch loop: teacher in fp16 without gradients, student in fp32 under autocast, AdamW,
 warm-up then constant / linear / cosine LR, gradient accumulation, length-bucketed batches
 (`distill/data.py`), checkpoints every N steps with a fidelity sample compared at each
-(`log.jsonl`, `kd_summary.json`, optional W&B). The token loss runs the decoder on position chunks
+(`log.jsonl` with cosine / L1 / active dims per kind, `kd_summary.json`, optional W&B;
+`scripts/kd_fidelity_curve.py` prints the curve). The pooled MSE is relative (divided by the teacher's mean
+squared norm), so it combines with a token loss: the token KL is invariant to a shift of all logits of a
+token and cannot fix sparsity, while the pooled loss through the sparse-gradient decoder has no gradient
+on dimensions the student leaves inactive and can only switch dimensions off; the probe's second stage
+therefore runs `--pooled-loss mse --token-loss kl --token-weight 0.3`. The token loss runs the decoder on position chunks
 under activation checkpointing (`--head-chunk 64`), so at most one `[B, chunk, V]` logits tensor of
 the student is alive; the pooled loss uses the sparse max decoder and never materialises `[B, L, V]`.
 The corpus is held in memory (1.1 GB of text for the 2.26 M texts of `kd_v1`), because the data drive

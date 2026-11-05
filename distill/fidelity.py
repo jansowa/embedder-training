@@ -26,7 +26,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from distill.splade import active_dims, encode_pooled
+from distill.splade import active_dims, encode_pooled, prepare_head_layer
 
 
 def _summary(values: list[float]) -> dict[str, float]:
@@ -117,14 +117,15 @@ def compare_models(
 
 
 def load_texts(path: Path, field: str, n: int, seed: int, kinds: set[str] | None = None) -> tuple[list[str], list[str]]:
-    """``n`` texts with their kinds, evenly spread over the file by a seeded sample of the first 50 x n matching lines."""
+    """``n`` texts with their kinds, a seeded reservoir sample over the *whole* file (the corpus is ordered by
+    source, so a sample of its head would be one source)."""
     import random
 
+    rng = random.Random(seed)
     pool: list[tuple[str, str]] = []
+    seen = 0
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
-            if len(pool) >= 50 * n:
-                break
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
@@ -133,10 +134,16 @@ def load_texts(path: Path, field: str, n: int, seed: int, kinds: set[str] | None
             if kinds is not None and kind not in kinds:
                 continue
             text = row.get(field)
-            if isinstance(text, str) and text.strip():
+            if not (isinstance(text, str) and text.strip()):
+                continue
+            seen += 1
+            if len(pool) < n:
                 pool.append((text, kind))
-    random.Random(seed).shuffle(pool)
-    pool = pool[:n]
+            else:
+                j = rng.randrange(seen)
+                if j < n:
+                    pool[j] = (text, kind)
+    rng.shuffle(pool)
     return [t for t, _ in pool], [k for _, k in pool]
 
 
@@ -154,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dtype", choices=("fp32", "fp16", "bf16"), default="fp32")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--threads", type=int, default=0)
+    parser.add_argument("--fp32-head", action="store_true", help="head-layer students: the extra layer's FFN and the head transform in fp32, as the KD trainer runs them (default: the stock path, as inference sees it)")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -165,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
     tokenizer = AutoTokenizer.from_pretrained(args.teacher)
     teacher = AutoModelForMaskedLM.from_pretrained(args.teacher, torch_dtype=dtype).to(args.device)
     student = AutoModelForMaskedLM.from_pretrained(args.student, torch_dtype=dtype).to(args.device)
+    if args.fp32_head and not prepare_head_layer(student):
+        print("[WARN] --fp32-head: the student is not a head-layer ALBERT; nothing to patch", file=sys.stderr)
     kinds = set(args.kinds.split(",")) if args.kinds else None
     texts, text_kinds = load_texts(args.texts, args.text_field, args.n, args.seed, kinds)
     if not texts:
@@ -173,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     result = compare_models(
         teacher, student, tokenizer, texts, text_kinds, max_seq_length=args.max_seq_length, batch_size=args.batch_size, device=args.device
     )
-    result.update({"teacher": str(args.teacher), "student": str(args.student), "texts": str(args.texts), "dtype": args.dtype})
+    result.update({"teacher": str(args.teacher), "student": str(args.student), "texts": str(args.texts), "dtype": args.dtype, "fp32_head": bool(args.fp32_head)})
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")

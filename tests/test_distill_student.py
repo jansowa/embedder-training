@@ -226,3 +226,29 @@ def test_weighted_subspace_prefers_the_frequent_tokens(teacher_dir, tmp_path):
     assert loaded.shape == (vocab,) and float(loaded.min()) > 5.0
     with pytest.raises(st.StudentSpecError):
         st.StudentSpec(keep_layers=[0], embedding_rank=8, token_weights=torch.ones(vocab + 1)).validate(3, 16, 24, vocab)
+
+
+def test_head_layer_marker_and_fp32_patch(teacher_dir, tmp_path):
+    from transformers import AutoModelForMaskedLM, AutoTokenizer
+
+    from distill.splade import encode_pooled, prepare_head_layer
+
+    tokenizer = AutoTokenizer.from_pretrained(teacher_dir)
+    texts = sample_texts(24, seed=5)
+    student, report = st.build_student(teacher_dir, st.StudentSpec(keep_layers=[0, 1, 2], embedding_rank=16, head_layer=True), texts)
+    out = tmp_path / "hl"
+    st.save_student(student, teacher_dir, out, report)
+    assert json.loads((out / "config.json").read_text())["head_layer"] is True
+    reloaded = AutoModelForMaskedLM.from_pretrained(out).eval()
+    assert reloaded.config.head_layer is True
+    enc = tokenizer(texts[:6], padding=True, return_tensors="pt")
+    with torch.no_grad():
+        before = encode_pooled(reloaded, enc["input_ids"], enc["attention_mask"])
+    assert prepare_head_layer(reloaded) is True
+    layer = reloaded.albert.encoder.albert_layer_groups[-1].albert_layers[0]
+    assert layer.dropout.p == 0.0 and layer.attention.output_dropout.p == 0.0
+    with torch.no_grad():
+        after = encode_pooled(reloaded, enc["input_ids"], enc["attention_mask"])
+    assert torch.allclose(before, after, atol=1e-5)  # fp32 everywhere: the patch changes nothing numerically
+    plain = AutoModelForMaskedLM.from_pretrained(teacher_dir)
+    assert prepare_head_layer(plain) is False

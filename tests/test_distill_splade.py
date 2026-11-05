@@ -103,3 +103,13 @@ def test_pooled_losses_and_flops():
     assert float(flops_loss(t)) > 0
     with pytest.raises(ValueError):
         pooled_distill_loss(t, t, "cosine")
+
+
+def test_pooled_mse_is_relative_to_the_teacher_norm():
+    from distill.splade import pooled_distill_loss
+
+    t = torch.tensor([[1.0, 2.0, 0.0], [0.0, 0.0, 2.0]])
+    s = torch.zeros_like(t)
+    assert pooled_distill_loss(s, t, "mse").item() == pytest.approx(1.0)  # all-zero student = 100 % relative error
+    assert pooled_distill_loss(t, t, "mse").item() == pytest.approx(0.0)
+    assert pooled_distill_loss(s, 3.0 * t, "mse").item() == pytest.approx(1.0)  # scale-free

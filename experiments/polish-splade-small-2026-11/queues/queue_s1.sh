@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# Queue s1 (3060 Ti; DRAFT, not started): the small-SPLADE probe night (docs/PLAN-2026-11-04.md §5).
-# Does representation distillation on unlabeled text (token logits, then pooled vectors) turn a pruned
-# soup-v9b into a usable student, and does a fresh body with the inherited vocabulary come anywhere close?
-#   0  reference results copied into this series' results-regimes (base, arm-n4-3060, arm-distil-v9b-kl-n4, soup-v9b)
-#   1  control: student b4-l0125-f1536 (4 layers, FFN 1536, no KD) -> stage 3 only (ranking KL on n4 rows) -> tiny10
-#   2  b4-l0125-f1536: stage 1 (token KL, KD_ITEMS texts) -> stage 2 (pooled MSE) -> stage 3 -> sparsity + tiny10
-#   3  b4-l0125-f1536-hl-r256-w: the same body as an ALBERT with the head layer and the rank-256 vocabulary
-#      (orthonormal input projection weighted by kd_v1 token counts, untied decoder fitted to real tokens; 0.45 MACs)
-#   4  a6-h384-r256: fresh ALBERT body (hidden 384, 6 layers, FFN 1536), only the vocabulary from the teacher
-#   5  summary_s1.md (tiny10 table, active dims, fidelity after every stage, queue state)
-# Budget (3060, estimates): KD stage ~25 min each at 150 k texts, stage 3 ~40 min, tiny10 ~10 min -> ~6 h in all.
-# Reading (plan §5): control vs b4 after stages 1-3 < 0.5 on tiny10 = the unlabeled corpus adds nothing over
-# ranking KD; a6 more than 3 points under b4 = the fresh-body variant is dropped.
-# Start: setsid nohup bash experiments/polish-splade-small-2026-11/queues/queue_s1.sh > logs/queue_s1.out 2>&1 < /dev/null &
+# Queue s1 (3060 Ti 8 GB; NOT STARTED, needs the user's go): the small-SPLADE probe night (docs/PLAN-2026-11-04.md §5,
+# revised 5.11 after the review in STATUS-DISTILL-2026-11-05.md).
+# Does representation distillation on unlabeled text turn a pruned soup-v9b into a usable student, and does the
+# staged recipe (short token-KL repair, then pooled-MSE + token-KL) beat the combined loss from the start?
+#   0  reference results copied into this series' results-regimes; students; GPU memory check of the fast head
+#   1  control: b4-l0125-f3072 (layers 0,1,2,5, FFN 3072, no KD) -> stage 3 only (ranking KL on n4 rows) -> tiny10
+#   2  b4-l0125-f3072 staged: s1 token KL (KD_S1_ITEMS texts) -> s2 pooled MSE + token KL x0.3 (KD_S2_ITEMS) -> s3 -> tiny10
+#   3  b4-l0125-f3072 joint: one KD stage with the combined loss on KD_S1_ITEMS + KD_S2_ITEMS texts -> s3 -> tiny10
+#   4  b4-l0125-f1536-hl-r256-w (ALBERT with the head layer, rank-256 vocabulary weighted by kd_v1 token counts;
+#      0.45 of the teacher's MACs): staged as 2 -> s3 -> tiny10
+#   5  summary_s1.md: tiny10, active dims, fidelity curve per checkpoint (cosine / L1 / dims, passages and queries),
+#      ranking agreement with the teacher scores on the stage-3 rows, queue state
+# Every KD stage checkpoints every 1500 steps with fidelity on 256 corpus texts (a curve, not one number): "the
+# corpus adds nothing over ranking KD" can only be read from a flat curve. At this dose the probe decides
+# "b4 vs control" and "staged vs joint", not "ALBERT vs b4".
+# Budget (3060 Ti, estimates): KD ~35 min per arm at 200 k texts, stage 3 with the fast head ~20-40 min, tiny10 ~10 min,
+# measurements ~5 min per arm -> 4-5 h in all.
+# Start (only when the user says so): setsid nohup bash experiments/polish-splade-small-2026-11/queues/queue_s1.sh > logs/queue_s1.out 2>&1 < /dev/null &
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 export QUEUE_TAG=s1 MIN_RAM_GB=6
@@ -25,28 +29,40 @@ guard_alive
 C="$EXP_ROOT/configs/3060"
 OLD=experiments/polish-splade-2026-10/results-regimes/quantized
 CORPUS=${CORPUS:-datasets/kd/kd_v1.jsonl}
-KD_ITEMS=${KD_ITEMS:-150000}
+ROWS=${ROWS:-datasets/arms/mix3v2-6219-tv9b.jsonl}
+KD_S1_ITEMS=${KD_S1_ITEMS:-50000}
+KD_S2_ITEMS=${KD_S2_ITEMS:-150000}
 B_KD=5400; B_TRAIN=6000; B_TINY=900
-S1_END=${S1_END:-2026-11-05 08:00}
+S1_END=${S1_END:-2026-11-06 08:00}
 END=$(date -d "$S1_END" +%s)
+MEM_LIMIT_GB=7.0
 
 fits() { [ $(( $(date +%s) + $1 )) -le "$END" ]; }
 step() { local need=$1; shift; fits "$need" || { log "no time before $S1_END for a ${need}s step; skipping: $*"; return 1; }; "$@"; }
-queue_alive() { local pf="$LOGS/queue_$1.pid"; [ -f "$pf" ] && ps -p "$(cat "$pf")" -o args= 2>/dev/null | grep -q "queue_$1.sh"; }
-for prev in v34 v33; do
-    if queue_alive "$prev"; then
-        log "waiting for queue $prev (pid $(cat "$LOGS/queue_$prev.pid")) to exit"
-        while queue_alive "$prev"; do sleep 60; done
-        sleep 30
-    fi
+other_queues() {  # tags of other queues whose pid file points at a live queue process
+    local pf tag pid
+    for pf in "$LOGS"/queue_*.pid; do
+        tag=$(basename "$pf" .pid); tag=${tag#queue_}
+        [ "$tag" = s1 ] && continue
+        pid=$(cat "$pf" 2>/dev/null) || continue
+        ps -p "$pid" -o args= 2>/dev/null | grep -q "queue_$tag.sh" && echo "$tag"
+    done
+}
+while :; do
+    others=$(other_queues | tr '\n' ' ')
+    [ -z "$others" ] && break
+    log "waiting for queue(s) $others to exit"
+    sleep 120
 done
+sleep 30
 wait_gpu_free
 lbv() { regime_mean "$REGIMES_ROOT/quantized/$1/$2.json" | awk '{print $1}'; }
 [ -f "$CORPUS" ] || { log "corpus $CORPUS missing (kitchen corpus/build_kd_corpus.py corpus/recipes/kd_v1.yaml)"; exit 1; }
+[ -f "$ROWS" ] || { log "stage-3 rows $ROWS missing"; exit 1; }
 
-log "=== s1 start: end $S1_END; corpus $CORPUS ($KD_ITEMS texts per KD stage); $(free_gb) GB free on / ==="
-log "=== s1 step 0: reference results and students ==="
-mkdir -p "$REGIMES_ROOT/quantized"
+log "=== s1 start: end $S1_END; corpus $CORPUS ($KD_S1_ITEMS + $KD_S2_ITEMS texts per arm); $(free_gb) GB free on / ==="
+log "=== s1 step 0: reference results, students, memory check ==="
+mkdir -p "$REGIMES_ROOT/quantized" "$RESULTS_ROOT/rank_agreement" "$RESULTS_ROOT/fidelity"
 for m in base-splade-wrapped arm-n4-3060 arm-distil-v9b-kl-n4 soup-v9b; do
     [ -d "$REGIMES_ROOT/quantized/$m" ] || cp -r "$OLD/$m" "$REGIMES_ROOT/quantized/"
 done
@@ -58,47 +74,104 @@ build_student() {  # build_student NAME ARGS...: distill.student from soup-v9b o
         || { log "student $name FAILED"; record "student:$name" FAILED "-" "-"; return 1; }
     record "student:$name" ok "-" "-"
 }
-build_student b4-l0125-f1536 --keep-layers 0,1,2,5 --intermediate-size 1536
+build_student b4-l0125-f3072 --keep-layers 0,1,2,5
 build_student b4-l0125-f1536-hl-r256-w --keep-layers 0,1,2,5 --intermediate-size 1536 --embedding-rank 256 --head-layer \
     --token-counts "$EXP_ROOT/results/token_counts_kd_v1_sample.json" --calibration-texts datasets/synth/chunks_pool.jsonl --calibration-sample 96
-build_student a6-h384-r256 --keep-layers 0,1,2,3,4,5 --intermediate-size 1536 --embedding-rank 256 --hidden-size 384 --fresh
 
-KD_COMMON=(--teacher models/soup-v9b --corpus "$CORPUS" --max-items "$KD_ITEMS" --max-seq-length 256 --batch-size 16
+memcheck() {  # memcheck STUDENT: peak GB of one stage-3 step with the fast head and no checkpointing; "OOM" on failure
+    "$PY" scripts/splade_head_memcheck.py --model "$1" --head exact --no-checkpointing --max-seq-length 512 --columns 12 --micro-batch 2 \
+        2>> "$LOGS/memcheck_s1.log" | grep -o "peak_gb=.*" | tail -1 | cut -d= -f2
+}
+stage3_config() {  # stage3_config NAME PEAK -> the stage-3 config, with checkpointing switched back on when the memory check failed
+    local cfg="$C/stage3_$1.yaml" peak="$2"
+    if [ -z "$peak" ] || [ "$peak" = OOM ] || [ "$(awk -v p="$peak" -v l="$MEM_LIMIT_GB" 'BEGIN{print (p > l) ? 1 : 0}')" = 1 ]; then
+        mkdir -p "$C/derived"
+        sed 's/gradient_checkpointing: false/gradient_checkpointing: true/' "$cfg" > "$C/derived/stage3_$1.ckpt.yaml"
+        echo "$C/derived/stage3_$1.ckpt.yaml"
+    else echo "$cfg"; fi
+}
+PEAK_B4=$(memcheck models/students/b4-l0125-f3072); log "memcheck b4-l0125-f3072 fast head, no checkpointing: peak ${PEAK_B4:-?} GB (limit $MEM_LIMIT_GB)"
+PEAK_HL=$(memcheck models/students/b4-l0125-f1536-hl-r256-w); log "memcheck b4-l0125-f1536-hl-r256-w: peak ${PEAK_HL:-?} GB"
+record "memcheck:b4-l0125-f3072" "${PEAK_B4:-?}" "-" "-"; record "memcheck:b4-l0125-f1536-hl-r256-w" "${PEAK_HL:-?}" "-" "-"
+
+KD_COMMON=(--teacher models/soup-v9b --corpus "$CORPUS" --max-seq-length 256 --batch-size 16
            --lr 5e-5 --warmup-steps 300 --schedule constant --epochs 1 --precision fp16 --head-chunk 64
-           --fidelity-texts "$CORPUS" --fidelity-n 256 --log-every 50)
-measure() {  # measure TAG: sparsity + leaderboard tiny10 of models/arm-TAG
+           --save-every 1500 --keep-last 1 --fidelity-texts "$CORPUS" --fidelity-n 256 --log-every 50)
+S2_LOSS=(--token-loss kl --token-weight 0.3 --temperature 2.0 --top-k 128 --pooled-loss mse --pooled-weight 1.0)
+agree() {  # agree LABEL MODEL [args]: ranking agreement with the teacher scores on 500 stage-3 rows + fidelity on queries
+    local label="$1" model="$2"; shift 2
+    local out="$RESULTS_ROOT/rank_agreement/$label.json"
+    if [ ! -f "$out" ]; then
+        wait_gpu_free
+        timeout -k 60 1800 "$PY" -m distill.rank_agreement --model "$model" --rows "$ROWS" --n 500 --device cuda --dtype fp16 --output "$out" "$@" > "$LOGS/agree_$label.log" 2>&1 \
+            && log "  $label: $("$PY" -c "import json;d=json.load(open('$out'));print('tau %.3f top1 %.3f pos-first %.3f' % (d['kendall_tau'], d['top1_agreement'], d['positive_first']))")" \
+            || log "  $label: rank agreement FAILED"
+    fi
+    fidelity "$label.queries" "$model" "$CORPUS" --kinds query --n 512 "$@"
+}
+measure() {  # measure TAG: sparsity + leaderboard tiny10 + agreement of models/arm-TAG
     step 120 sparsity "arm-$1" "models/arm-$1"
     step $B_TINY regime quantized "arm-$1" "models/arm-$1" tiny10 16
     log "  arm-$1: tiny10 $(lbv "arm-$1" tiny10) (base 61.59, arm-n4-3060 62.89, arm-distil-v9b-kl-n4 63.32, soup-v9b 63.65), $(sparsity_mean "$RESULTS_ROOT/sparsity/arm-$1.json" "arm-$1") dims/doc"
+    step 600 agree "arm-$1" "models/arm-$1"
 }
 
-log "=== s1 step 1: control (pruned student, ranking KD only) ==="
-step $B_TRAIN train b4-l0125-f1536-ctrl "$C/stage3_b4_l0125_f1536_ctrl.yaml" && measure b4-l0125-f1536-ctrl
+log "=== s1 step 1: control (b4-l0125-f3072, ranking KD only) ==="
+step 600 agree student-b4-l0125-f3072 models/students/b4-l0125-f3072
+step $B_TRAIN train b4-l0125-f3072-ctrl "$(stage3_config b4_l0125_f3072_ctrl "$PEAK_B4")" && measure b4-l0125-f3072-ctrl
 
-for name in b4-l0125-f1536 b4-l0125-f1536-hl-r256-w a6-h384-r256; do
-    log "=== s1: $name, stages 1-3 ==="
-    step $B_KD kd "$name-s1" "models/students/$name" "${KD_COMMON[@]}" --token-loss kl --pooled-loss none --temperature 2.0 --top-k 128 --seed 42 || continue
-    step $B_KD kd "$name-s2" "models/kd-$name-s1" "${KD_COMMON[@]}" --token-loss none --pooled-loss mse --seed 43 || continue
-    step $B_TRAIN train "$name-s3" "$C/stage3_${name//-/_}_s3.yaml" && measure "$name-s3"
-done
+log "=== s1 step 2: b4-l0125-f3072 staged (s1 token KL $KD_S1_ITEMS -> s2 pooled MSE + token KL x0.3 $KD_S2_ITEMS -> s3) ==="
+name=b4-l0125-f3072
+step $B_KD kd "$name-s1" "models/students/$name" "${KD_COMMON[@]}" --max-items "$KD_S1_ITEMS" --token-loss kl --pooled-loss none --temperature 2.0 --top-k 128 --seed 42 \
+    && step 600 agree "kd-$name-s1" "models/kd-$name-s1" \
+    && step $B_KD kd "$name-s2" "models/kd-$name-s1" "${KD_COMMON[@]}" --max-items "$KD_S2_ITEMS" "${S2_LOSS[@]}" --seed 43 \
+    && step 600 agree "kd-$name-s2" "models/kd-$name-s2" \
+    && step $B_TRAIN train "$name-s3" "$(stage3_config b4_l0125_f3072_s3 "$PEAK_B4")" && measure "$name-s3"
+
+log "=== s1 step 3: b4-l0125-f3072 joint (one stage, combined loss, $((KD_S1_ITEMS + KD_S2_ITEMS)) texts -> s3) ==="
+step $B_KD kd "$name-joint" "models/students/$name" "${KD_COMMON[@]}" --max-items "$((KD_S1_ITEMS + KD_S2_ITEMS))" "${S2_LOSS[@]}" --seed 42 \
+    && step 600 agree "kd-$name-joint" "models/kd-$name-joint" \
+    && step $B_TRAIN train "$name-joint-s3" "$(stage3_config b4_l0125_f3072_joint_s3 "$PEAK_B4")" && measure "$name-joint-s3"
+
+log "=== s1 step 4: b4-l0125-f1536-hl-r256-w staged ==="
+name=b4-l0125-f1536-hl-r256-w
+# head-layer student: the measurements run the extra layer's FFN and the head transform in fp32, as the KD trainer does
+step 600 agree "student-$name" "models/students/$name" --fp32-head
+step $B_KD kd "$name-s1" "models/students/$name" "${KD_COMMON[@]}" --max-items "$KD_S1_ITEMS" --token-loss kl --pooled-loss none --temperature 2.0 --top-k 128 --seed 42 \
+    && step 600 agree "kd-$name-s1" "models/kd-$name-s1" --fp32-head \
+    && step $B_KD kd "$name-s2" "models/kd-$name-s1" "${KD_COMMON[@]}" --max-items "$KD_S2_ITEMS" "${S2_LOSS[@]}" --seed 43 \
+    && step 600 agree "kd-$name-s2" "models/kd-$name-s2" --fp32-head \
+    && step $B_TRAIN train "$name-s3" "$(stage3_config b4_l0125_f1536_hl_r256_w_s3 "$PEAK_HL")" && measure "$name-s3"
 
 log "=== s1 step 5: summary ==="
 SUM="$RESULTS_ROOT/summary_s1.md"
 {
     echo "# s1 ($(date '+%d.%m.%Y %H:%M'), leaderboard regime, nDCG@10): small-SPLADE probe, teacher soup-v9b"
     echo
-    echo "Students: b4 = layers 0,1,2,5 of soup-v9b with FFN 1536 (58 M params, 0.71 of the teacher's MACs per token); hl-r256-w = the same body as an ALBERT with the teacher's head transform as an extra layer and a rank-256 vocabulary / decoder (50 M, 0.45); a6 = fresh ALBERT body, hidden 384, 6 layers (vocabulary from the teacher). Stages: s1 token KL, s2 pooled MSE ($KD_ITEMS texts of $CORPUS each), s3 ranking KL on the n4 rows (v32 recipe). ctrl = s3 only."
+    echo "Students: b4-f3072 = layers 0,1,2,5 of soup-v9b with the full FFN (68 M params, 0.83 of the teacher's MACs per token); hl-r256-w = layers 0,1,2,5 with FFN 1536 as an ALBERT with the teacher's head transform as an extra layer and a rank-256 vocabulary / decoder (50 M, 0.45). Stages: s1 token KL on $KD_S1_ITEMS texts, s2 pooled MSE (relative) + token KL x0.3 on $KD_S2_ITEMS texts of $CORPUS, joint = the combined loss on $((KD_S1_ITEMS + KD_S2_ITEMS)) texts, s3 ranking KL on the n4 rows (v32 recipe, fast head). ctrl = s3 only. Memory check (fast head, no checkpointing): b4 ${PEAK_B4:-?} GB, hl ${PEAK_HL:-?} GB (limit $MEM_LIMIT_GB)."
     echo
     "$PY" scripts/regime_task_table.py --regime-dir "$REGIMES_ROOT/quantized" --tasksets tiny10 \
-        --models base-splade-wrapped arm-n4-3060 arm-distil-v9b-kl-n4 arm-b4-l0125-f1536-ctrl arm-b4-l0125-f1536-s3 arm-b4-l0125-f1536-hl-r256-w-s3 arm-a6-h384-r256-s3 soup-v9b 2>> "$LOGS/queue_summary.log"
+        --models base-splade-wrapped arm-n4-3060 arm-distil-v9b-kl-n4 arm-b4-l0125-f3072-ctrl arm-b4-l0125-f3072-s3 arm-b4-l0125-f3072-joint-s3 arm-b4-l0125-f1536-hl-r256-w-s3 soup-v9b 2>> "$LOGS/queue_summary.log"
     echo; echo "## Active document dimensions (base 436)"; echo
-    "$PY" scripts/sparsity_table.py --model base=base --model arm-b4-l0125-f1536-ctrl --model arm-b4-l0125-f1536-s3 --model arm-b4-l0125-f1536-hl-r256-w-s3 --model arm-a6-h384-r256-s3 2>> "$LOGS/queue_summary.log"
-    echo; echo "## Fidelity to the teacher after every KD stage (cosine of pooled vectors, 256 corpus texts)"; echo
+    "$PY" scripts/sparsity_table.py --model base=base --model arm-b4-l0125-f3072-ctrl --model arm-b4-l0125-f3072-s3 --model arm-b4-l0125-f3072-joint-s3 --model arm-b4-l0125-f1536-hl-r256-w-s3 2>> "$LOGS/queue_summary.log"
+    echo; echo "## Fidelity curve per KD checkpoint (256 corpus texts: cosine / L1 relative error / student dims, per kind)"; echo
     echo '```'
-    for r in runs/kd-*; do [ -f "$r/kd_summary.json" ] && echo "$(basename "$r"): $("$PY" -c "import json;d=json.load(open('$r/kd_summary.json'));print(json.dumps(d.get('fidelity')), d['steps'], 'steps', d['examples'], 'examples', d['seconds'], 's')")"; done
+    for r in runs/kd-*; do
+        [ -f "$r/log.jsonl" ] || continue
+        echo "$(basename "$r"):"
+        "$PY" scripts/kd_fidelity_curve.py "$r/log.jsonl" 2>> "$LOGS/queue_summary.log"
+    done
+    echo '```'
+    echo; echo "## Ranking agreement with the teacher scores (500 rows of $(basename "$ROWS")) and fidelity on queries (512 corpus queries)"; echo
+    echo '```'
+    for f in "$RESULTS_ROOT"/rank_agreement/*.json; do
+        [ -f "$f" ] || continue
+        label=$(basename "$f" .json)
+        "$PY" scripts/kd_fidelity_curve.py --agreement "$f" --queries "$RESULTS_ROOT/fidelity/$label.queries.json" 2>> "$LOGS/queue_summary.log"
+    done
     echo '```'
     echo; echo "## Queue state (s1)"; echo; echo '```'
-    grep -E "^(student|kd|train|sparsity|regime:quantized):" "$STATE" | tail -40
+    grep -E "^(student|memcheck|kd|train|sparsity|regime:quantized|fidelity):" "$STATE" | tail -60
     echo '```'
 } > "$SUM" 2>> "$LOGS/queue_s1.out"
 log "summary written to $SUM"

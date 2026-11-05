@@ -37,7 +37,7 @@ from torch import nn
 
 from distill.data import TextCorpus
 from distill.fidelity import compare_models, load_texts
-from distill.splade import describe_losses, encode_hidden, flops_loss, pooled_distill_loss, pooled_vector, token_distill_loss
+from distill.splade import describe_losses, encode_hidden, flops_loss, pooled_distill_loss, pooled_vector, prepare_head_layer, token_distill_loss
 from distill.student import copy_aux_files
 
 DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
@@ -145,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         p.requires_grad_(False)
     student = AutoModelForMaskedLM.from_pretrained(args.student, torch_dtype=torch.float32).to(device)
     student.train()
+    if prepare_head_layer(student):
+        print("[INFO] head-layer student: the extra layer's feed-forward and the head transform run in fp32, its dropout is off", flush=True)
     if args.gradient_checkpointing:
         student.gradient_checkpointing_enable()
     if teacher.config.vocab_size != student.config.vocab_size:
@@ -211,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         summary: dict[str, Any] = {"step": step}
         summary.update({"fidelity/" + kind + "/cosine": stats["cosine"]["mean"] for kind, stats in result["kinds"].items()})
         summary.update({"fidelity/" + kind + "/jaccard": stats["jaccard_active"]["mean"] for kind, stats in result["kinds"].items()})
+        summary.update({"fidelity/" + kind + "/l1": stats["l1_relative_error"]["mean"] for kind, stats in result["kinds"].items()})
         summary.update({"fidelity/" + kind + "/student_dims": stats["student_active_dims"]["mean"] for kind, stats in result["kinds"].items()})
         summary["fidelity/teacher_dims"] = next(iter(result["kinds"].values()))["teacher_active_dims"]["mean"]
         log(summary)

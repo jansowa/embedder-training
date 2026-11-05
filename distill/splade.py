@@ -46,8 +46,14 @@ def split_mlm_head(model: nn.Module) -> tuple[Callable[[torch.Tensor], torch.Ten
 
     elif model_type == "albert":
         head = model.predictions
+        fp32_head = bool(getattr(model.config, "head_layer", False))
 
         def transform(h: torch.Tensor) -> torch.Tensor:
+            if fp32_head and head.dense.weight.dtype == torch.float32:
+                # head-layer students keep gelu in its linear regime with a large bias: the shifted values need
+                # fp32 (fp16 rounds them at 1/64-1/16, 2-6 % noise per coordinate); see prepare_head_layer
+                with torch.autocast(device_type=h.device.type, enabled=False):
+                    return head.LayerNorm(head.activation(head.dense(h.float())))
             return head.LayerNorm(head.activation(head.dense(h)))
 
     elif model_type == "bert":
@@ -65,6 +71,32 @@ def split_mlm_head(model: nn.Module) -> tuple[Callable[[torch.Tensor], torch.Ten
     else:
         raise SpladeHeadError(f"unsupported MLM model type {model_type!r} for SPLADE distillation.")
     return transform, decoder
+
+
+def prepare_head_layer(model: nn.Module) -> bool:
+    """For a head-layer student (``config.head_layer``): run the extra layer's feed-forward in fp32 (the
+    ``gelu(n + b) - n`` cancellation is destroyed by fp16 rounding of the shifted values) and switch its
+    dropout off (dropout on the FFN output breaks the cancellation on the dropped coordinates). The patch
+    lives on the instance only; a reloaded model needs it again. The affected modules (the layer's FFN, the
+    head's dense + LayerNorm) are kept in fp32 even when the rest of the model is fp16. Without this call a
+    model loaded in fp16 runs the stock fp16 path, which is what sentence-transformers / PIRB inference sees.
+    Returns whether anything was patched."""
+    if not getattr(model.config, "head_layer", False) or getattr(model.config, "model_type", "") != "albert":
+        return False
+    layer = model.base_model.encoder.albert_layer_groups[-1].albert_layers[0]
+    for module in (layer.attention.attention_dropout, layer.attention.output_dropout, layer.dropout):
+        module.p = 0.0
+    head = model.predictions
+    for module in (layer.ffn, layer.ffn_output, head.dense, head.LayerNorm):
+        module.float()
+
+    def ff_chunk_fp32(attention_output: torch.Tensor) -> torch.Tensor:
+        with torch.autocast(device_type=attention_output.device.type, enabled=False):
+            x = attention_output.float()
+            return layer.ffn_output(layer.activation(layer.ffn(x))).to(attention_output.dtype)
+
+    layer.ff_chunk = ff_chunk_fp32  # instance attribute shadows the bound method
+    return True
 
 
 def encode_hidden(model: nn.Module, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -170,16 +202,17 @@ def token_distill_loss(
 def pooled_distill_loss(student_vec: torch.Tensor, teacher_vec: torch.Tensor, kind: str = "mse") -> torch.Tensor:
     """Distance between pooled SPLADE vectors ``[B, V]`` (mean over the batch).
 
-    ``mse``: squared error summed over the vocabulary. ``kl``: KL(teacher || student) between the
-    vectors normalised to distributions, plus the squared error of the L1 masses (so the student also
-    matches the teacher's overall weight, which ``kl`` alone ignores).
+    ``mse``: squared error summed over the vocabulary, divided by the teacher's mean squared norm over the
+    batch (a relative error, so it combines with a token loss on a known scale). ``kl``: KL(teacher ||
+    student) between the vectors normalised to distributions, plus the squared error of the L1 masses (so
+    the student also matches the teacher's overall weight, which ``kl`` alone ignores).
     """
     if kind not in POOLED_LOSSES:
         raise ValueError(f"pooled distillation loss must be one of {POOLED_LOSSES}, got {kind!r}.")
     s = student_vec.float()
     t = teacher_vec.float()
     if kind == "mse":
-        return ((s - t) ** 2).sum(dim=-1).mean()
+        return ((s - t) ** 2).sum(dim=-1).mean() / (t**2).sum(dim=-1).mean().clamp_min(1e-6)
     eps = 1e-6
     s_mass = s.sum(dim=-1, keepdim=True) + eps
     t_mass = t.sum(dim=-1, keepdim=True) + eps

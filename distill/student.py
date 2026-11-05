@@ -315,6 +315,7 @@ def to_albert(
         bos_token_id=src_config.bos_token_id,
         eos_token_id=src_config.eos_token_id,
         tie_word_embeddings=not (spec.untie_head or head_layer),
+        head_layer=head_layer,  # custom marker saved in config.json; distill.splade.prepare_head_layer reads it
     )
     torch.manual_seed(spec.seed)
     student = AlbertForMaskedLM(config)
