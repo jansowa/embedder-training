@@ -11,8 +11,8 @@
       "label": "modernbert-init-n2-e5-s02000",
       "step": 2000,
       "dims": 404.29333333333335,
-      "tiny10": null,
-      "n_tasks": 0
+      "tiny10": 56.611599628574005,
+      "n_tasks": 10
     },
     {
       "label": "mlm-probe-a-s01875",

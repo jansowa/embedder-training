@@ -69,8 +69,11 @@ Raw state: `experiments/polish-splade-2026-10/results/data/splade-init-overnight
 | Model | krok | wymiary/dokument | tiny10 nDCG@10 |
 |---|---:|---:|---:|
 | modernbert-init-n2-e5-s01500 | 1500 | 355.80 | 55.63 |
-| modernbert-init-n2-e5-s02000 | 2000 | 404.29 | pending |
+| modernbert-init-n2-e5-s02000 | 2000 | 404.29 | 56.61 |
 | mlm-probe-a-s01875 | 1875 | 390.82 | 55.70 |
+
+Dopasowane przybliżeniem gęstości: M s2000 (404.3) vs A s1875 (390.8); **M − A = +0.91 pkt nDCG@10**.
+To porównanie historycznych sond o zbliżonej gęstości, a nie nowa bramka GM parowanego biegu na świeżych danych. A s1875 (~391) mieści się w paśmie 327–458, podobnie jak M s2000 (~404).
 
 E5 s2500 jest wyłączony z werdyktów porównawczych. Wznowienie zmieniło obserwowaną gęstość; log zgłasza jednak przywrócenie regulatora z kroku 2000 (lambda_d=0.001536), więc utrata stanu pozostaje hipotezą, nie potwierdzoną przyczyną.
 Decyzja: koniec sweepów LR/celu na starych danych; następne porównanie ma użyć świeżych danych i obu backbone’ów. Podobieństwo profilu błędów wskazuje kierunek badań nad danymi, ale samo nie dowodzi sufitu architektury.
