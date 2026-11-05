@@ -33,7 +33,7 @@
   ],
   "runs": {
     "m": {
-      "phase": "evaluating 2150",
+      "phase": "evaluating 4306",
       "attempt": 1,
       "run": "runs/night3-paired-m/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-103554",
       "telemetry": {
@@ -67,6 +67,21 @@
             "log": "night3_m_2150_tiny10.log"
           },
           "tiny10": 54.16074054610003,
+          "in_band": true
+        },
+        "4306": {
+          "sparsity_process": {
+            "rc": 0,
+            "seconds": 60.2,
+            "log": "night3_m_4306_sparsity.log"
+          },
+          "dims": 327.8462962962963,
+          "tiny_process": {
+            "rc": 0,
+            "seconds": 761.4,
+            "log": "night3_m_4306_tiny10.log"
+          },
+          "tiny10": 53.75137917506269,
           "in_band": true
         }
       }

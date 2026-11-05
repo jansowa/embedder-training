@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "night3-paired-m-s04306",
+  "model": "/mnt/c/work/embedder-training-v2/models/night3-paired-m-s04306",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3-cc": 17.834051695695038,
+    "maupqa-mkqa": 49.36081269422866,
+    "maupqa-poleval2021-pairs": 72.30385666517112,
+    "maupqa-templates": 69.02767503204925,
+    "poleval-2022-test-A-allegro-faq": 60.5889316688462,
+    "poleval-2022-test-B-allegro-faq": 56.4988021721072,
+    "arguana-pl": 27.1700845624471,
+    "nfcorpus-pl": 29.585457426370976,
+    "scifact-pl": 59.74479709131537,
+    "gpt-exams": 95.39932274239588
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 53.75137917506269
+}
