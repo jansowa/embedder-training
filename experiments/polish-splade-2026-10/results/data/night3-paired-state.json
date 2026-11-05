@@ -87,19 +87,28 @@
       }
     },
     "a": {
-      "phase": "training",
+      "phase": "trained",
       "attempt": 1,
       "run": "runs/night3-paired-a/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-152713",
       "telemetry": {
-        "step": 100,
-        "seconds_per_step": 2.6513395863732634,
-        "peak_allocated_mib": 9708.04638671875,
-        "peak_reserved_mib": 10112.0,
-        "peak_nvidia_sampled_mib": 11243.0
+        "step": 4300,
+        "seconds_per_step": 2.6185783879695887,
+        "peak_allocated_mib": 9770.77490234375,
+        "peak_reserved_mib": 10116.0,
+        "peak_nvidia_sampled_mib": 11411.0
       },
-      "reported_100": "2026-11-05T15:32:04+01:00"
+      "reported_100": "2026-11-05T15:32:04+01:00",
+      "attempts": [
+        {
+          "rc": 0,
+          "seconds": 11366.8,
+          "log": "night3_a_attempt1.log"
+        }
+      ],
+      "training_complete": true,
+      "trainer_epoch": 1.0002322610614331
     }
   },
   "errors": [],
-  "GM": "pending"
+  "GM": "nieporównywalne przy tej gęstości"
 }
