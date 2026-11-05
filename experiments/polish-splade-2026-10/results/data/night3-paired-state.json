@@ -33,7 +33,7 @@
   ],
   "runs": {
     "m": {
-      "phase": "trained",
+      "phase": "evaluating 2150",
       "attempt": 1,
       "run": "runs/night3-paired-m/sentence-transformers/splade/OPI-PIB_pl-ModernBERT-512-base-lr-2e-05-ep-1-loss-sparse_multiple_negatives_ranking-docreg-0_003-20261105-103554",
       "telemetry": {
@@ -52,7 +52,24 @@
         }
       ],
       "training_complete": true,
-      "trainer_epoch": 1.0002322610614331
+      "trainer_epoch": 1.0002322610614331,
+      "points": {
+        "2150": {
+          "sparsity_process": {
+            "rc": 0,
+            "seconds": 60.4,
+            "log": "night3_m_2150_sparsity.log"
+          },
+          "dims": 364.267037037037,
+          "tiny_process": {
+            "rc": 0,
+            "seconds": 721.2,
+            "log": "night3_m_2150_tiny10.log"
+          },
+          "tiny10": 54.16074054610003,
+          "in_band": true
+        }
+      }
     },
     "a": {}
   },
