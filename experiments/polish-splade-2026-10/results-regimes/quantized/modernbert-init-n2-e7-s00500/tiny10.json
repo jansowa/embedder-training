@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "modernbert-init-n2-e7-s00500",
+  "model": "/mnt/c/work/embedder-training-v2/models/modernbert-init-n2-e7-s00500",
+  "taskset": "tiny10",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3-cc": 18.488626187437678,
+    "maupqa-mkqa": 53.10982257098834,
+    "maupqa-poleval2021-pairs": 76.09897295332897,
+    "maupqa-templates": 71.12652642238258,
+    "poleval-2022-test-A-allegro-faq": 62.28953307836591,
+    "poleval-2022-test-B-allegro-faq": 58.60498537221919,
+    "arguana-pl": 27.52381810234594,
+    "nfcorpus-pl": 29.393529209086488,
+    "scifact-pl": 48.664538856317684,
+    "gpt-exams": 96.98243572810351
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 54.22827884805763
+}
