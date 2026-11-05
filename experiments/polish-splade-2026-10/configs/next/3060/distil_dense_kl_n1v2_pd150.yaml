@@ -2,7 +2,7 @@ backend: sentence-transformers
 training_type: splade
 
 # Dense-teacher distillation probe (queue v38, 5.11): KL from OPI-PIB/PolDense-150M (dense, ModernBERT 150 M, 60.4 on our 23 PIRB tasks vs soup-v9b ~57.6); cosines scaled to the SPLADE teacher's units by the within-row least-squares fit of the kitchen script (bridge/dense_teacher_scores.py, reference -tv9b). Same rows (n1, 4 146 rows), recipe and seed as arm-distil-v9b-kl-n1v2 (63.25 / 42.62, teacher soup-v9b) and the MNRL control n1-5070 (62.98 / 42.17). Sparse-gradient head without checkpointing.
-runs_dir: runs/arm-distil-dense-kl-n1v2-pd150
+runs_dir: runs/arm-dense-kl-n1v2-pd150
 timestamp_output_dir: true
 save_resolved_config: true
 

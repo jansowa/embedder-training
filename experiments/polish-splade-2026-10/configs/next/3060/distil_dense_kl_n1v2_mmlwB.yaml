@@ -2,7 +2,7 @@ backend: sentence-transformers
 training_type: splade
 
 # Dense-teacher distillation probe (queue v38, 5.11): KL from sdadas/mmlw-retrieval-roberta-base (dense, 124 M, 57.8 on our 23 PIRB tasks = parity with soup-v9b); cosines scaled as for pd150. Same rows (n1, 4 146 rows), recipe and seed as arm-distil-v9b-kl-n1v2 (63.25 / 42.62, teacher soup-v9b) and the MNRL control n1-5070 (62.98 / 42.17). Sparse-gradient head without checkpointing.
-runs_dir: runs/arm-distil-dense-kl-n1v2-mmlwB
+runs_dir: runs/arm-dense-kl-n1v2-mmlwB
 timestamp_output_dir: true
 save_resolved_config: true
 
