@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-05T23:12:07+01:00
+Aktualizacja: 2026-11-06T01:00:48+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
@@ -32,7 +32,12 @@ Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9
 ## Scoring PolDense-400M
 
 ```
-Oczekuje na oba heldout8.
+squadv2-v2-all.jsonl: 1563126 texts / 6462s = 241.90 texts/s (wall time including model load). Remaining ETA: 2026-11-06T02:07:08+01:00
+Median margin: 0.07597452402114868; rows with negative above positive: 11184
+
+2026-11-06T01:00:48+01:00 squadv2-v2-all elapsed=6499s
+130214 rows -> datasets/arms/squadv2-v2-all-tpd400.partial.jsonl; teacher OPI-PIB/PolDense-400M (cosine x 1.00, prefix '[query]: '/''); median margin min(pos)-max(neg) 0.08; rows with a negative above a positive 11184
+
 ```
 
 ## Stan kolejki
@@ -102,6 +107,7 @@ regime:quantized:modernbert-init-n2-e5-s01500:tiny10	ok	55.63 10	787s
 regime:quantized:modernbert-init-n2-e5-s02000:tiny10	ok	56.61 10	851s
 regime:quantized:night3-paired-a-s04306:heldout8	ok	39.64 8	1834s
 regime:quantized:night3-paired-m-s04306:heldout8	ok	37.12 8	1964s
+score:squadv2-v2-all	ok	datasets/arms/squadv2-v2-all-tpd400.jsonl	6462s
 
 ```
 
@@ -112,4 +118,6 @@ regime:quantized:night3-paired-m-s04306:heldout8	ok	37.12 8	1964s
 [22:08:08] [n4] FAILED initial publishing
 [22:39:04] [n4] FAILED publishing results: git push
 [22:39:04] [n4] FAILED updating report/publishing
+[23:12:09] [n4] FAILED publishing results: git push
+[23:12:09] [n4] FAILED updating report/publishing
 ```
