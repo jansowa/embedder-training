@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-06T06:06:22+01:00
+Aktualizacja: 2026-11-06T15:50:27+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
@@ -10,10 +10,20 @@ Aktualizacja: 2026-11-06T06:06:22+01:00
 A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).
 Kotwice tiny10: baza 61.60; mlm-msmarco-ep1 59.29.
 
-P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB na cache.
+P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB zarówno wewnątrz cache, jak i na fizycznym dysku Windows z VHDX.
 Scoring pd400: surowe cosinusy, scale=1; sonda KD czeka na S i zgodę użytkownika.
 
 Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9; dbpedia 28.42; hotpotqa 55.17.
+
+## Stan dysku i wznowienia
+
+P1 wstrzymane: po błędach I/O i remount-ro usunięto wyłącznie 31 GiB cache nieudanego wiki-trivia.
+Test zapisu/fsync w cache i logs przeszedł. TRIM wykonany; VHDX nie jest sparse i C: nadal ma około 13 GiB wolnego.
+Nie wykonano shutdown, terminate, kompaktowania ani przenoszenia VHDX.
+Użytkownik zatwierdził dalszą pracę w ramach odzyskanych 30 GiB wewnątrz WSL.
+P1 wymaga 60 GiB, więc nie jest uruchamiane. Dodatkowo nie ma models/soup-v9b.
+Plan bieżący: 20-krokowy smoke A KD przy tymczasowym S=121.2, potem oczekiwanie na S i osobne „tak” użytkownika.
+
 
 ### wikitrivia
 
@@ -144,6 +154,9 @@ score:msmarco-plain-20000	ok	datasets/judged/msmarco-plain-20000-tpd400.jsonl	53
 score:squadv2-fresh-16000	ok	datasets/arms/squadv2-fresh-16000-tpd400.jsonl	822s
 score:squadv2-2073	ok	datasets/arms/squadv2-2073-tpd400.jsonl	132s
 score:fiqa-2073	ok	datasets/arms/fiqa-2073-tpd400.jsonl	113s
+regime:quantized:base-splade-wrapped:wikitrivia	FAILED	134	3144s
+regime:quantized:soup-v9b:wikitrivia	FAILED	missing	
+mlmkd-smoke	ok	20	
 
 ```
 
@@ -170,4 +183,8 @@ score:fiqa-2073	ok	datasets/arms/fiqa-2073-tpd400.jsonl	113s
 [01:44:49] [score] FAILED updating n4 report/publishing
 [01:46:53] [n4] FAILED publishing results: git push
 [01:46:53] [score] FAILED updating n4 report/publishing
+[06:58:57] [n4] regime base-splade-wrapped/wikitrivia FAILED rc=134 after 3144s
+[06:58:58] [n4] FAILED updating report/publishing
+[06:58:58] [n4] FAILED missing model/taskset soup-v9b/wikitrivia
+[06:58:59] [n4] FAILED updating report/publishing
 ```

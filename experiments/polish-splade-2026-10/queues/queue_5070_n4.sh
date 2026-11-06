@@ -5,7 +5,32 @@ export QUEUE_TAG=n4 MIN_RAM_GB=6 WANDB_MODE=offline TZ=Europe/Warsaw
 unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 source scripts/queue_lib.sh
 CACHE_LINK=cache/regimes
-cache_free_gb() { df -B1 --output=avail "$(readlink -f "$CACHE_LINK")" | tail -1 | awk '{print int($1/1073741824)}'; }
+N4_CACHE_HOST_PATH=${N4_CACHE_HOST_PATH:-/mnt/c}
+disk_free_gb() { df -B1 --output=avail "$1" 2>/dev/null | tail -1 | awk '{print int($1/1073741824)}'; }
+cache_free_gb() { disk_free_gb "$(readlink -f "$CACHE_LINK")"; }
+host_free_gb() { disk_free_gb "$N4_CACHE_HOST_PATH"; }
+p1_storage_ready() {
+    local cache_free host_free
+    cache_free=$(cache_free_gb); host_free=$(host_free_gb)
+    if [ "${cache_free:-0}" -lt 60 ] || [ "${host_free:-0}" -lt 60 ]; then
+        log "P1 storage blocked: cache ${cache_free:-unknown} GiB, VHDX host $N4_CACHE_HOST_PATH ${host_free:-unknown} GiB (need 60 on both)"
+        return 75
+    fi
+    # Permissions alone do not detect a filesystem remounted read-only after I/O errors.
+    "$PY" - "$CACHE_LINK" "$LOGS" <<'PY'
+import os, sys, tempfile
+from pathlib import Path
+try:
+    for directory in sys.argv[1:]:
+        with tempfile.NamedTemporaryFile(dir=Path(directory), prefix='.n4-write-check-') as probe:
+            probe.write(b'n4 write check\n')
+            probe.flush()
+            os.fsync(probe.fileno())
+except OSError as exc:
+    print(f'P1 storage write check failed: {exc}', file=sys.stderr)
+    sys.exit(75)
+PY
+}
 # The shared helper proceeds after 40 minutes; these queues must never overlap.
 wait_gpu_free() { while [ "$(gpu_busy)" -ne 0 ]; do sleep 30; done; sleep 10; [ "$(gpu_busy)" -eq 0 ] || wait_gpu_free; }
 complete() {
@@ -40,10 +65,13 @@ for label, tiny, dims in [('night3-paired-a-s04306', '56.73', '459.13'), ('night
     lines.append(f'| {label} | {tiny} | {value(label, "heldout8")} | {dims} |')
 lines += ['', 'A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).',
           'Kotwice tiny10: baza 61.60; mlm-msmarco-ep1 59.29.', '',
-          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB na cache.',
+          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB zarówno wewnątrz cache, jak i na fizycznym dysku Windows z VHDX.',
           'Scoring pd400: surowe cosinusy, scale=1; sonda KD czeka na S i zgodę użytkownika.', '',
           'Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9; dbpedia 28.42; hotpotqa 55.17.', '']
 p = subprocess.run([sys.executable, 'scripts/regime_task_table.py', '--models', 'base-splade-wrapped', 'soup-v9b', '--tasksets', 'wikitrivia', 'dbpediapl', 'hotpotqapl'], text=True, capture_output=True)
+storage = logs/'n4_storage_status.txt'
+if storage.exists():
+    lines += ['## Stan dysku i wznowienia', '', storage.read_text(errors='replace'), '']
 lines += [p.stdout if p.returncode == 0 else p.stderr, '', '## Scoring PolDense-400M', '']
 score = logs/'score_5070_progress.txt'
 lines += ['```', score.read_text(errors='replace') if score.exists() else 'Oczekuje na oba heldout8.', '```', '', '## Stan kolejki', '', '```']
@@ -62,7 +90,7 @@ publish() {
         for m in night3-paired-a-s04306 night3-paired-m-s04306 base-splade-wrapped soup-v9b; do
             for ts in heldout8 wikitrivia dbpediapl hotpotqapl; do
                 f="$REGIMES_ROOT/quantized/$m/$ts.json"
-                [ -f "$f" ] && paths+=("$f")
+                [ -f "$f" ] && complete "$m" "$ts" && paths+=("$f")
             done
         done
         git add -- "${paths[@]}" || return 1
@@ -78,6 +106,7 @@ publish() {
 }
 if [ "${1:-}" = --publish ]; then publish; exit $?; fi
 if [ "${1:-}" = --report-only ]; then report; exit $?; fi
+if [ "${1:-}" = --check-storage ]; then p1_storage_ready; exit $?; fi
 exec 9> "$LOGS/queue_5070_n4.lock"
 flock -n 9 || { log 'n4 already running'; exit 1; }
 echo $$ > "$LOGS/queue_5070_n4.pid"
@@ -87,6 +116,7 @@ regime_long() {
     complete "$label" "$ts" && { log "already present: $label/$ts"; return 0; }
     [ -e "$model" ] && [ -f "configs/pirb_tasks/$ts.json" ] || { log "FAILED missing model/taskset $label/$ts"; record "regime:$reg:$label:$ts" FAILED missing; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram
+    p1_storage_ready || { record "regime:$reg:$label:$ts" SKIPPED storage; return 1; }
     local s=$SECONDS rc
     log "regime $reg/$label/$ts batch=$bs timeout=$V28_REGIME_TIMEOUT cache=$(readlink -f "$CACHE_LINK") free=$(cache_free_gb) GiB"
     CUDA_VISIBLE_DEVICES=0 timeout -k 60 "$V28_REGIME_TIMEOUT" bash scripts/pirb_regime_eval.sh "$reg" "$label" "$model" "$ts" "$bs" > "$LOGS/regime_${reg}_${label}_${ts}.out" 2>&1
@@ -105,6 +135,7 @@ regime_long() {
 }
 heldout_step() {
     local label="$1" dtype="$2"
+    complete "$label" heldout8 && { log "already present: $label/heldout8"; return 0; }
     (
         flock -x 7
         need_space || return 1; wait_gpu_free; wait_ram
@@ -121,10 +152,9 @@ p1_step() {
         (
             flock -x 7
             [ -f logs/HOLD_n4 ] && exit 75
-            local free; free=$(cache_free_gb)
-            if [ "${free:-0}" -lt 60 ]; then
-                log "SKIPPED $label/$ts: only $free GiB on cache disk (need 60)"
-                record "regime:quantized:$label:$ts" SKIPPED "disk:$free"; exit 0
+            if ! p1_storage_ready; then
+                log "SKIPPED $label/$ts: storage check failed"
+                record "regime:quantized:$label:$ts" SKIPPED storage; exit 0
             fi
             V28_REGIME_TIMEOUT=36000
             [ "$ts" = wikitrivia ] && V28_REGIME_TIMEOUT=50400
