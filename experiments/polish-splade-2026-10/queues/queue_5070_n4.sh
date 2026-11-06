@@ -12,9 +12,13 @@ host_free_gb() { disk_free_gb "$N4_CACHE_HOST_PATH"; }
 p1_storage_ready() {
     local cache_free host_free
     cache_free=$(cache_free_gb); host_free=$(host_free_gb)
-    if [ "${cache_free:-0}" -lt 60 ] || [ "${host_free:-0}" -lt 60 ]; then
-        log "P1 storage blocked: cache ${cache_free:-unknown} GiB, VHDX host $N4_CACHE_HOST_PATH ${host_free:-unknown} GiB (need 60 on both)"
+    if [ "${host_free:-0}" -lt 10 ]; then
+        log "P1 stopped: VHDX host $N4_CACHE_HOST_PATH ${host_free:-unknown} GiB (minimum 10)"
         return 75
+    fi
+    if [ "${cache_free:-0}" -lt 60 ]; then
+        log "P1 storage blocked: cache ${cache_free:-unknown} GiB (need 60); host ${host_free} GiB"
+        return 74
     fi
     # Permissions alone do not detect a filesystem remounted read-only after I/O errors.
     "$PY" - "$CACHE_LINK" "$LOGS" <<'PY'
@@ -30,6 +34,78 @@ except OSError as exc:
     print(f'P1 storage write check failed: {exc}', file=sys.stderr)
     sys.exit(75)
 PY
+}
+run_guarded() {
+    "$PY" - "$N4_CACHE_HOST_PATH" "$LOGS" "$@" <<'DISK_GUARD_PY'
+import json, os, shutil, signal, subprocess, sys, time
+from datetime import datetime
+from pathlib import Path
+
+host, logs, wall_limit, *command = sys.argv[1:]
+logs = Path(logs)
+minimum = 10 * 2**30
+worker = None
+
+def stop_group():
+    if worker is None: return
+    try: os.killpg(worker.pid, signal.SIGTERM)
+    except ProcessLookupError: return
+    try: worker.wait(timeout=10)
+    except subprocess.TimeoutExpired: pass
+    # Kill remaining descendants even when the process-group leader has exited.
+    try: os.killpg(worker.pid, signal.SIGKILL)
+    except ProcessLookupError: pass
+    worker.wait()
+
+def storage_stop(reason, free=None):
+    stop_group()
+    data = {'time': datetime.now().astimezone().isoformat(timespec='seconds'),
+            'reason': reason, 'host': host, 'free_bytes': free,
+            'minimum_bytes': minimum, 'command': command}
+    print(f'[n4] DISK STOP: {reason}; free={free}; minimum={minimum}', flush=True)
+    try:
+        (logs/'n4_disk_stop.json').write_text(json.dumps(data, indent=2)+'\n')
+        with (logs/'queue.log').open('a') as stream:
+            stream.write(f"[{data['time']}] [n4] DISK STOP: {reason}; free={free}\n")
+    except OSError as exc:
+        print(f'Cannot persist disk-stop marker: {exc}', file=sys.stderr, flush=True)
+    return 75
+
+def free_bytes():
+    return shutil.disk_usage(host).free
+
+def interrupted(sig, frame):
+    stop_group()
+    raise SystemExit(128+sig)
+
+signal.signal(signal.SIGTERM, interrupted)
+signal.signal(signal.SIGINT, interrupted)
+try:
+    free = free_bytes()
+except OSError as exc:
+    sys.exit(storage_stop(f'Cannot check host disk: {exc}'))
+if free < minimum:
+    sys.exit(storage_stop('Host disk below 10 GiB before launch', free))
+started = time.monotonic()
+# Every benchmark descendant inherits this group; no timeout utility creates
+# a separate process group that could escape termination.
+worker = subprocess.Popen(command, start_new_session=True)
+while True:
+    try: free = free_bytes()
+    except OSError as exc:
+        sys.exit(storage_stop(f'Cannot check host disk: {exc}'))
+    if free < minimum:
+        sys.exit(storage_stop('Host disk below 10 GiB during benchmark', free))
+    rc = worker.poll()
+    if rc is not None:
+        stop_group()
+        sys.exit(rc if rc >= 0 else 128-rc)
+    if time.monotonic()-started >= float(wall_limit):
+        print('[n4] benchmark timed out; stopping process group', flush=True)
+        stop_group()
+        sys.exit(124)
+    time.sleep(1)
+DISK_GUARD_PY
 }
 # The shared helper proceeds after 40 minutes; these queues must never overlap.
 wait_gpu_free() { while [ "$(gpu_busy)" -ne 0 ]; do sleep 30; done; sleep 10; [ "$(gpu_busy)" -eq 0 ] || wait_gpu_free; }
@@ -65,7 +141,7 @@ for label, tiny, dims in [('night3-paired-a-s04306', '56.73', '459.13'), ('night
     lines.append(f'| {label} | {tiny} | {value(label, "heldout8")} | {dims} |')
 lines += ['', 'A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).',
           'Kotwice tiny10: baza 61.60; mlm-msmarco-ep1 59.29.', '',
-          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB zarówno wewnątrz cache, jak i na fizycznym dysku Windows z VHDX.',
+          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB wewnątrz cache. Zgodnie z aktualną decyzją użytkownika dopuszczono wykorzystanie wolnych bloków WSL przy mniejszym fizycznym zapasie na C:. Monitor co sekundę zatrzymuje całą grupę procesu i kolejkę przy C: <10 GiB lub błędzie odczytu miejsca.',
           'Scoring pd400: surowe cosinusy, scale=1; sonda KD czeka na S i zgodę użytkownika.', '',
           'Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9; dbpedia 28.42; hotpotqa 55.17.', '']
 p = subprocess.run([sys.executable, 'scripts/regime_task_table.py', '--models', 'base-splade-wrapped', 'soup-v9b', '--tasksets', 'wikitrivia', 'dbpediapl', 'hotpotqapl'], text=True, capture_output=True)
@@ -116,10 +192,12 @@ regime_long() {
     complete "$label" "$ts" && { log "already present: $label/$ts"; return 0; }
     [ -e "$model" ] && [ -f "configs/pirb_tasks/$ts.json" ] || { log "FAILED missing model/taskset $label/$ts"; record "regime:$reg:$label:$ts" FAILED missing; return 1; }
     need_space || return 1; wait_gpu_free; wait_ram
-    p1_storage_ready || { record "regime:$reg:$label:$ts" SKIPPED storage; return 1; }
+    p1_storage_ready
+    local storage_rc=$?
+    [ "$storage_rc" -eq 0 ] || { record "regime:$reg:$label:$ts" SKIPPED storage; return "$storage_rc"; }
     local s=$SECONDS rc
     log "regime $reg/$label/$ts batch=$bs timeout=$V28_REGIME_TIMEOUT cache=$(readlink -f "$CACHE_LINK") free=$(cache_free_gb) GiB"
-    CUDA_VISIBLE_DEVICES=0 timeout -k 60 "$V28_REGIME_TIMEOUT" bash scripts/pirb_regime_eval.sh "$reg" "$label" "$model" "$ts" "$bs" > "$LOGS/regime_${reg}_${label}_${ts}.out" 2>&1
+    CUDA_VISIBLE_DEVICES=0 run_guarded "$V28_REGIME_TIMEOUT" bash scripts/pirb_regime_eval.sh "$reg" "$label" "$model" "$ts" "$bs" > "$LOGS/regime_${reg}_${label}_${ts}.out" 2>&1
     rc=$?
     if [ "$rc" -eq 0 ] && complete "$label" "$ts"; then
         log "regime $label/$ts -> $(regime_mean "$out") in $((SECONDS-s))s"
@@ -130,6 +208,7 @@ regime_long() {
         local target; target=$(readlink -m "$CACHE_LINK/${reg}_${label}_${ts}")
         case "$target" in "$(readlink -f "$CACHE_LINK")"/*) rm -rf -- "$target";; *) log "FAILED unsafe cache path: $target";; esac
         # Incomplete JSON must not be mistaken for a completed benchmark.
+        [ "$rc" -ne 75 ] || return 75
         return 1
     fi
 }
@@ -145,24 +224,30 @@ heldout_step() {
     publish || log 'FAILED updating report/publishing'
 }
 p1_step() {
-    local label="$1" ts="$2"
+    local label="$1" ts="$2" step_rc=0
     complete "$label" "$ts" && { log "already present: $label/$ts"; return 0; }
     while :; do
         while [ -f logs/HOLD_n4 ]; do sleep 60; done
         (
             flock -x 7
-            [ -f logs/HOLD_n4 ] && exit 75
-            if ! p1_storage_ready; then
+            [ -f logs/HOLD_n4 ] && exit 76
+            p1_storage_ready
+            local storage_rc=$?
+            if [ "$storage_rc" -ne 0 ]; then
                 log "SKIPPED $label/$ts: storage check failed"
-                record "regime:quantized:$label:$ts" SKIPPED storage; exit 0
+                record "regime:quantized:$label:$ts" SKIPPED storage
+                [ "$storage_rc" -ne 75 ] || exit 75
+                exit 0
             fi
             V28_REGIME_TIMEOUT=36000
             [ "$ts" = wikitrivia ] && V28_REGIME_TIMEOUT=50400
             regime_long quantized "$label" "models/$label" "$ts" 8
         ) 7> "$LOGS/gpu_5070.lock"
-        [ "$?" -eq 75 ] || break
+        step_rc=$?
+        [ "$step_rc" -eq 76 ] || break
     done
     publish || log 'FAILED updating report/publishing'
+    return "$step_rc"
 }
 log "=== n4 start $(date -Iseconds); cache free $(cache_free_gb) GiB ==="
 publish || log 'FAILED initial publishing'
@@ -171,7 +256,13 @@ heldout_step night3-paired-m-s04306 bf16
 touch "$LOGS/n4_heldout_done"
 log 'both heldout8 steps finished; P1 waiting if HOLD_n4 exists'
 for ts in wikitrivia dbpediapl hotpotqapl; do
-    for model in base-splade-wrapped soup-v9b; do p1_step "$model" "$ts"; done
+    for model in base-splade-wrapped soup-v9b; do
+        p1_step "$model" "$ts"
+        if [ "$?" -eq 75 ]; then
+            log '=== n4 stopped by disk guard; remaining tasks were not launched ==='
+            exit 75
+        fi
+    done
 done
 log '=== n4 done ==='
 publish || log 'FAILED final publishing'
