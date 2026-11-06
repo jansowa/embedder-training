@@ -1,0 +1,12 @@
+{
+  "regime": "old-pyserini",
+  "label": "soup-v9b",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9b",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "tasks": {
+    "quora-pl": 79.3322973854326
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 79.3322973854326
+}
