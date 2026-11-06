@@ -69,10 +69,11 @@ publish() {
         if ! git diff --quiet HEAD -- "${paths[@]}"; then
             git commit --only -m "Update night 4 PIRB results" -- "${paths[@]}" || return 1
         fi
-        # Git in WSL has no working credential helper on this host. The Windows
-        # system credential manager is configured per command; no credentials
-        # are stored in the queue or repository.
-        /mnt/c/Program\ Files/Git/cmd/git.exe -c credential.helper= -c credential.helper=manager push origin master || { log 'FAILED publishing results: git push'; return 1; }
+        # The Windows publisher watches HEAD and pushes only allowlisted paths
+        # through the system credential manager (Windows interop is unavailable
+        # inside this WSL session). Never export credentials to the queue.
+        touch "$LOGS/n4_publish_requested"
+        log 'commit ready for Windows publisher'
     ) 8> "$LOGS/n4_publish.lock"
 }
 if [ "${1:-}" = --publish ]; then publish; exit $?; fi
