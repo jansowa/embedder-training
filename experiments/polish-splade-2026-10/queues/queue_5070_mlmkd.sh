@@ -205,7 +205,26 @@ for step in 02150 04306; do
     if [ ! -f "$RESULTS_ROOT/sparsity/$label.json" ]; then
         timeout -k 60 1800 "$PY" scripts/compare_splade_sparsity.py --model "$label=models/$label" --scope tiny --max-docs-per-task 300 --device cuda --batch-size 16 --no-fp16 --output-json "$RESULTS_ROOT/sparsity/$label.json" > "$LOGS/sparsity_$label.log" 2>&1 || { log "FAILED sparsity $label"; record "sparsity:$label" FAILED -; }
     fi
-    regime quantized "$label" "models/$label" tiny10 16 512 || log "FAILED tiny10 $label"
+    # A partial result from an interrupted benchmark must be retried rather
+    # than accepted by the shared helper's n_tasks != 0 shortcut.
+    out="$REGIMES_ROOT/quantized/$label/tiny10.json"
+    if "$PY" - "$out" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    d=json.loads(Path(sys.argv[1]).read_text())
+    assert d['n_tasks'] == 10 and len(d['tasks']) == 10 and d['mean_ndcg@10'] is not None
+except (OSError, ValueError, KeyError, AssertionError):
+    sys.exit(1)
+PY
+    then
+        log "tiny10 $label already complete"
+    else
+        [ ! -f "$out" ] || cp -- "$out" "$LOGS/${label}_tiny10_previous_$(date +%s).json"
+        timeout -k 60 10800 bash scripts/pirb_regime_eval.sh quantized "$label" "models/$label" tiny10 16 512 > "$LOGS/regime_quantized_${label}_tiny10.out" 2>&1
+        rc=$?
+        if [ "$rc" -eq 0 ]; then record "tiny10:$label" ok -; else log "FAILED tiny10 $label rc=$rc"; record "tiny10:$label" FAILED "$rc"; fi
+    fi
     publish_probe || log 'FAILED publishing probe measurement report'
 done
 log 'mlmkd measurements finished; results ready for report and publication'
