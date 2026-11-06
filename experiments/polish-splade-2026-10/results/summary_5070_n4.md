@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-06T16:01:46+01:00
+Aktualizacja: 2026-11-06T16:59:06+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
@@ -160,6 +160,7 @@ score:fiqa-2073	ok	datasets/arms/fiqa-2073-tpd400.jsonl	113s
 regime:quantized:base-splade-wrapped:wikitrivia	FAILED	134	3144s
 regime:quantized:soup-v9b:wikitrivia	FAILED	missing	
 mlmkd-smoke	ok	20	
+regime:quantized:base-splade-wrapped:wikitrivia	FAILED	75	3427s
 
 ```
 
@@ -190,4 +191,5 @@ mlmkd-smoke	ok	20
 [06:58:58] [n4] FAILED updating report/publishing
 [06:58:58] [n4] FAILED missing model/taskset soup-v9b/wikitrivia
 [06:58:59] [n4] FAILED updating report/publishing
+[16:59:06] [n4] regime base-splade-wrapped/wikitrivia FAILED rc=75 after 3427s
 ```
