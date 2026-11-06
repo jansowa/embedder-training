@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-06T01:19:16+01:00
+Aktualizacja: 2026-11-06T01:28:24+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
@@ -47,6 +47,11 @@ Median margin: 0.06702286005020142; rows with negative above positive: 653
 
 2026-11-06T01:19:16+01:00 msmarco-clean-20000 elapsed=537s
 20000 rows -> datasets/judged/msmarco-clean-20000-tpd400.partial.jsonl; teacher OPI-PIB/PolDense-400M (cosine x 1.00, prefix '[query]: '/''); median margin min(pos)-max(neg) 0.07; rows with a negative above a positive 653
+msmarco-plain-20000.jsonl: 240000 texts / 530s = 452.83 texts/s (wall time including model load). Remaining ETA: 2026-11-06T01:37:21+01:00
+Median margin: 0.06355997920036316; rows with negative above positive: 966
+
+2026-11-06T01:28:24+01:00 msmarco-plain-20000 elapsed=536s
+20000 rows -> datasets/judged/msmarco-plain-20000-tpd400.partial.jsonl; teacher OPI-PIB/PolDense-400M (cosine x 1.00, prefix '[query]: '/''); median margin min(pos)-max(neg) 0.06; rows with a negative above a positive 966
 
 ```
 
@@ -120,6 +125,7 @@ regime:quantized:night3-paired-m-s04306:heldout8	ok	37.12 8	1964s
 score:squadv2-v2-all	ok	datasets/arms/squadv2-v2-all-tpd400.jsonl	6462s
 score:msmarco-rejected-20000	ok	datasets/judged/msmarco-rejected-20000-tpd400.jsonl	539s
 score:msmarco-clean-20000	ok	datasets/judged/msmarco-clean-20000-tpd400.jsonl	529s
+score:msmarco-plain-20000	ok	datasets/judged/msmarco-plain-20000-tpd400.jsonl	530s
 
 ```
 
@@ -136,4 +142,6 @@ score:msmarco-clean-20000	ok	datasets/judged/msmarco-clean-20000-tpd400.jsonl	52
 [01:00:49] [score] FAILED updating n4 report/publishing
 [01:10:09] [n4] FAILED publishing results: git push
 [01:10:09] [score] FAILED updating n4 report/publishing
+[01:19:18] [n4] FAILED publishing results: git push
+[01:19:18] [score] FAILED updating n4 report/publishing
 ```
