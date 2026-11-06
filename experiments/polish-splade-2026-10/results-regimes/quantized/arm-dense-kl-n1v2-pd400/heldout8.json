@@ -1,0 +1,19 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n1v2-pd400",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n1v2-pd400",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.101954407556473,
+    "maupqa-multilingual-NLI": 14.543654501649977,
+    "mfaq": 63.184341959026845,
+    "poleval-2022-test-A-legal-questions": 82.65094681363013,
+    "maupqa-wiki-def": 66.01734996201832,
+    "scidocs-pl": 14.321458953482246,
+    "maupqa-1z10": 47.59436728668051,
+    "fiqa-pl": 29.26037192879656
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 42.20930572660514
+}
