@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-06T01:44:47+01:00
+Aktualizacja: 2026-11-06T01:46:51+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
@@ -62,6 +62,11 @@ Median margin: 0.09948274493217468; rows with negative above positive: 57
 
 2026-11-06T01:44:47+01:00 squadv2-2073 elapsed=133s
 2073 rows -> datasets/arms/squadv2-2073-tpd400.partial.jsonl; teacher OPI-PIB/PolDense-400M (cosine x 1.00, prefix '[query]: '/''); median margin min(pos)-max(neg) 0.10; rows with a negative above a positive 57
+fiqa-2073.jsonl: 25964 texts / 113s = 229.77 texts/s (wall time including model load). Remaining ETA: 2026-11-06T01:46:51+01:00
+Median margin: 0.10068973898887634; rows with negative above positive: 47
+
+2026-11-06T01:46:51+01:00 fiqa-2073 elapsed=113s
+2073 rows -> datasets/arms/fiqa-2073-tpd400.partial.jsonl; teacher OPI-PIB/PolDense-400M (cosine x 1.00, prefix '[query]: '/''); median margin min(pos)-max(neg) 0.10; rows with a negative above a positive 47
 
 ```
 
@@ -138,6 +143,7 @@ score:msmarco-clean-20000	ok	datasets/judged/msmarco-clean-20000-tpd400.jsonl	52
 score:msmarco-plain-20000	ok	datasets/judged/msmarco-plain-20000-tpd400.jsonl	530s
 score:squadv2-fresh-16000	ok	datasets/arms/squadv2-fresh-16000-tpd400.jsonl	822s
 score:squadv2-2073	ok	datasets/arms/squadv2-2073-tpd400.jsonl	132s
+score:fiqa-2073	ok	datasets/arms/fiqa-2073-tpd400.jsonl	113s
 
 ```
 
@@ -160,4 +166,6 @@ score:squadv2-2073	ok	datasets/arms/squadv2-2073-tpd400.jsonl	132s
 [01:28:26] [score] FAILED updating n4 report/publishing
 [01:42:24] [n4] FAILED publishing results: git push
 [01:42:24] [score] FAILED updating n4 report/publishing
+[01:44:49] [n4] FAILED publishing results: git push
+[01:44:49] [score] FAILED updating n4 report/publishing
 ```
