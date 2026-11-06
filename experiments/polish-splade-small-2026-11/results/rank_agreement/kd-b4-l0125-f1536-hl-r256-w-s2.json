@@ -1,0 +1,13 @@
+{
+  "rows": 500,
+  "kendall_tau": 0.7323414585414595,
+  "top1_agreement": 0.904,
+  "positive_first": 0.906,
+  "mean_margin": 8.881039647102355,
+  "tau_p10": 0.5272727272727272,
+  "model": "models/kd-b4-l0125-f1536-hl-r256-w-s2",
+  "rows_file": "datasets/arms/mix3v2-6219-tv9b.jsonl",
+  "dtype": "fp16",
+  "fp32_head": true,
+  "seconds": 6.9
+}

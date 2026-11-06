@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "soup-v9b",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9b",
+  "taskset": "legalB",
+  "max_seq_length": null,
+  "tasks": {
+    "poleval-2022-test-B-legal-questions": 82.23428394555266
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 82.23428394555266
+}

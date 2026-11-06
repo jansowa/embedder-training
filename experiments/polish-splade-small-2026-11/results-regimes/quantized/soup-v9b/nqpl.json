@@ -1,0 +1,12 @@
+{
+  "regime": "quantized",
+  "label": "soup-v9b",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v9b",
+  "taskset": "nqpl",
+  "max_seq_length": null,
+  "tasks": {
+    "nq-pl": 41.46479256835981
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 41.46479256835981
+}
