@@ -67,3 +67,14 @@ def test_density_controller_uses_the_same_band_as_the_g1_gate():
     control = config["sentence_transformers"]["regularizer_control"]["density"]
     assert control["reference_dims"] * control["band"][0] == pytest.approx(330)
     assert control["reference_dims"] * control["band"][1] == pytest.approx(460)
+
+
+def test_weak_or_dense_epoch_one_is_informational_and_all_three_epochs_are_recorded():
+    result = {"status": "training", "epochs": []}
+    for epoch, score, density in [(1, 55.0, 600), (2, 58.0, 650), (3, 60.0, 620)]:
+        MODULE["record_epoch"](result, {"epoch": epoch, "tiny10": score, "density": {"doc_active_mean": density}})
+    assert result["status"] == "training"
+    assert len(result["epochs"]) == 3
+    assert "informational" in result["g1_policy"]
+    with pytest.raises(ValueError, match="consecutive"):
+        MODULE["record_epoch"](result, {"epoch": 5})

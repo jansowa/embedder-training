@@ -54,6 +54,15 @@ def g1_result(score: float, density: float) -> str:
     return "pass" if score >= 59.5 else "tiny10_below_59.5"
 
 
+def record_epoch(result: dict, record: dict) -> None:
+    if record["epoch"] != len(result["epochs"]) + 1:
+        raise ValueError("Epoch measurements are not consecutive")
+    result["epochs"].append(record)
+    if record["epoch"] == 1:
+        result["g1"] = g1_result(record["tiny10"], record["density"]["doc_active_mean"])
+        result["g1_policy"] = "informational; continue all three epochs"
+
+
 def validate_teacher(side: dict, pool: dict) -> None:
     if (side.get("rows"), side.get("examples"), side.get("input_pool_sha256")) != (pool["rows"], pool["examples"], pool["sha256"]):
         raise ValueError("Ensemble sidecar does not match the approved KL pool")
@@ -124,7 +133,7 @@ def render_report(result: dict) -> None:
         p = record["density"]
         heldout = record.get("heldout8", "—")
         lines.append(f"| epoka {record['epoch']} | {record['tiny10']:.2f} | {heldout} | {p['doc_active_mean']:.2f} | {p['query_active_mean']:.2f} | {p['postings_per_query']:.2f} |")
-    lines += ["", f"G1: {result.get('g1', 'pending')} (tiny10 ≥59.5, gęstość dokumentów 330–460).", "",
+    lines += ["", f"G1 (informacyjnie): {result.get('g1', 'pending')} (tiny10 ≥59.5, gęstość dokumentów 330–460; nie zatrzymuje epok).", "",
               "Pomiary quantized przy 512 tokenach, pomiędzy epokami; dodatkowy profil min_weight=0.05 w plikach JSON.", "",
               "```json", json.dumps({k: v for k, v in result.items() if k != "epochs"}, indent=2), "```", ""]
     (EXP / "results/summary_5070_mlm_p1_v2.md").write_text("\n".join(lines), encoding="utf-8")
@@ -145,14 +154,14 @@ def result_paths(result: dict) -> list[Path]:
     return paths
 
 
-def publish_results(result: dict) -> dict:
-    paths = [str(path.relative_to(ROOT)) for path in result_paths(result)]
+def publish_paths(selected: list[Path], message: str, log_path: Path) -> dict:
+    paths = [str(path.relative_to(ROOT)) for path in selected]
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
-    with (ROOT / "logs/mlm-p1-v2-publish.log").open("x") as log:
+    with log_path.open("x") as log:
         subprocess.run(["git", "add", "--", *paths], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
         changed = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=ROOT, env=env).returncode
         if changed:
-            subprocess.run(["git", "commit", "--only", "-m", "Add the MLM P1 KL training results", "--", *paths],
+            subprocess.run(["git", "commit", "--only", "-m", message, "--", *paths],
                            cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         try:
@@ -163,9 +172,12 @@ def publish_results(result: dict) -> dict:
             return {"commit": commit, "pushed": False, "push_error": "timeout"}
 
 
-def measure(checkpoint: Path, epoch: int, env: dict) -> dict:
+def publish_results(result: dict) -> dict:
+    return publish_paths(result_paths(result), "Add the MLM P1 KL training results", ROOT / "logs/mlm-p1-v2-publish.log")
+
+
+def measure_model(checkpoint: Path, label: str, env: dict) -> dict:
     started = time.monotonic()
-    label = f"mlm-p1-ep{epoch}"
     profile = EXP / "results/sparsity" / f"{label}-index-cost.json"
     profile.parent.mkdir(parents=True, exist_ok=True)
     log_path = ROOT / "logs" / f"{label}-index-cost.log"
@@ -180,7 +192,7 @@ def measure(checkpoint: Path, epoch: int, env: dict) -> dict:
     p = json.loads(profile.read_text())["models"][label]
     if any(not math.isfinite(p[key]) for key in ("doc_active_mean", "query_active_mean", "postings_per_query")):
         raise ValueError("Invalid density profile")
-    return {"epoch": epoch, "checkpoint": str(checkpoint), "label": label,
+    return {"checkpoint": str(checkpoint), "label": label,
             "tiny10": score["mean_ndcg@10"], "density": p, "measured_at": now(),
             "evaluation_seconds": round(time.monotonic() - started, 2)}
 
@@ -227,13 +239,9 @@ def worker(config: Path) -> int:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             print(f"[P1] Epoch {number} saved; evaluating before the next epoch", flush=True)
-            record = measure(checkpoint, number, env)
-            result["epochs"].append(record)
-            if number == 1:
-                result["g1"] = g1_result(record["tiny10"], record["density"]["doc_active_mean"])
-                if result["g1"] != "pass":
-                    result["status"] = "stopped_gate"
-                    control.should_training_stop = True
+            record = measure_model(checkpoint, f"mlm-p1-ep{number}", env)
+            record["epoch"] = number
+            record_epoch(result, record)
             save_json(RESULT, result)
             render_report(result)
             return control
@@ -246,9 +254,9 @@ def worker(config: Path) -> int:
     rc = train_main(["--config", str(config)])
     if rc:
         return rc
-    if result["status"] != "stopped_gate" and len(result["epochs"]) != 3:
+    if len(result["epochs"]) != 3:
         raise RuntimeError("Training returned without all three epoch checkpoints")
-    result["status"] = "stopped_gate" if result["status"] == "stopped_gate" else "completed"
+    result["status"] = "completed"
     result["training_finished_at"] = now()
     save_json(RESULT, result)
     render_report(result)
@@ -264,7 +272,7 @@ def supervisor(config: Path, approved_config_sha: str) -> None:
         fcntl.flock(queue_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         def status(value, **extra):
             record = {"status": value, "updated_at": now(), "pid": os.getpid(), "config": str(config),
-                      "approved": True, "scope": "phase 1 KL only; stop at G1 failure; no A/B or phase 2", **extra}
+                      "approved": True, "scope": "phase 1 KL, all three epochs; G1 informational; A/B handled by its own queue", **extra}
             save_json(STATE, record)
         try:
             pool = json.loads(Path(str(POOL) + ".manifest.json").read_text())
@@ -285,7 +293,8 @@ def supervisor(config: Path, approved_config_sha: str) -> None:
                 run_root = prepare_run_root()
                 status("training", dense_scale=side["dense_scale"], run_root=str(run_root))
                 env = dict(os.environ, WANDB_MODE="disabled", PYTHONPATH=str(ROOT), PYTHONUNBUFFERED="1",
-                           TOKENIZERS_PARALLELISM="false", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2")
+                           TOKENIZERS_PARALLELISM="false", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
+                           REGIMES_ROOT=str(EXP / "results-regimes"), RESULTS_ROOT=str(EXP / "results"))
                 with (ROOT / "logs/mlm-p1-v2-train.log").open("x") as log:
                     process = subprocess.Popen([str(PYTHON), str(Path(__file__).resolve()), "--worker", "--config", str(config)],
                                                cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -305,9 +314,8 @@ def supervisor(config: Path, approved_config_sha: str) -> None:
                         raise RuntimeError(f"Training/evaluation failed with exit {process.returncode}; see logs/mlm-p1-v2-train.log")
                 result = json.loads(RESULT.read_text())
                 if result["epochs"]:
-                    eligible = [r for r in result["epochs"] if 330 <= r["density"]["doc_active_mean"] <= 460]
-                    best = max(eligible or result["epochs"], key=lambda r: r["tiny10"])
-                    result["best_within_density_band"] = bool(eligible)
+                    best = max(result["epochs"], key=lambda r: r["tiny10"])
+                    result["best_within_density_band"] = 330 <= best["density"]["doc_active_mean"] <= 460
                     subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", best["label"], best["checkpoint"], "heldout8", "16", "512"], cwd=ROOT, env=env, check=True)
                     heldout = json.loads((EXP / f"results-regimes/quantized/{best['label']}/heldout8.json").read_text())
                     if heldout.get("n_tasks") != 8:

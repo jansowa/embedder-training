@@ -1,5 +1,4 @@
-# Dense S is fitted and applied by the scoring bridge before ensembling.
-# Do not apply S again to these SPLADE-unit ensemble scores.
+# Dense S is already applied before ensembling; score_scale remains 1.
 backend: sentence-transformers
 training_type: splade
 timestamp_output_dir: true
@@ -48,8 +47,8 @@ sentence_transformers:
     density:
       reference_dims: 436
       band:
-      - 0.75
-      - 1.05
+      - 0.7568807339449541
+      - 1.055045871559633
       interval_steps: 250
       factor: 1.25
       min_document_weight: 0.0005
