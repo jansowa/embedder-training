@@ -3,7 +3,8 @@
 # the cluster-like recipe (512 tokens, 10 hard negatives, effective batch 32),
 # then soups, then held-out for the two best, then the leaderboard-comparable
 # (quantized-query) regime for the best. Serial, one GPU job at a time, with the
-# guards of scripts/queue_lib.sh (idle GPU, >= 6 GB RAM, >= 10 GB disk, timeouts).
+# guards of scripts/queue_lib.sh (idle GPU, >= 6 GB RAM, >= 10 GB disk).
+# Training has no time limit by default; benchmark timeouts remain enabled.
 #
 #   N1  FiQA 2073 + SQuAD-v2 2073                 configs/next/5070/n1_*.yaml
 #   N2  FiQA 2073 (control)                       n2
@@ -27,10 +28,15 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 export QUEUE_TAG=5070 MIN_RAM_GB=6
+# Long SPLADE runs must survive beyond two hours; 0 disables the training timer.
+export TRAIN_TIMEOUT_SECONDS="${TRAIN_TIMEOUT_SECONDS:-0}"
+export PYTHONUNBUFFERED=1
 source scripts/queue_lib.sh
 echo $$ > "$LOGS/queue_5070.pid"
 guard_alive; wait_gpu_free
 log "=== 5070 start: $(free_gb) GB free, $(free -g | awk '/^Mem:/ {print $7}') GB RAM, GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader) ==="
+
+log "training timeout: ${TRAIN_TIMEOUT_SECONDS}s (0 = disabled); automatic checkpoint resume enabled"
 
 ARMS=(n1-cluster-fiqa-plus-squadv2 n2-cluster-fiqa-2073 n3-cluster-fiqa-plus-squadv2-10k n4-cluster-mix3-6219 n5-cluster-fiqa-plus-squadv2-b16 n6-mmse-fiqa-plus-squadv2)
 cfg_of() { echo "configs/next/5070/${1%%-*}_$(echo "${1#*-}" | tr '-' '_').yaml"; }
