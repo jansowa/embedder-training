@@ -1,0 +1,46 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "soup-v9b": {
+      "doc_active_mean": 417.56888888888886,
+      "doc_active_median": 416.0,
+      "query_active_mean": 151.38222222222223,
+      "query_active_median": 97.0,
+      "postings_per_query": 17805.185925925925,
+      "flops": 3.007753849029541,
+      "doc_weight_sum_mean": 182.9689483642578,
+      "query_weight_sum_mean": 72.0559310913086
+    },
+    "b4-full-s3": {
+      "doc_active_mean": 436.6088888888889,
+      "doc_active_median": 431.0,
+      "query_active_mean": 156.28518518518518,
+      "query_active_median": 98.0,
+      "postings_per_query": 20728.13703703704,
+      "flops": 3.3116331100463867,
+      "doc_weight_sum_mean": 188.82852172851562,
+      "query_weight_sum_mean": 74.74069213867188
+    },
+    "hl-r256-w-s3": {
+      "doc_active_mean": 605.6577777777778,
+      "doc_active_median": 598.5,
+      "query_active_mean": 200.72518518518518,
+      "query_active_median": 113.0,
+      "postings_per_query": 38410.50444444444,
+      "flops": 4.631063938140869,
+      "doc_weight_sum_mean": 237.57005310058594,
+      "query_weight_sum_mean": 84.36701965332031
+    },
+    "hl-full-s3": {
+      "doc_active_mean": 524.6318518518518,
+      "doc_active_median": 521.0,
+      "query_active_mean": 183.3074074074074,
+      "query_active_median": 112.0,
+      "postings_per_query": 27500.563703703705,
+      "flops": 3.7330405712127686,
+      "doc_weight_sum_mean": 211.8424072265625,
+      "query_weight_sum_mean": 79.79307556152344
+    }
+  }
+}
