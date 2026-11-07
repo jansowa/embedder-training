@@ -57,6 +57,9 @@ def main() -> None:
     ap.add_argument("--output-json", type=Path, default=RESULTS_ROOT / "index_cost.json")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--batch-size", type=int, default=4)
+    ap.add_argument("--min-weight", type=float, action="append", default=[],
+                    help="also report the profile after dropping terms with weight < this (repeatable); "
+                         "the top-level numbers always use the usual rule")
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
@@ -89,24 +92,35 @@ def main() -> None:
             except torch.OutOfMemoryError:
                 print(f"{label}: CUDA OOM on the shared GPU, retrying on CPU", flush=True)
                 del model; torch.cuda.empty_cache(); device = "cpu"
-        Da = np.rint(D * qf) > 0
-        Qa = np.rint(Q * qf) > 0
-        df = Da.sum(axis=0)                       # docs per term
-        postings = (Qa * df).sum(axis=1)          # per query: sum over active terms of df
-        flops = float(((D.mean(axis=0)) * (Q.mean(axis=0))).sum())
-        rep = {
-            "doc_active_mean": float(Da.sum(axis=1).mean()),
-            "doc_active_median": float(np.median(Da.sum(axis=1))),
-            "query_active_mean": float(Qa.sum(axis=1).mean()),
-            "query_active_median": float(np.median(Qa.sum(axis=1))),
-            "postings_per_query": float(postings.mean()),
-            "flops": flops,
-            "doc_weight_sum_mean": float(D.sum(axis=1).mean()),
-            "query_weight_sum_mean": float(Q.sum(axis=1).mean()),
-        }
+        def profile(D, Q):
+            Da = np.rint(D * qf) > 0
+            Qa = np.rint(Q * qf) > 0
+            df = Da.sum(axis=0)                       # docs per term
+            postings = (Qa * df).sum(axis=1)          # per query: sum over active terms of df
+            return {
+                "doc_active_mean": float(Da.sum(axis=1).mean()),
+                "doc_active_median": float(np.median(Da.sum(axis=1))),
+                "query_active_mean": float(Qa.sum(axis=1).mean()),
+                "query_active_median": float(np.median(Qa.sum(axis=1))),
+                "postings_per_query": float(postings.mean()),
+                "flops": float(((D.mean(axis=0)) * (Q.mean(axis=0))).sum()),
+                "doc_weight_sum_mean": float(D.sum(axis=1).mean()),
+                "query_weight_sum_mean": float(Q.sum(axis=1).mean()),
+            }
+
+        def show(name, rep):
+            print(f"{name:34s} doc_active {rep['doc_active_mean']:7.1f}  query_active {rep['query_active_mean']:6.1f}  "
+                  f"postings/query {rep['postings_per_query']:9.0f}  flops {rep['flops']:8.3f}", flush=True)
+
+        rep = profile(D, Q)
+        show(label, rep)
+        if args.min_weight:
+            rep["min_weight"] = {}
+            for thr in args.min_weight:   # the same rule PIRB applies with min_weight: drop w < thr on both sides
+                sub = profile(np.where(D >= thr, D, 0.0), np.where(Q >= thr, Q, 0.0))
+                rep["min_weight"][str(thr)] = sub
+                show(f"{label} min_weight={thr}", sub)
         report[label] = rep
-        print(f"{label:22s} doc_active {rep['doc_active_mean']:7.1f}  query_active {rep['query_active_mean']:6.1f}  "
-              f"postings/query {rep['postings_per_query']:9.0f}  flops {flops:8.3f}", flush=True)
         del model, D, Q
         torch.cuda.empty_cache()
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
