@@ -1,0 +1,17 @@
+{
+  "pairs": 53859,
+  "prompt_version": "annotate-v2",
+  "model": "qwen3.8-27b",
+  "measured_pairs_per_minute": 144.9,
+  "recent_rate_min": 144.6,
+  "recent_rate_max": 144.9,
+  "estimated_seconds": 22301.863354037265,
+  "estimated_hours": 6.19496204278813,
+  "required_pairs_per_minute_for_two_hours": 448.825,
+  "below_two_hours": false,
+  "source_log": "/mnt/c/work/data-kitchen/retrieval-data-kitchen-master/data/annotation/pairs_msmarco_full.run.log",
+  "source_log_sha256": "4a1a39c74260db1259d55fae158df12faf172e3b2fc48439b717fe42aa56fa9e",
+  "method": "extrapolate the last measured rate of the completed same-prompt run; no new inference",
+  "caveat": "same inference server/settings assumed; SQuAD length and server load may change runtime",
+  "annotation_started": false
+}

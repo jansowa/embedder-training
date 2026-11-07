@@ -1,0 +1,27 @@
+{
+  "kl": {
+    "rows": 347687,
+    "examples": 347687,
+    "by_source": {
+      "msmarco": 291618,
+      "squadv2": 56069
+    },
+    "sha256": "d1bdfea47314829bf3ba5c2caa5a1da49cece837298c7d35f08ffaf9d46885eb",
+    "ids_path": "datasets/arms/p1_kl.ids"
+  },
+  "mnrl": {
+    "rows": 301042,
+    "examples": 301042,
+    "by_source": {
+      "msmarco": 245072,
+      "squadv2": 55970
+    },
+    "sha256": "d6023e74c158e9760f86c826c069465f47a9c1d3f28dfb7f7fe53da7aa7a8374",
+    "ids_path": "datasets/arms/p1_mnrl.ids"
+  },
+  "ab_rows": 40000,
+  "mnrl_subset_of_kl": true,
+  "all_negatives_per_row": 10,
+  "all_positives_per_row": 1,
+  "C_free_GB": 78.577311744
+}

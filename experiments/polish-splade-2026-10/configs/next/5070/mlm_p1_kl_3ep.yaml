@@ -4,7 +4,7 @@ backend: sentence-transformers
 training_type: splade
 timestamp_output_dir: true
 save_resolved_config: true
-train_data: datasets/arms/mlm-p1-tens400.jsonl
+train_data: datasets/arms/mlm-p1-kl-v2-tens400.jsonl
 dataset_mix_strategy: concat_shuffle
 dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
 dataset_filter_cache_dir: cache/filtered_datasets
