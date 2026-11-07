@@ -15,6 +15,7 @@ decoder (`training/backends/splade_fused_head.py`).
 | 1 | `python -m distill.train_kd --token-loss kl` | unlabeled text | per-token distribution over the vocabulary (tempered KL on the teacher's top-k entries + a rest bucket) |
 | 2 | `python -m distill.train_kd --pooled-loss mse` | unlabeled text | the pooled SPLADE vector (sparse-gradient max over tokens); optional FLOPS |
 | 3 | `python -m training.train` with `loss: sparse_distill_kl_div` | training rows with teacher scores | ranking, exactly as the v32 arms |
+| 3' | `python -m training.train` with `loss: sparse_kl_plus_mnrl` | training rows with teacher scores | ranking: the same KL plus `mnrl_weight` x the multiple-negatives ranking loss (the row's positive against its negatives and every passage of the other rows in the physical batch; `scale` is the MNRL scale). Labels and `score_scale` as for the KL loss; the MNRL term needs no label beyond the row's positive. Untested as of 7.11 (meant for the A/B at the MLM start on the 5070) |
 | check | `python -m distill.fidelity` | a text sample | cosine / active-dimension overlap with the teacher and seconds per text |
 | check | `python -m distill.rank_agreement` | stage-3 rows with teacher scores | Kendall tau / top-1 agreement of the student's dot products with the teacher's per query |
 | check | `python -m distill.vocab_usage` | a text sample | live / dead output dimensions and the mass covered by the top-K |

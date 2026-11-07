@@ -505,7 +505,26 @@ def _splade_loss_kwargs(backend_config: dict[str, Any]) -> dict[str, Any]:
     return kwargs
 
 
-SPLADE_DISTILLATION_LOSSES = {"sparse_margin_mse", "sparse_distill_kl_div"}
+SPLADE_DISTILLATION_LOSSES = {"sparse_margin_mse", "sparse_distill_kl_div", "sparse_kl_plus_mnrl"}
+SPLADE_SCORES_LAYOUT_LOSSES = {"sparse_distill_kl_div", "sparse_kl_plus_mnrl"}
+
+
+def _load_sparse_kl_plus_mnrl_loss():
+    _require_sentence_transformers()
+    from training.backends.splade_kl_mnrl import SparseKLPlusMNRLLoss
+
+    return SparseKLPlusMNRLLoss
+
+
+def _mnrl_weight(backend_config: dict[str, Any]) -> float:
+    value = backend_config.get("mnrl_weight", 1.0)
+    try:
+        value = float(value)
+    except (TypeError, ValueError) as exc:
+        raise SentenceTransformersConfigError("'sentence_transformers.mnrl_weight' must be a non-negative number.") from exc
+    if value < 0:
+        raise SentenceTransformersConfigError("'sentence_transformers.mnrl_weight' must be a non-negative number.")
+    return value
 
 
 def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
@@ -520,12 +539,15 @@ def _splade_base_loss_name(backend_config: dict[str, Any]) -> str:
         "kl_div": "sparse_distill_kl_div",
         "distill_kl_div": "sparse_distill_kl_div",
         "sparse_distill_kl_div_loss": "sparse_distill_kl_div",
+        "kl_plus_mnrl": "sparse_kl_plus_mnrl",
+        "kl_mnrl": "sparse_kl_plus_mnrl",
+        "sparse_kl_plus_mnrl_loss": "sparse_kl_plus_mnrl",
     }
     loss_name = aliases.get(loss_name, loss_name)
     if loss_name not in {"sparse_multiple_negatives_ranking", *SPLADE_DISTILLATION_LOSSES}:
         raise SentenceTransformersConfigError(
             "'sentence_transformers.loss' must be one of: sparse_multiple_negatives_ranking, sparse_margin_mse, "
-            "sparse_distill_kl_div."
+            "sparse_distill_kl_div, sparse_kl_plus_mnrl."
         )
     return loss_name
 
@@ -1499,7 +1521,7 @@ def run_splade_training(request: TrainingRequest) -> int:
 
     loss_name = _splade_base_loss_name(backend_config)
     distillation = loss_name in SPLADE_DISTILLATION_LOSSES
-    label_layout = "scores" if loss_name == "sparse_distill_kl_div" else "margins"
+    label_layout = "scores" if loss_name in SPLADE_SCORES_LAYOUT_LOSSES else "margins"
     loaded = _load_training_rows(
         config,
         backend_config,
@@ -1517,7 +1539,7 @@ def run_splade_training(request: TrainingRequest) -> int:
     if score_scale is not None:
         if not distillation:
             raise SentenceTransformersConfigError(
-                "'sentence_transformers.score_scale' needs a distillation loss (sparse_margin_mse or sparse_distill_kl_div)."
+                "'sentence_transformers.score_scale' needs a distillation loss (sparse_margin_mse, sparse_distill_kl_div or sparse_kl_plus_mnrl)."
             )
         if score_scale == "auto":
             score_fn = _splade_score_fn(model, batch_size=int(backend_config.get("score_scale_batch_size", 16)))
@@ -1539,6 +1561,15 @@ def run_splade_training(request: TrainingRequest) -> int:
         ranking_loss = SparseMarginMSELoss(model)
     elif loss_name == "sparse_distill_kl_div":
         ranking_loss = _load_sparse_kl_loss()(model, temperature=float(backend_config.get("kl_temperature", 2.0)))
+    elif loss_name == "sparse_kl_plus_mnrl":
+        ranking_loss = _load_sparse_kl_plus_mnrl_loss()(
+            model,
+            temperature=float(backend_config.get("kl_temperature", 2.0)),
+            mnrl_weight=_mnrl_weight(backend_config),
+            mnrl_scale=float(backend_config.get("scale", 1.0)),
+            gather_across_devices=bool(backend_config.get("gather_across_devices", False)),
+        )
+        print(f"[INFO] Loss sparse_kl_plus_mnrl: KL(T={ranking_loss.temperature}) + {ranking_loss.mnrl_weight} x MNRL(scale={backend_config.get('scale', 1.0)}).", flush=True)
     else:
         ranking_loss = SparseMultipleNegativesRankingLoss(
             model,
