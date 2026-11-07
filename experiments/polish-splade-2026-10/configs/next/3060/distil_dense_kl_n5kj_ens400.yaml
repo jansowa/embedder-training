@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# Ensemble-teacher distillation on the n5 rows plus the colleague rows (18 073 gated fiqa + squadv2-v2 rows, 23.5 gate applied when the file is built, plus all 2 219 karoljez rows): the n5v2-ens400 recipe. Question: does the colleague set add anything on top of n5 (63.95 / 42.96)?
+runs_dir: runs/arm-dense-kl-n5kj-ens400
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-tens400.jsonl
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
