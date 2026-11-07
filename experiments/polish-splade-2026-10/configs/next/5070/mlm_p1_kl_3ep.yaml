@@ -34,7 +34,7 @@ sentence_transformers:
   splade_decoder_bias_target: 400
   splade_train_only_head: false
   save_strategy: epoch
-  save_total_limit: null
+  save_total_limit: 1
   keep_epoch_checkpoints: true
   logging_steps: 25
   splade_activation_stats:
@@ -47,9 +47,10 @@ sentence_transformers:
     warmup_steps: 1000
     density:
       reference_dims: 436
+      # 330/436 and 460/436: the same density band as G1.
       band:
-      - 0.75
-      - 1.05
+      - 0.7568807339449541
+      - 1.055045871559633
       interval_steps: 250
       factor: 1.25
       min_document_weight: 0.0005
