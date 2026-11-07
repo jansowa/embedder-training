@@ -32,6 +32,19 @@ BENCH="$REPO/configs/pirb_tasks/$TASKSET.json"
 MODEL_ABS="$(cd "$MODEL" && pwd)"
 REGIMES_ROOT="${REGIMES_ROOT:-experiments/polish-splade-2026-10/results-regimes}"
 PIRB_DTYPE="${PIRB_DTYPE:-fp16}"   # fp16 | bf16 (bf16 for ModernBERT backbones)
+# Optional knobs of the fork regimes (ignored by new-backend):
+#   PIRB_QUERY_MODEL=dir  asymmetric evaluation: the index is built with MODEL_DIR, the queries are
+#                         encoded with this model (a student as the query encoder over the big index)
+#   PIRB_MIN_WEIGHT=w     drop terms with weight < w on both sides before quantization (0 = usual rule)
+# Both are written into the result JSON; choose a LABEL that names them.
+PIRB_QUERY_MODEL="${PIRB_QUERY_MODEL:-}"
+PIRB_MIN_WEIGHT="${PIRB_MIN_WEIGHT:-0}"
+EXTRA_KEYS=""
+if [ -n "$PIRB_QUERY_MODEL" ]; then
+    [ -e "$PIRB_QUERY_MODEL" ] || { echo "query model $PIRB_QUERY_MODEL missing"; exit 1; }
+    EXTRA_KEYS+=", \"query_model\": \"$(cd "$PIRB_QUERY_MODEL" && pwd)\""
+fi
+[ "$PIRB_MIN_WEIGHT" != 0 ] && EXTRA_KEYS+=", \"min_weight\": $PIRB_MIN_WEIGHT"
 case "$REGIMES_ROOT" in /*) ;; *) REGIMES_ROOT="$REPO/$REGIMES_ROOT" ;; esac
 OUT_DIR="$REGIMES_ROOT/$REGIME/$LABEL"; mkdir -p "$OUT_DIR" "$REPO/logs/regimes"
 OUT="$OUT_DIR/$TASKSET.json"
@@ -61,6 +74,7 @@ json.dump(t, open(f"{dst}/tokenizer_config.json", "w"), indent=2, ensure_ascii=F
 PYEOF
     LEN_KEY=", \"max_seq_length\": $MAXLEN"
 fi
+LEN_KEY+="$EXTRA_KEYS"
 
 case "$REGIME" in
   old-pyserini)
@@ -85,9 +99,9 @@ extra=()
     --data_dir "$REPO/third_party/pirb/data" --cache_dir "$CACHE" --scope full --overwrite "${extra[@]}" ) > "$LOG" 2>&1
 rc=$?
 
-"$REPO/.venv/bin/python" - "$REGIME" "$LABEL" "$TASKSET" "$MODEL_ABS" "$LOG" "$RAW" "$OUT" "$MAXLEN" <<'PYEOF'
+"$REPO/.venv/bin/python" - "$REGIME" "$LABEL" "$TASKSET" "$MODEL_ABS" "$LOG" "$RAW" "$OUT" "$MAXLEN" "$PIRB_QUERY_MODEL" "$PIRB_MIN_WEIGHT" <<'PYEOF'
 import json, os, re, sys
-regime, label, taskset, model, log, raw, out, maxlen = sys.argv[1:9]
+regime, label, taskset, model, log, raw, out, maxlen, query_model, min_weight = sys.argv[1:11]
 tasks = {}
 if os.path.exists(raw):
     for mr in json.load(open(raw)).get("results", []):
@@ -110,6 +124,7 @@ if not tasks:  # upstream prints "Results for task: X" then "NDCG@10: 64.7000%, 
         if m and cur:
             tasks[cur] = float(m.group(1)); cur = None
 rep = {"regime": regime, "label": label, "model": model, "taskset": taskset, "max_seq_length": int(maxlen) if maxlen else None,
+       "query_model": query_model or None, "min_weight": float(min_weight),
        "tasks": tasks, "n_tasks": len(tasks),
        "mean_ndcg@10": (sum(tasks.values()) / len(tasks)) if tasks else None}
 json.dump(rep, open(out, "w"), indent=2)

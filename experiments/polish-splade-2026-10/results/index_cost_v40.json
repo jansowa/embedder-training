@@ -1,0 +1,214 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "soup-v9b": {
+      "doc_active_mean": 417.56888888888886,
+      "doc_active_median": 416.0,
+      "query_active_mean": 151.38222222222223,
+      "query_active_median": 97.0,
+      "postings_per_query": 17805.185925925925,
+      "flops": 3.007753849029541,
+      "doc_weight_sum_mean": 182.9689483642578,
+      "query_weight_sum_mean": 72.0559310913086,
+      "min_weight": {
+        "0.01": {
+          "doc_active_mean": 413.58814814814815,
+          "doc_active_median": 413.0,
+          "query_active_mean": 149.9837037037037,
+          "query_active_median": 96.0,
+          "postings_per_query": 17506.74148148148,
+          "flops": 3.0067811012268066,
+          "doc_weight_sum_mean": 182.92877197265625,
+          "query_weight_sum_mean": 72.04206848144531
+        },
+        "0.02": {
+          "doc_active_mean": 405.4222222222222,
+          "doc_active_median": 405.5,
+          "query_active_mean": 147.25037037037038,
+          "query_active_median": 95.0,
+          "postings_per_query": 16912.845925925925,
+          "flops": 3.0038487911224365,
+          "doc_weight_sum_mean": 182.8064422607422,
+          "query_weight_sum_mean": 72.00096893310547
+        },
+        "0.03": {
+          "doc_active_mean": 397.40444444444444,
+          "doc_active_median": 397.5,
+          "query_active_mean": 144.53407407407408,
+          "query_active_median": 93.0,
+          "postings_per_query": 16324.40074074074,
+          "flops": 2.998924493789673,
+          "doc_weight_sum_mean": 182.60606384277344,
+          "query_weight_sum_mean": 71.93317413330078
+        },
+        "0.05": {
+          "doc_active_mean": 381.9162962962963,
+          "doc_active_median": 382.5,
+          "query_active_mean": 139.34962962962962,
+          "query_active_median": 91.0,
+          "postings_per_query": 15228.424444444445,
+          "flops": 2.983819007873535,
+          "doc_weight_sum_mean": 181.98663330078125,
+          "query_weight_sum_mean": 71.72651672363281
+        }
+      }
+    },
+    "ens-n5v2": {
+      "doc_active_mean": 432.277037037037,
+      "doc_active_median": 438.0,
+      "query_active_mean": 161.1451851851852,
+      "query_active_median": 107.0,
+      "postings_per_query": 20589.886666666665,
+      "flops": 3.270273208618164,
+      "doc_weight_sum_mean": 185.4802703857422,
+      "query_weight_sum_mean": 75.24829864501953,
+      "min_weight": {
+        "0.01": {
+          "doc_active_mean": 427.8925925925926,
+          "doc_active_median": 434.0,
+          "query_active_mean": 159.5814814814815,
+          "query_active_median": 106.0,
+          "postings_per_query": 20213.575555555555,
+          "flops": 3.2691025733947754,
+          "doc_weight_sum_mean": 185.4363250732422,
+          "query_weight_sum_mean": 75.23274230957031
+        },
+        "0.02": {
+          "doc_active_mean": 419.2051851851852,
+          "doc_active_median": 425.0,
+          "query_active_mean": 156.55925925925925,
+          "query_active_median": 104.0,
+          "postings_per_query": 19486.237037037037,
+          "flops": 3.2656357288360596,
+          "doc_weight_sum_mean": 185.3061981201172,
+          "query_weight_sum_mean": 75.18744659423828
+        },
+        "0.03": {
+          "doc_active_mean": 410.74666666666667,
+          "doc_active_median": 416.5,
+          "query_active_mean": 153.61185185185184,
+          "query_active_median": 102.0,
+          "postings_per_query": 18797.030370370372,
+          "flops": 3.2600982189178467,
+          "doc_weight_sum_mean": 185.09506225585938,
+          "query_weight_sum_mean": 75.11380004882812
+        },
+        "0.05": {
+          "doc_active_mean": 394.1177777777778,
+          "doc_active_median": 399.0,
+          "query_active_mean": 147.6911111111111,
+          "query_active_median": 99.0,
+          "postings_per_query": 17461.753333333334,
+          "flops": 3.242464780807495,
+          "doc_weight_sum_mean": 184.430419921875,
+          "query_weight_sum_mean": 74.87741088867188
+        }
+      }
+    },
+    "b4-full-s3": {
+      "doc_active_mean": 436.6088888888889,
+      "doc_active_median": 431.0,
+      "query_active_mean": 156.28518518518518,
+      "query_active_median": 98.0,
+      "postings_per_query": 20728.13703703704,
+      "flops": 3.3116331100463867,
+      "doc_weight_sum_mean": 188.82852172851562,
+      "query_weight_sum_mean": 74.74069213867188,
+      "min_weight": {
+        "0.01": {
+          "doc_active_mean": 432.1592592592593,
+          "doc_active_median": 426.0,
+          "query_active_mean": 154.88592592592593,
+          "query_active_median": 97.0,
+          "postings_per_query": 20350.675555555557,
+          "flops": 3.3104584217071533,
+          "doc_weight_sum_mean": 188.78390502929688,
+          "query_weight_sum_mean": 74.72650146484375
+        },
+        "0.02": {
+          "doc_active_mean": 423.29407407407405,
+          "doc_active_median": 417.0,
+          "query_active_mean": 151.94962962962964,
+          "query_active_median": 96.0,
+          "postings_per_query": 19619.322962962964,
+          "flops": 3.3069889545440674,
+          "doc_weight_sum_mean": 188.65090942382812,
+          "query_weight_sum_mean": 74.68244934082031
+        },
+        "0.03": {
+          "doc_active_mean": 414.53407407407406,
+          "doc_active_median": 408.5,
+          "query_active_mean": 149.08666666666667,
+          "query_active_median": 94.0,
+          "postings_per_query": 18903.338518518518,
+          "flops": 3.301243543624878,
+          "doc_weight_sum_mean": 188.43211364746094,
+          "query_weight_sum_mean": 74.61087799072266
+        },
+        "0.05": {
+          "doc_active_mean": 397.78962962962964,
+          "doc_active_median": 393.0,
+          "query_active_mean": 143.46592592592592,
+          "query_active_median": 90.0,
+          "postings_per_query": 17523.337037037036,
+          "flops": 3.2829091548919678,
+          "doc_weight_sum_mean": 187.76199340820312,
+          "query_weight_sum_mean": 74.38641357421875
+        }
+      }
+    },
+    "soup-v12": {
+      "doc_active_mean": 426.11555555555555,
+      "doc_active_median": 427.5,
+      "query_active_mean": 155.78444444444443,
+      "query_active_median": 101.0,
+      "postings_per_query": 18732.814814814814,
+      "flops": 3.1284451484680176,
+      "doc_weight_sum_mean": 185.47647094726562,
+      "query_weight_sum_mean": 73.75218963623047,
+      "min_weight": {
+        "0.01": {
+          "doc_active_mean": 421.89851851851853,
+          "doc_active_median": 424.5,
+          "query_active_mean": 154.3111111111111,
+          "query_active_median": 100.0,
+          "postings_per_query": 18401.426666666666,
+          "flops": 3.127375841140747,
+          "doc_weight_sum_mean": 185.4341278076172,
+          "query_weight_sum_mean": 73.73762512207031
+        },
+        "0.02": {
+          "doc_active_mean": 413.5637037037037,
+          "doc_active_median": 416.0,
+          "query_active_mean": 151.42962962962963,
+          "query_active_median": 99.0,
+          "postings_per_query": 17768.65777777778,
+          "flops": 3.1243059635162354,
+          "doc_weight_sum_mean": 185.3092498779297,
+          "query_weight_sum_mean": 73.69461822509766
+        },
+        "0.03": {
+          "doc_active_mean": 405.31333333333333,
+          "doc_active_median": 407.0,
+          "query_active_mean": 148.65333333333334,
+          "query_active_median": 97.0,
+          "postings_per_query": 17153.934074074074,
+          "flops": 3.1192307472229004,
+          "doc_weight_sum_mean": 185.10292053222656,
+          "query_weight_sum_mean": 73.6253890991211
+        },
+        "0.05": {
+          "doc_active_mean": 389.15777777777777,
+          "doc_active_median": 390.5,
+          "query_active_mean": 143.05555555555554,
+          "query_active_median": 94.0,
+          "postings_per_query": 15970.598518518518,
+          "flops": 3.103128433227539,
+          "doc_weight_sum_mean": 184.45716857910156,
+          "query_weight_sum_mean": 73.40108489990234
+        }
+      }
+    }
+  }
+}
