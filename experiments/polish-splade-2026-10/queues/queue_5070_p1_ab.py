@@ -14,11 +14,12 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from queue_5070_p1_train import ROOT, EXP, PYTHON, digest, measure_model, now, publish_paths, save_json, validate_teacher
+from queue_5070_p1_train import ROOT, EXP, PYTHON, attach_checkpoint_observer, digest, measure_model, now, publish_paths, save_json, validate_teacher
 
 STATE = ROOT / "logs/mlm-p1-ab-queue.json"
 RESULT = EXP / "results/data/mlm-p1-v2-ab.json"
 DATA = ROOT / "datasets/arms/mlm-p1-mnrl-v2-ab40k-tens400.jsonl"
+RECOVERY_STATE = ROOT / "logs/mlm-p1-measurement-recovery.json"
 
 
 def weight_three_needed(components: dict) -> bool:
@@ -29,6 +30,12 @@ def primary_ready(state: dict) -> bool:
     if state["status"] == "completed":
         return True
     if state["status"] in {"failed", "stopped_gate"}:
+        try:
+            recovery = json.loads(RECOVERY_STATE.read_text())
+        except (OSError, ValueError):
+            recovery = {}
+        if recovery.get("status") in {"waiting_training", "evaluating"}:
+            return False
         raise RuntimeError(f"Primary KL job needs review: {state['status']}")
     return False
 
@@ -86,7 +93,6 @@ def worker(config: Path, tag: str) -> int:
                 self.mnrl.compute_loss_from_embeddings = components.capture("mnrl", self.mnrl.compute_loss_from_embeddings)
         return Instrumented
     backend._load_sparse_kl_plus_mnrl_loss = instrumented_loader
-    original = backend._add_checkpoint_callbacks
     started = time.monotonic()
     result = {"tag": tag, "config": str(config), "config_sha256": digest(config), "started_at": now()}
     class Monitor(TrainerCallback):
@@ -106,10 +112,7 @@ def worker(config: Path, tag: str) -> int:
                           final=str(Path(args.output_dir) / "final"), seconds=time.monotonic()-started,
                           components_mean=components.means(), components_last_log=components.last)
             return control
-    def install(trainer, output_dir, cfg, backend_config):
-        original(trainer, output_dir, cfg, backend_config)
-        trainer.add_callback(Monitor())
-    backend._add_checkpoint_callbacks = install
+    attach_checkpoint_observer(Monitor)
     rc = train_main(["--config", str(config)])
     if rc:
         return rc

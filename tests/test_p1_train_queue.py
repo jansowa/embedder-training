@@ -78,3 +78,31 @@ def test_weak_or_dense_epoch_one_is_informational_and_all_three_epochs_are_recor
     assert "informational" in result["g1_policy"]
     with pytest.raises(ValueError, match="consecutive"):
         MODULE["record_epoch"](result, {"epoch": 5})
+
+
+def test_observer_survives_the_backend_registered_ddp_dispatcher(monkeypatch, tmp_path):
+    from training.backends import sentence_transformers_backend as core
+    from training.backends import sentence_transformers_ddp_backend as ddp
+    from training.backends.registry import BACKENDS, load_backend_module
+    assert load_backend_module(BACKENDS["sentence-transformers"]) is ddp
+    callbacks = []
+    class Trainer:
+        def add_callback(self, callback):
+            callbacks.append(callback)
+    monkeypatch.setattr(core, "_add_checkpoint_callbacks", core._add_checkpoint_callbacks)
+    monkeypatch.setattr(ddp, "_add_checkpoint_callbacks", ddp._add_checkpoint_callbacks)
+    def run(request):
+        core._add_checkpoint_callbacks(Trainer(), tmp_path, {}, {})
+        return 0
+    monkeypatch.setattr(core, "run_training", run)
+    observer = object()
+    MODULE["attach_checkpoint_observer"](lambda: observer)
+    assert ddp.run_training(None) == 0
+    assert callbacks == [observer]
+
+
+def test_preserved_checkpoint_identifies_last_epoch_despite_fractional_rounding(tmp_path):
+    path = tmp_path / "epoch-checkpoints/epoch-0003-step-32595"
+    path.mkdir(parents=True)
+    assert MODULE["preserved_epoch"](tmp_path, 32595) == (3, path)
+    assert MODULE["preserved_epoch"](tmp_path, 32000) is None

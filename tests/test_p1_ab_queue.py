@@ -38,11 +38,24 @@ def test_component_logging_keeps_the_original_loss_and_computes_it_once():
     assert stats.last == {"kl": 2.5} and stats.means() == {"kl": 2.5}
 
 
-def test_ab_waits_for_primary_completion_and_does_not_use_g1_as_a_gate():
+def test_ab_waits_for_primary_completion_and_does_not_use_g1_as_a_gate(monkeypatch, tmp_path):
     ready = MODULE["primary_ready"]
+    monkeypatch.setitem(ready.__globals__, "RECOVERY_STATE", tmp_path / "missing.json")
     assert not ready({"status": "training", "g1": "tiny10_below_59.5"})
     assert ready({"status": "completed", "g1": "density_outside_band"})
     with pytest.raises(RuntimeError, match="review"):
+        ready({"status": "failed"})
+
+
+def test_ab_waits_for_measurement_recovery_but_not_a_failed_recovery(monkeypatch, tmp_path):
+    import json
+    path = tmp_path / "recovery.json"
+    ready = MODULE["primary_ready"]
+    monkeypatch.setitem(ready.__globals__, "RECOVERY_STATE", path)
+    path.write_text(json.dumps({"status": "evaluating"}))
+    assert not ready({"status": "failed"})
+    path.write_text(json.dumps({"status": "failed"}))
+    with pytest.raises(RuntimeError):
         ready({"status": "failed"})
 
 

@@ -63,6 +63,28 @@ def record_epoch(result: dict, record: dict) -> None:
         result["g1_policy"] = "informational; continue all three epochs"
 
 
+def attach_checkpoint_observer(factory) -> None:
+    from training.backends import sentence_transformers_backend as backend
+    from training.backends import sentence_transformers_ddp_backend as dispatcher
+    original = dispatcher._add_checkpoint_callbacks
+    def install(trainer, output_dir, cfg, backend_config):
+        original(trainer, output_dir, cfg, backend_config)
+        trainer.add_callback(factory())
+    # The registered DDP dispatcher replaces the base hook when training starts.
+    dispatcher._add_checkpoint_callbacks = install
+    backend._add_checkpoint_callbacks = install
+
+
+def preserved_epoch(output_dir: Path, step: int):
+    paths = list((output_dir / "epoch-checkpoints").glob(f"epoch-*-step-{step}"))
+    if not paths:
+        return None
+    if len(paths) != 1:
+        raise ValueError("Multiple preserved checkpoints for one step")
+    path = paths[0]
+    return int(path.name.split("-")[1]), path
+
+
 def validate_teacher(side: dict, pool: dict) -> None:
     if (side.get("rows"), side.get("examples"), side.get("input_pool_sha256")) != (pool["rows"], pool["examples"], pool["sha256"]):
         raise ValueError("Ensemble sidecar does not match the approved KL pool")
@@ -133,8 +155,9 @@ def render_report(result: dict) -> None:
         p = record["density"]
         heldout = record.get("heldout8", "—")
         lines.append(f"| epoka {record['epoch']} | {record['tiny10']:.2f} | {heldout} | {p['doc_active_mean']:.2f} | {p['query_active_mean']:.2f} | {p['postings_per_query']:.2f} |")
+    schedule = "po zakończeniu treningu, z zachowanych checkpointów" if result.get("measurements_after_training") else "pomiędzy epokami"
     lines += ["", f"G1 (informacyjnie): {result.get('g1', 'pending')} (tiny10 ≥59.5, gęstość dokumentów 330–460; nie zatrzymuje epok).", "",
-              "Pomiary quantized przy 512 tokenach, pomiędzy epokami; dodatkowy profil min_weight=0.05 w plikach JSON.", "",
+              f"Pomiary quantized przy 512 tokenach, {schedule}; dodatkowy profil min_weight=0.05 w plikach JSON.", "",
               "```json", json.dumps({k: v for k, v in result.items() if k != "epochs"}, indent=2), "```", ""]
     (EXP / "results/summary_5070_mlm_p1_v2.md").write_text("\n".join(lines), encoding="utf-8")
 
@@ -204,7 +227,6 @@ def worker(config: Path) -> int:
     sys.path.insert(0, str(ROOT))
     import torch
     from transformers import TrainerCallback
-    from training.backends import sentence_transformers_backend as backend
     from training.train import main as train_main
 
     result = {"status": "training", "started_at": now(), "epochs": [],
@@ -213,7 +235,6 @@ def worker(config: Path) -> int:
               "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()}
     started = time.monotonic()
     env = dict(os.environ, WANDB_MODE="disabled", ORPHAN_GUARD_EXEMPT="1")
-    original = backend._add_checkpoint_callbacks
 
     class EpochMeasurements(TrainerCallback):
         def on_log(self, args, state, control, logs=None, **kwargs):
@@ -229,13 +250,12 @@ def worker(config: Path) -> int:
             return control
 
         def on_save(self, args, state, control, **kwargs):
-            epoch = float(state.epoch or 0)
-            number = round(epoch)
-            if number < 1 or abs(epoch - number) > 0.0001 or any(r["epoch"] == number for r in result["epochs"]):
+            saved = preserved_epoch(Path(args.output_dir), state.global_step)
+            if saved is None:
                 return control
-            checkpoint = Path(args.output_dir) / "epoch-checkpoints" / f"epoch-{number:04d}-step-{state.global_step}"
-            if not checkpoint.is_dir():
-                raise RuntimeError(f"Preserved epoch checkpoint missing: {checkpoint}")
+            number, checkpoint = saved
+            if any(r["epoch"] == number for r in result["epochs"]):
+                return control
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             print(f"[P1] Epoch {number} saved; evaluating before the next epoch", flush=True)
@@ -246,11 +266,7 @@ def worker(config: Path) -> int:
             render_report(result)
             return control
 
-    def install(trainer, output_dir, cfg, backend_config):
-        original(trainer, output_dir, cfg, backend_config)
-        trainer.add_callback(EpochMeasurements())
-
-    backend._add_checkpoint_callbacks = install
+    attach_checkpoint_observer(EpochMeasurements)
     rc = train_main(["--config", str(config)])
     if rc:
         return rc
