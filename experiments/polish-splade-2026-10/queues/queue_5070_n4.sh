@@ -12,8 +12,8 @@ host_free_gb() { disk_free_gb "$N4_CACHE_HOST_PATH"; }
 p1_storage_ready() {
     local cache_free host_free
     cache_free=$(cache_free_gb); host_free=$(host_free_gb)
-    if [ "${host_free:-0}" -lt 10 ]; then
-        log "P1 stopped: VHDX host $N4_CACHE_HOST_PATH ${host_free:-unknown} GiB (minimum 10)"
+    if [ "${host_free:-0}" -lt 8 ]; then
+        log "P1 stopped: VHDX host $N4_CACHE_HOST_PATH ${host_free:-unknown} GiB (minimum 8)"
         return 75
     fi
     if [ "${cache_free:-0}" -lt 60 ]; then
@@ -43,7 +43,7 @@ from pathlib import Path
 
 host, logs, wall_limit, *command = sys.argv[1:]
 logs = Path(logs)
-minimum = 10 * 2**30
+minimum = 8 * 2**30
 worker = None
 
 def stop_group():
@@ -85,7 +85,7 @@ try:
 except OSError as exc:
     sys.exit(storage_stop(f'Cannot check host disk: {exc}'))
 if free < minimum:
-    sys.exit(storage_stop('Host disk below 10 GiB before launch', free))
+    sys.exit(storage_stop('Host disk below 8 GiB before launch', free))
 started = time.monotonic()
 # Every benchmark descendant inherits this group; no timeout utility creates
 # a separate process group that could escape termination.
@@ -95,7 +95,7 @@ while True:
     except OSError as exc:
         sys.exit(storage_stop(f'Cannot check host disk: {exc}'))
     if free < minimum:
-        sys.exit(storage_stop('Host disk below 10 GiB during benchmark', free))
+        sys.exit(storage_stop('Host disk below 8 GiB during benchmark', free))
     rc = worker.poll()
     if rc is not None:
         stop_group()
@@ -141,7 +141,7 @@ for label, tiny, dims in [('night3-paired-a-s04306', '56.73', '459.13'), ('night
     lines.append(f'| {label} | {tiny} | {value(label, "heldout8")} | {dims} |')
 lines += ['', 'A s4306: **nieporównywalne przy tej gęstości** (pasmo 327–458).',
           'Kotwice tiny10: baza 61.60; mlm-msmarco-ep1 59.29.', '',
-          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB wewnątrz cache. Zgodnie z aktualną decyzją użytkownika dopuszczono wykorzystanie wolnych bloków WSL przy mniejszym fizycznym zapasie na C:. Monitor co sekundę zatrzymuje całą grupę procesu i kolejkę przy C: <10 GiB lub błędzie odczytu miejsca.',
+          'P1: quantized, batch 8; wiki-trivia 14 h timeout, pozostałe 10 h. Wymagane ≥60 GiB wewnątrz cache. Zgodnie z aktualną decyzją użytkownika dopuszczono wykorzystanie wolnych bloków WSL przy mniejszym fizycznym zapasie na C:. Monitor co sekundę zatrzymuje całą grupę procesu i kolejkę przy C: <8 GiB lub błędzie odczytu miejsca.',
           'Scoring pd400: surowe cosinusy, scale=1; sonda KD czeka na S i zgodę użytkownika.', '',
           'Leaderboard polish-splade (eksport użytkownika): wiki-trivia 37.4 / 35.0 / 35.9; dbpedia 28.42; hotpotqa 55.17.', '']
 p = subprocess.run([sys.executable, 'scripts/regime_task_table.py', '--models', 'base-splade-wrapped', 'soup-v9b', '--tasksets', 'wikitrivia', 'dbpediapl', 'hotpotqapl'], text=True, capture_output=True)
