@@ -1,0 +1,28 @@
+{
+  "n_docs": 36,
+  "n_queries": 36,
+  "models": {
+    "soup-v12": {
+      "doc_active_mean": 409.02777777777777,
+      "doc_active_median": 417.5,
+      "query_active_mean": 145.11111111111111,
+      "query_active_median": 96.0,
+      "postings_per_query": 472.44444444444446,
+      "flops": 3.069683313369751,
+      "doc_weight_sum_mean": 176.93740844726562,
+      "query_weight_sum_mean": 69.63798522949219,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 372.44444444444446,
+          "doc_active_median": 380.5,
+          "query_active_mean": 133.36111111111111,
+          "query_active_median": 87.0,
+          "postings_per_query": 402.1111111111111,
+          "flops": 3.044428825378418,
+          "doc_weight_sum_mean": 175.9222869873047,
+          "query_weight_sum_mean": 69.29808807373047
+        }
+      }
+    }
+  }
+}

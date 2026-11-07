@@ -1,0 +1,76 @@
+# Dense S is fitted and applied by the scoring bridge before ensembling.
+# Do not apply S again to these SPLADE-unit ensemble scores.
+backend: sentence-transformers
+training_type: splade
+timestamp_output_dir: true
+save_resolved_config: true
+train_data: datasets/arms/mlm-p1-ab40k-tens400.jsonl
+dataset_mix_strategy: concat_shuffle
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+hparams:
+- learning_rate: 2.0e-05
+  num_train_epochs: 1
+  document_regularizer_weight: 0.003
+  loss: sparse_kl_plus_mnrl
+sentence_transformers:
+  max_seq_length: 256
+  train_batch_size: 8
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  splade_pooling_chunk_size: 8
+  batch_sampler: no_duplicates
+  seed: 42
+  warmup_steps: 250
+  warmup_ratio: 0.0
+  lr_scheduler_type: constant_with_warmup
+  scale: 1.0
+  negatives_per_query: 10
+  query_prefix: ''
+  passage_prefix: ''
+  query_regularizer_weight: 0.00015
+  splade_regularizer_scheduler: false
+  splade_decoder_bias_shift: auto
+  splade_decoder_bias_target: 400
+  splade_train_only_head: false
+  save_strategy: 'no'
+  save_total_limit: null
+  keep_epoch_checkpoints: false
+  logging_steps: 25
+  splade_activation_stats:
+    interval_steps: 250
+    sample_size: 256
+    batch_size: 8
+    include_negatives: true
+    stop_below: 5
+  regularizer_control:
+    warmup_steps: 1000
+    density:
+      reference_dims: 436
+      band:
+      - 0.75
+      - 1.05
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05
+      sample_size: 256
+      batch_size: 8
+      quantization_factor: 100
+  report_to: []
+  bf16: false
+  fp16: true
+  kl_temperature: 2.0
+  score_normalization: none
+  score_scale: 1.0
+  mnrl_weight: 1.0
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  checkpoints:
+  - final
+architectures:
+- sdadas/polish-distilroberta
+runs_dir: runs/arm-mlm-p1-ab-kl-mnrl

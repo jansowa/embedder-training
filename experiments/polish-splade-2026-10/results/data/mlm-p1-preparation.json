@@ -1,0 +1,60 @@
+{
+  "rows": 266404,
+  "examples": 331172,
+  "negatives_per_row": 10,
+  "sha256": "c2c3b5e9776a6bb14f72d98cbe7a2e9d2ac439183102d9220ccc31770d1bf193",
+  "bytes": 1601990909,
+  "sources": {
+    "msmarco": {
+      "input_rows": 388699,
+      "rows": 210442,
+      "examples": 274866,
+      "duplicates": 262
+    },
+    "squadv2": {
+      "input_rows": 130214,
+      "rows": 55962,
+      "examples": 56306
+    }
+  },
+  "inputs": {
+    "/mnt/c/work/data-kitchen/retrieval-data-kitchen-master/data/annotation/pairs_msmarco_full.journal.jsonl": {
+      "sha256": "87b32fc3d2c706ef327e3a6d104d91953911105b79aa2afdc419f5ae471218bb",
+      "bytes": 202922441
+    },
+    "/mnt/c/work/data-kitchen/retrieval-data-kitchen-master/data/annotation/pairs_msmarco_full.unique.jsonl": {
+      "sha256": "01df3469580bf0ac19007c6ac16c8a896643e6271e92cf4fb56de8be90734336",
+      "bytes": 304248178
+    },
+    "/mnt/c/work/data-kitchen/retrieval-data-kitchen-master/data/annotation/pairs_v1.journal.jsonl": {
+      "sha256": "2b784c9694aca6bf9230afb713bc2812eef2c3c9143a00a2aee2148d30c23ed1",
+      "bytes": 15418321
+    },
+    "/mnt/c/work/data-kitchen/retrieval-data-kitchen-master/data/annotation/pairs_v1.jsonl": {
+      "sha256": "bb06a791bb70a53bd2c1e252cf46ec8c37e0a80a985f4b892286ab73f89f7bc3",
+      "bytes": 39005418
+    },
+    "/mnt/c/work/embedder-training-v2/datasets/judged/msmarco-rejected-20000.jsonl": {
+      "sha256": "9c7a9f8f2cc58f2d05ebee043ff6284dff0d3967d806bf9e74df44cb1086bcd4",
+      "bytes": 91078647
+    },
+    "/mnt/c/work/embedder-training-v2/dataset-full-msmarco-pl/train_pl.jsonl": {
+      "sha256": "71422f820dd15ea1e9047eb376c5e4797d2bf9073f3abf663888cff21185effc",
+      "bytes": 1804626510
+    },
+    "/mnt/c/work/embedder-training-v2/datasets/arms/squadv2-v2-all.jsonl": {
+      "sha256": "92589582ef3ad75508be01b460ae65268af36974ed2ec559ecabd073fc73624d",
+      "bytes": 1383842484
+    }
+  },
+  "seed": 42,
+  "rules": "positive reranker >23.5, then whole-row veto from any positive LLM rejection, then dedup query + positive set; negatives unchanged",
+  "llm_gate": "relevance=3 and query_polish/passage_polish natural or awkward_but_clear; older rejected subset also vetoes",
+  "ab_subset": {
+    "path": "datasets/arms/mlm-p1-ab40k.jsonl",
+    "rows": 40000,
+    "examples": 49938,
+    "sha256": "850ce0270f4eb9701b0856d1c2ddd90c4062f620d08ebe76fc1ba8ad6bd272d5"
+  },
+  "seconds": 249.15
+}

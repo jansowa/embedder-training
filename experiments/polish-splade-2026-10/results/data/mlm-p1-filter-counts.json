@@ -1,0 +1,115 @@
+{
+  "sources": [
+    {
+      "family": "msmarco",
+      "path": "dataset-full-msmarco-pl/train_pl.jsonl",
+      "counts": {
+        "raw_rows": 388699,
+        "raw_positive_samples": 500732,
+        "reranker_pass_rows": 317668,
+        "reranker_pass_samples": 418661,
+        "reranker_pass_original_samples": 325647,
+        "llm_judged_samples_after_reranker": 418661,
+        "after_per_positive_llm_samples": 302059,
+        "after_per_positive_llm_rows": 227922,
+        "after_whole_row_llm_rows": 210704,
+        "after_whole_row_llm_samples": 275393,
+        "deduplicated_whole_row_rows": 210442,
+        "deduplicated_whole_row_samples": 274866,
+        "qwen_rejected_samples": 112675,
+        "any_llm_rejected_samples": 116602,
+        "llm_rejected_whole_rows": 106964,
+        "samples_removed_with_whole_rows": 143268
+      },
+      "overlapping_reasons": {
+        "passage_polish_bad": 25839,
+        "relevance_lt3": 92670,
+        "old_judge_rejected": 20010,
+        "old_judge_only": 3927,
+        "query_polish_bad": 2492
+      },
+      "exclusive_bitmask_counts": {
+        "0": 302059,
+        "4": 15178,
+        "5": 5463,
+        "9": 10725,
+        "1": 73873,
+        "8": 3927,
+        "2": 1289,
+        "13": 1733,
+        "12": 3211,
+        "11": 164,
+        "3": 606,
+        "10": 179,
+        "7": 77,
+        "6": 106,
+        "15": 29,
+        "14": 42
+      },
+      "relevance_rejections": {
+        "1": 64210,
+        "0": 10963,
+        "2": 17497
+      },
+      "query_polish_rejections": {
+        "broken": 1003,
+        "untranslated_parts": 1384,
+        "nonsense": 105
+      },
+      "passage_polish_rejections": {
+        "broken": 25778,
+        "nonsense": 43,
+        "untranslated_parts": 18
+      }
+    },
+    {
+      "family": "squadv2",
+      "path": "datasets/arms/squadv2-v2-all.jsonl",
+      "counts": {
+        "raw_rows": 130214,
+        "raw_positive_samples": 130772,
+        "reranker_pass_rows": 56093,
+        "reranker_pass_samples": 56437,
+        "reranker_pass_original_samples": 55977,
+        "llm_unjudged_samples_after_reranker": 55458,
+        "after_per_positive_llm_samples": 56306,
+        "after_per_positive_llm_rows": 55962,
+        "after_whole_row_llm_rows": 55962,
+        "after_whole_row_llm_samples": 56306,
+        "deduplicated_whole_row_rows": 55962,
+        "deduplicated_whole_row_samples": 56306,
+        "llm_judged_samples_after_reranker": 979,
+        "qwen_rejected_samples": 131,
+        "any_llm_rejected_samples": 131,
+        "llm_rejected_whole_rows": 131,
+        "samples_removed_with_whole_rows": 131
+      },
+      "overlapping_reasons": {
+        "relevance_lt3": 131,
+        "query_polish_bad": 1
+      },
+      "exclusive_bitmask_counts": {
+        "0": 56306,
+        "1": 130,
+        "3": 1
+      },
+      "relevance_rejections": {
+        "1": 99,
+        "0": 24,
+        "2": 8
+      },
+      "query_polish_rejections": {
+        "broken": 1
+      },
+      "passage_polish_rejections": {}
+    }
+  ],
+  "seconds": 83.31,
+  "mask_bits": {
+    "1": "relevance <3",
+    "2": "bad query Polish",
+    "4": "bad passage Polish",
+    "8": "older judge rejected subset"
+  },
+  "threshold": ">23.5; filter positives first exactly as repository profile; then any LLM rejection; negatives untouched"
+}
