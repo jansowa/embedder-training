@@ -1,6 +1,6 @@
 # Noc 4 — heldout8 nocy 3 i pełny publiczny PIRB
 
-Aktualizacja: 2026-11-06T22:48:45+01:00
+Aktualizacja: 2026-11-07T09:07:13+01:00
 
 | Model s04306 | tiny10 | heldout8 | wym./dok (FP32, 512) |
 |---|---:|---:|---:|
