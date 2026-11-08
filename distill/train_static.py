@@ -16,6 +16,12 @@ Loss per row: ``KL(softmax(teacher / T) || softmax(student / T)) * T^2`` over th
                    passages (only this target has teacher scores for them).
   --target mix     ``--mix-weight`` x splade + (1 - w) x rows, both on the row's own candidates (+ in-batch for splade).
 Regularisers on the student's query vectors: ``--query-l1`` (mean L1 mass) and ``--query-flops`` (SPLADE FLOPS).
+``--learn-scale``: the student scores enter the KL multiplied by ``exp(s)``, one learned scalar initialised to the
+ratio of the teacher's and the student's score spread on the first batch. A global scale does not change any ranking,
+so it is not part of the table; it only stops the KL from spending the table's weights on matching the teacher's
+scale (an idf table scores ~8x higher than the SPLADE query it imitates). ``--scale-lr`` is its learning rate.
+Pools mined by ``distill.static_mine`` (teacher top + student top passages of an unlabelled corpus, teacher scores as
+row scores, ``n_pos = 1`` = the teacher's top passage) train with ``--target rows``.
 
 Validation (``--val-rows`` held out by seed, every ``--eval-every`` steps and at the end), on each row's own candidates,
 with the query weights quantized as PIRB's quantized regime does (round(w * qf) / qf): Kendall tau and top-1 agreement
@@ -62,6 +68,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--teacher-scale", type=float, default=1.0, help="multiply the stored row scores")
     parser.add_argument("--query-l1", type=float, default=0.0)
     parser.add_argument("--query-flops", type=float, default=0.0)
+    parser.add_argument("--learn-scale", action="store_true", help="learn a global multiplier of the student scores inside the KL")
+    parser.add_argument("--scale-lr", type=float, default=1e-2)
     parser.add_argument("--epochs", type=float, default=3.0)
     parser.add_argument("--max-steps", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=64)
@@ -94,6 +102,25 @@ class StaticTrainer:
             raise ValueError(f"--target {args.target} needs rows with pos_scores / neg_scores.")
         self.df_fraction = (pool.docs.document_frequency().float() / max(len(pool.docs), 1)).to(self.device)
         self.qf = float(pool.meta["quantization_factor"])
+        self.log_scale = torch.nn.Parameter(torch.zeros((), device=self.device)) if args.learn_scale else None
+
+    @torch.no_grad()
+    def init_scale(self, batch: dict[str, Any]) -> float:
+        """``log_scale`` = log(std of the teacher scores / std of the student scores) over the batch's own candidates."""
+        if self.log_scale is None:
+            return 1.0
+        q = self.student_queries(batch["rows"])
+        student = q @ batch["docs"].T
+        if self.args.target in ("rows", "mix"):
+            mask = batch["own"] & ~torch.isnan(batch["row_scores"])
+            teacher = batch["row_scores"]
+        else:
+            mask = batch["own"]
+            teacher = batch["teacher_q"] @ batch["docs"].T
+        s_std, t_std = float(student[mask].std()), float(teacher[mask].std())
+        if s_std > 0 and t_std > 0:
+            self.log_scale.fill_(float(torch.log(torch.tensor(t_std / s_std))))
+        return float(self.log_scale.exp())
 
     def usable(self, row_id: int) -> bool:
         if self.args.target == "splade":
@@ -134,6 +161,8 @@ class StaticTrainer:
         args = self.args
         q = self.student_queries(batch["rows"])
         scores = q @ batch["docs"].T
+        if self.log_scale is not None:
+            scores = scores * self.log_scale.exp()
         parts: dict[str, torch.Tensor] = {}
         if args.target in ("rows", "mix"):
             mask = batch["own"] & ~torch.isnan(batch["row_scores"])
@@ -225,7 +254,11 @@ def main(argv: list[str] | None = None) -> int:
     args.batch_size = min(args.batch_size, len(train_ids))  # otherwise an epoch has no full batch and the loop never ends
     steps_per_epoch = max(len(train_ids) // args.batch_size, 1)
     total_steps = args.max_steps or max(int(steps_per_epoch * args.epochs), 1)
-    optimizer = torch.optim.Adam([model.values], lr=args.lr)
+    groups = [{"params": [model.values], "lr": args.lr, "base_lr": args.lr}]
+    if trainer.log_scale is not None:
+        summary_scale_init = trainer.init_scale(trainer.batch_tensors(train_ids[: args.batch_size]))
+        groups.append({"params": [trainer.log_scale], "lr": args.scale_lr, "base_lr": args.scale_lr})
+    optimizer = torch.optim.Adam(groups)
     log_path = args.out / "log.jsonl"
     log_file = log_path.open("w", encoding="utf-8")
 
@@ -236,6 +269,9 @@ def main(argv: list[str] | None = None) -> int:
 
     summary: dict[str, Any] = {"args": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}, "pool": pool.meta,
                                "train_rows": len(train_ids), "val_rows": len(val_ids), "total_steps": total_steps, "table": table_stats(model)}
+    if trainer.log_scale is not None:
+        summary["scale_init"] = round(summary_scale_init, 5)
+        log({"step": 0, "kind": "scale_init", "scale": summary["scale_init"]})
     if val_ids:
         if pool.queries is not None:
             summary["val_splade_reference"] = trainer.evaluate(val_ids, use_teacher_queries=True)
@@ -253,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
             if step >= total_steps:
                 break
             for group in optimizer.param_groups:
-                group["lr"] = lr_at(step, total_steps, args.warmup_steps, args.schedule, args.lr)
+                group["lr"] = lr_at(step, total_steps, args.warmup_steps, args.schedule, group["base_lr"])
             loss, parts = trainer.loss(trainer.batch_tensors(order[start : start + args.batch_size]))
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -262,8 +298,9 @@ def main(argv: list[str] | None = None) -> int:
             optimizer.step()
             step += 1
             if step % args.log_every == 0 or step == 1:
+                scale = {"scale": round(float(trainer.log_scale.detach().exp()), 5)} if trainer.log_scale is not None else {}
                 log({"step": step, "kind": "train", "loss": round(float(loss.detach()), 5), "lr": optimizer.param_groups[0]["lr"],
-                     **{k: round(v, 4) for k, v in parts.items()}, "seconds": round(time.time() - started, 1)})
+                     **{k: round(v, 4) for k, v in parts.items()}, **scale, "seconds": round(time.time() - started, 1)})
             if val_ids and args.eval_every and step % args.eval_every == 0:
                 val = trainer.evaluate(val_ids)
                 log({"step": step, "kind": "val", **val})
@@ -281,6 +318,8 @@ def main(argv: list[str] | None = None) -> int:
         summary["val_final"] = trainer.evaluate(val_ids)
         log({"step": step, "kind": "val_final", **summary["val_final"]})
     summary.update({"steps": step, "best_val_mrr": best, "table_final": table_stats(model), "seconds": round(time.time() - started, 1)})
+    if trainer.log_scale is not None:
+        summary["scale_final"] = round(float(trainer.log_scale.detach().exp()), 5)
     (args.out / "static_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     log_file.close()
     return 0

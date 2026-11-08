@@ -128,6 +128,25 @@ PIRB_QUERY_MODEL=runs/static-credit-k32/final scripts/pirb_regime_eval.sh quanti
     asym-n5kj-q-static-credit-k32 models/arm-dense-kl-n5kj-ens400 tiny10
 ```
 
+The rows pool turned out too easy to train on (s4: validation MRR 0.97 before any step, idf-rows = idf on
+tiny10). `distill.static_mine` builds the pool the way a retriever is distilled instead: a seeded sample of
+unlabelled kd_v1 passages and queries, both encoded by the frozen model, and an exact GPU search of every
+query over the passage sample with the model's own query vector and with each `--student` table. The
+candidates are the teacher's top passages plus each student's top passages (its own false positives), the
+targets are the teacher scores `q_splade . d`; no labels are used. The output is an ordinary pool folder,
+trained with `--target rows`. `--learn-scale` multiplies the student scores inside the KL by one learned
+scalar, so the KL does not spend the table's weights on matching the teacher's score scale (an idf table
+scores several times higher than the SPLADE query it imitates); the lr has to follow the scale of the table
+(idf weights are ~8, credit slots ~0.25).
+
+```bash
+.venv/bin/python -m distill.static_mine --doc-model models/arm-dense-kl-n5kj-ens400 --corpus datasets/kd/kd_v1.jsonl \
+    --n-docs 300000 --n-queries 120000 --student models/static/idf --student models/static/credit-k32 \
+    --out cache/static_pools/kd-n5kj
+.venv/bin/python -m distill.train_static --pool cache/static_pools/kd-n5kj --init models/static/idf \
+    --out runs/static-idf-kd --target rows --learn-scale --lr 5e-2 --epochs 2
+```
+
 `python -m distill.static_query stats --model DIR --show pies,psa` prints a few rows; `prune --min-weight
 --top-k` cuts the table. The PIRB fork detects a static folder by its `static_query.json`
 (`StaticSpladeQueryEncoder` in `third_party/pirb/search/splade.py`).
