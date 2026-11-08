@@ -94,3 +94,24 @@ def test_query_only_export_and_st_options(packaged, tmp_path):
     dense = full.encode_query(texts, convert_to_tensor=True, convert_to_sparse_tensor=False)
     assert not dense.is_sparse
     np.testing.assert_allclose(dense.numpy(), ref, rtol=1e-6, atol=1e-6)
+
+
+def test_phrase_rows_match_the_static_encoder(packaged, tmp_path):
+    from sentence_transformers import SparseEncoder
+
+    from distill.static_query import StaticSparseQueryEncoder, build_phrase_vocab
+    from release.st_export import export_query_only
+
+    root, _, tokenizer, _ = packaged
+    texts = sample_texts(60, seed=11)
+    vocab = build_phrase_vocab(tokenizer, texts, max_words=2, min_count=2, max_phrases=40)
+    assert vocab
+    base = len(tokenizer)
+    gen = torch.Generator().manual_seed(5)
+    rows = base + len(vocab)
+    table = StaticSparseQueryEncoder(torch.randint(0, base, (rows, 3), generator=gen), torch.rand(rows, 3, generator=gen) * 3, base,
+                                     phrases=vocab, phrase_max_words=2, base_rows=base, max_length=16)
+    table.save(tmp_path / "table", tokenizer)
+    q_model = SparseEncoder(str(export_query_only(tmp_path / "table", tmp_path / "q")), trust_remote_code=True, device="cpu")
+    got = q_model.encode_query(texts[:20], convert_to_tensor=True).to_dense().numpy()
+    np.testing.assert_allclose(got, table.encode(tokenizer, texts[:20]).numpy(), rtol=1e-6, atol=1e-6)
