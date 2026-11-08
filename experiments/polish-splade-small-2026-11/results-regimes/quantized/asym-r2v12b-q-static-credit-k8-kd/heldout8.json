@@ -1,0 +1,21 @@
+{
+  "regime": "quantized",
+  "label": "asym-r2v12b-q-static-credit-k8-kd",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-ens400-r2v12-bias005",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "query_model": "models/static-r2v12b/credit-k8-kd",
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 19.01343631748243,
+    "maupqa-multilingual-NLI": 13.22343337716459,
+    "mfaq": 54.978537237923945,
+    "poleval-2022-test-A-legal-questions": 77.21244593742806,
+    "maupqa-wiki-def": 60.37213395579661,
+    "scidocs-pl": 13.66617228991904,
+    "maupqa-1z10": 44.992954040415626,
+    "fiqa-pl": 25.367912482889636
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 38.60337820487749
+}
