@@ -73,7 +73,7 @@ class Components:
         return {k: self.sums[k] / n for k, n in self.counts.items() if n}
 
 
-def worker(config: Path, tag: str) -> int:
+def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab") -> int:
     if os.environ.get("P1_AB_APPROVED") != "yes":
         raise RuntimeError("A/B approval required")
     sys.path.insert(0, str(ROOT))
@@ -126,7 +126,7 @@ def worker(config: Path, tag: str) -> int:
     from training.backends.splade_checkpoint_compat import add_decoder_bias_alias
     add_decoder_bias_alias(Path(result["final"]))
     result["finished_at"] = now()
-    save_json(ROOT / f"logs/mlm-p1-ab-{tag}-result.json", result)
+    save_json(ROOT / f"logs/{artifact_prefix}-{tag}-result.json", result)
     return 0
 
 

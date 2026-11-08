@@ -1,0 +1,62 @@
+# Start and fixed regularizer weights are bound to the selected KL checkpoint by the queue.
+# Dense S is already applied before ensembling; score_scale remains 1.
+backend: sentence-transformers
+training_type: splade
+timestamp_output_dir: true
+save_resolved_config: true
+train_data: datasets/arms/mlm-p1-mnrl-v2-ab40k-tens400.jsonl
+dataset_mix_strategy: concat_shuffle
+dataset_filter: configs/dataset_filters/splade_positive_score_gt_23_50_no_metricx.yaml
+dataset_filter_cache_dir: cache/filtered_datasets
+hparams:
+- learning_rate: 5.0e-06
+  num_train_epochs: 1
+  document_regularizer_weight: 0.003
+  loss: sparse_kl_plus_mnrl
+sentence_transformers:
+  model_kwargs:
+    device_map: cpu
+  max_seq_length: 256
+  train_batch_size: 8
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  splade_pooling_chunk_size: 8
+  batch_sampler: no_duplicates
+  seed: 42
+  warmup_steps: 50
+  warmup_ratio: 0.0
+  lr_scheduler_type: constant_with_warmup
+  scale: 1.0
+  negatives_per_query: 10
+  query_prefix: ''
+  passage_prefix: ''
+  query_regularizer_weight: 0.00015
+  splade_regularizer_scheduler: false
+  splade_train_only_head: false
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 2
+  keep_epoch_checkpoints: true
+  logging_steps: 25
+  splade_activation_stats:
+    interval_steps: 250
+    sample_size: 256
+    batch_size: 8
+    include_negatives: true
+    stop_below: 5
+  report_to: []
+  bf16: false
+  fp16: true
+  kl_temperature: 2.0
+  score_normalization: none
+  score_scale: 1.0
+  mnrl_weight: 1.0
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  checkpoints:
+  - final
+architectures:
+- __P1_BEST_CHECKPOINT__
+runs_dir: runs/arm-mlm-p1-continue-ab-kl-mnrl
