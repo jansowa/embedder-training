@@ -86,6 +86,52 @@ The unlabeled corpus is built by the data kitchen (`corpus/build_kd_corpus.py`, 
 Wikipedia chunk pool, deduplicated across sources. Queue helpers: `kd` and `fidelity` in
 `scripts/queue_lib.sh`; the first experiment series is `experiments/polish-splade-small-2026-11/`.
 
+## Static query encoder (`distill/static_query.py`, `static_pool.py`, `train_static.py`)
+
+The extreme student: no transformer on the query side at all. Every token id owns a row of `k`
+(vocabulary dimension, weight) slots; a query vector is the max (or sum) of its tokens' rows, written into
+the same 50 001 dimensions as the SPLADE index, so it is scored against an index built by a full SPLADE
+model (asymmetric mode, `PIRB_QUERY_MODEL`). Encoding a query is a lookup and a scatter-max.
+
+* `k = 1`, `indices[t] = t` (`--init idf` / `ones`): one weight per token, only the query's own tokens are
+  active; the model of sentence-transformers' `SparseStaticEmbedding` (inference-free query side).
+* `k > 1` (`--init credit` / `isolated`): a context-free SPLADE: a token also activates its expansions
+  (inflected forms, synonyms). `credit` runs the document model on a query sample and credits every active
+  dimension of each pooled vector to the token at the position where the max was reached; a row is the mean
+  credit over the queries containing the token, top-k kept (on one query with large k this reproduces the
+  teacher vector exactly). Tokens seen in fewer than `--min-count` queries take their row from `<s> t </s>`
+  alone (`isolated`, Model2Vec style).
+
+The document side stays frozen: the index of the best model is reused as it is. Training therefore needs no
+transformer either: `distill.static_pool` encodes the passages of the training rows once (quantized as the
+PIRB index stores them, `round(w * 100)`) and, with `--teacher-queries`, the model's own query vectors.
+`distill.train_static` then fits only the table weights (the slots stay as initialised) with a KL over each
+row's candidates, against the stored row scores (`--target rows`, e.g. the ensemble teacher of the
+`-tens400` files), against the symmetric SPLADE (`--target splade`, optionally `--in-batch` over every
+passage of the batch), or a mix. Validation reports, on held-out rows and with the query weights quantized,
+Kendall tau / top-1 agreement with the target, positive-first, MRR, dims per query and the posting fraction
+(sum of df / N over the query's dims, on the pool), next to the same numbers for the symmetric SPLADE.
+
+```bash
+# S0: idf weights, no training
+.venv/bin/python -m distill.static_query build --init idf --teacher models/arm-dense-kl-n5kj-ens400 \
+    --texts datasets/kd/kd_v1.jsonl --kinds passage --n 300000 --out models/static/idf
+# pool of the n5 + kj rows against the frozen document model
+.venv/bin/python -m distill.static_pool --doc-model models/arm-dense-kl-n5kj-ens400 \
+    --rows datasets/arms/n5-plus-kj-tens400.jsonl --out cache/static_pools/n5kj --teacher-queries
+# S2: expansion table from the document model, trained on the ensemble scores
+.venv/bin/python -m distill.static_query build --init credit --teacher models/arm-dense-kl-n5kj-ens400 \
+    --texts datasets/kd/kd_v1.jsonl --kinds query --top-k 32 --out models/static/credit-k32
+.venv/bin/python -m distill.train_static --pool cache/static_pools/n5kj --init models/static/credit-k32 \
+    --out runs/static-credit-k32 --target rows --epochs 3
+PIRB_QUERY_MODEL=runs/static-credit-k32/final scripts/pirb_regime_eval.sh quantized \
+    asym-n5kj-q-static-credit-k32 models/arm-dense-kl-n5kj-ens400 tiny10
+```
+
+`python -m distill.static_query stats --model DIR --show pies,psa` prints a few rows; `prune --min-weight
+--top-k` cuts the table. The PIRB fork detects a static folder by its `static_query.json`
+(`StaticSpladeQueryEncoder` in `third_party/pirb/search/splade.py`).
+
 ## Tests
 
 `tests/test_distill_*.py` run on the CPU in a few seconds with a 3-layer, 16-dimensional RoBERTa
