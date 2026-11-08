@@ -1,0 +1,59 @@
+backend: sentence-transformers
+training_type: splade
+
+# n5 + kj with the density regulator (regularizer_control, cc79edf): the same recipe as arm-dense-kl-n5kj-ens400, but the FLOPS weights are steered every 250 steps to keep the document density inside 0.90-1.02 of soup-v9b (409 dims/doc), instead of fixed 0.001 / 5e-5. Runs only when the 0.05 threshold costs heldout8 (v41); question: can the density be trained in instead of cut at indexing.
+runs_dir: runs/arm-dense-kl-n5kj-ens400-reg
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-tens400.jsonl
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  regularizer_control:
+    warmup_steps: 300                    # lambda(t) = lambda_target * min(1, (t / 300)^2), both weights
+    density:
+      reference_model: models/soup-v9b
+      band: [0.90, 1.02]                 # keep (dims / dims of soup-v9b) inside this band
+      interval_steps: 250
+      factor: 1.25
+      min_document_weight: 0.0005
+      max_document_weight: 0.03
+      query_ratio: 0.05
+      sample_size: 256
+      batch_size: 32
+      quantization_factor: 100
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

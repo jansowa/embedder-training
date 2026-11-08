@@ -1,0 +1,116 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "soup-v9b": {
+      "doc_active_mean": 417.56888888888886,
+      "doc_active_median": 416.0,
+      "query_active_mean": 151.38222222222223,
+      "query_active_median": 97.0,
+      "postings_per_query": 17805.185925925925,
+      "flops": 3.007753849029541,
+      "doc_weight_sum_mean": 182.9689483642578,
+      "query_weight_sum_mean": 72.0559310913086,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 381.9162962962963,
+          "doc_active_median": 382.5,
+          "query_active_mean": 139.34962962962962,
+          "query_active_median": 91.0,
+          "postings_per_query": 15228.424444444445,
+          "flops": 2.983819007873535,
+          "doc_weight_sum_mean": 181.98663330078125,
+          "query_weight_sum_mean": 71.72651672363281
+        }
+      }
+    },
+    "soup-v12": {
+      "doc_active_mean": 426.11555555555555,
+      "doc_active_median": 427.5,
+      "query_active_mean": 155.78444444444443,
+      "query_active_median": 101.0,
+      "postings_per_query": 18732.814814814814,
+      "flops": 3.1284451484680176,
+      "doc_weight_sum_mean": 185.47647094726562,
+      "query_weight_sum_mean": 73.75218963623047,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 389.15777777777777,
+          "doc_active_median": 390.5,
+          "query_active_mean": 143.05555555555554,
+          "query_active_median": 94.0,
+          "postings_per_query": 15970.598518518518,
+          "flops": 3.103128433227539,
+          "doc_weight_sum_mean": 184.45716857910156,
+          "query_weight_sum_mean": 73.40108489990234
+        }
+      }
+    },
+    "soup-v12-bias005": {
+      "doc_active_mean": 426.11555555555555,
+      "doc_active_median": 427.5,
+      "query_active_mean": 155.78444444444443,
+      "query_active_median": 101.0,
+      "postings_per_query": 18732.814814814814,
+      "flops": 3.1284451484680176,
+      "doc_weight_sum_mean": 185.47647094726562,
+      "query_weight_sum_mean": 73.75218963623047,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 389.15777777777777,
+          "doc_active_median": 390.5,
+          "query_active_mean": 143.05555555555554,
+          "query_active_median": 94.0,
+          "postings_per_query": 15970.598518518518,
+          "flops": 3.103128433227539,
+          "doc_weight_sum_mean": 184.45716857910156,
+          "query_weight_sum_mean": 73.40108489990234
+        }
+      }
+    },
+    "arm-dense-kl-n5kj-ens400-r2v12": {
+      "doc_active_mean": 411.75851851851854,
+      "doc_active_median": 418.0,
+      "query_active_mean": 152.04518518518518,
+      "query_active_median": 99.0,
+      "postings_per_query": 19410.86888888889,
+      "flops": 3.084953784942627,
+      "doc_weight_sum_mean": 177.08396911621094,
+      "query_weight_sum_mean": 71.88471984863281,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 375.2088888888889,
+          "doc_active_median": 379.5,
+          "query_active_mean": 139.54962962962964,
+          "query_active_median": 91.5,
+          "postings_per_query": 16446.06740740741,
+          "flops": 3.05814790725708,
+          "doc_weight_sum_mean": 176.07896423339844,
+          "query_weight_sum_mean": 71.53852081298828
+        }
+      }
+    },
+    "arm-dense-kl-n5kj-ens400-r2v12-bias005": {
+      "doc_active_mean": 411.75851851851854,
+      "doc_active_median": 418.0,
+      "query_active_mean": 152.04518518518518,
+      "query_active_median": 99.0,
+      "postings_per_query": 19410.86888888889,
+      "flops": 3.084953784942627,
+      "doc_weight_sum_mean": 177.08396911621094,
+      "query_weight_sum_mean": 71.88471984863281,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 375.2088888888889,
+          "doc_active_median": 379.5,
+          "query_active_mean": 139.54962962962964,
+          "query_active_median": 91.5,
+          "postings_per_query": 16446.06740740741,
+          "flops": 3.05814790725708,
+          "doc_weight_sum_mean": 176.07896423339844,
+          "query_weight_sum_mean": 71.53852081298828
+        }
+      }
+    }
+  }
+}

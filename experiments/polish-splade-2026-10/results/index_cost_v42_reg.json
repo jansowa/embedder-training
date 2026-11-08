@@ -1,0 +1,72 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "soup-v9b": {
+      "doc_active_mean": 417.56888888888886,
+      "doc_active_median": 416.0,
+      "query_active_mean": 151.38222222222223,
+      "query_active_median": 97.0,
+      "postings_per_query": 17805.185925925925,
+      "flops": 3.007753849029541,
+      "doc_weight_sum_mean": 182.9689483642578,
+      "query_weight_sum_mean": 72.0559310913086,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 381.9162962962963,
+          "doc_active_median": 382.5,
+          "query_active_mean": 139.34962962962962,
+          "query_active_median": 91.0,
+          "postings_per_query": 15228.424444444445,
+          "flops": 2.983819007873535,
+          "doc_weight_sum_mean": 181.98663330078125,
+          "query_weight_sum_mean": 71.72651672363281
+        }
+      }
+    },
+    "n5kj": {
+      "doc_active_mean": 430.9259259259259,
+      "doc_active_median": 433.0,
+      "query_active_mean": 155.31407407407409,
+      "query_active_median": 100.0,
+      "postings_per_query": 20766.805925925924,
+      "flops": 3.297184467315674,
+      "doc_weight_sum_mean": 185.61416625976562,
+      "query_weight_sum_mean": 73.74202728271484,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 393.30444444444447,
+          "doc_active_median": 395.5,
+          "query_active_mean": 142.72592592592594,
+          "query_active_median": 93.0,
+          "postings_per_query": 17637.77925925926,
+          "flops": 3.26879620552063,
+          "doc_weight_sum_mean": 184.5780029296875,
+          "query_weight_sum_mean": 73.39302062988281
+        }
+      }
+    },
+    "n5kj-reg": {
+      "doc_active_mean": 385.7074074074074,
+      "doc_active_median": 387.0,
+      "query_active_mean": 147.34,
+      "query_active_median": 100.0,
+      "postings_per_query": 17319.0,
+      "flops": 2.8472533226013184,
+      "doc_weight_sum_mean": 169.00942993164062,
+      "query_weight_sum_mean": 71.56840515136719,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 352.45037037037036,
+          "doc_active_median": 354.0,
+          "query_active_mean": 135.6548148148148,
+          "query_active_median": 92.5,
+          "postings_per_query": 14719.045925925926,
+          "flops": 2.823321580886841,
+          "doc_weight_sum_mean": 168.09341430664062,
+          "query_weight_sum_mean": 71.24607849121094
+        }
+      }
+    }
+  }
+}

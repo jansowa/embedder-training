@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# n7 = n5 + kj + the n4 rows absent from them by query text (hotpotqa 2 073 + 2 069 squadv2-v2 rows of the n4 cut), 24 434 rows, the ens-n5v2 recipe. Question: does source diversity at this dose add on top of n5 + kj (64.14 / ?).
+runs_dir: runs/arm-dense-kl-n7-ens400
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n7-tens400.jsonl
+
+architectures:
+  - sdadas/polish-splade
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
