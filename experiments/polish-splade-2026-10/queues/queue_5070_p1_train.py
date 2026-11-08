@@ -199,7 +199,7 @@ def publish_results(result: dict) -> dict:
     return publish_paths(result_paths(result), "Add the MLM P1 KL training results", ROOT / "logs/mlm-p1-v2-publish.log")
 
 
-def measure_model(checkpoint: Path, label: str, env: dict) -> dict:
+def measure_model(checkpoint: Path, label: str, env: dict, *, reuse_tiny: bool = False) -> dict:
     started = time.monotonic()
     profile = EXP / "results/sparsity" / f"{label}-index-cost.json"
     profile.parent.mkdir(parents=True, exist_ok=True)
@@ -208,8 +208,12 @@ def measure_model(checkpoint: Path, label: str, env: dict) -> dict:
         subprocess.run([str(PYTHON), "scripts/splade_index_cost.py", "--model", f"{label}={checkpoint}",
                         "--device", "cuda", "--min-weight", "0.05", "--output-json", str(profile)],
                        cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
-    subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", label, str(checkpoint), "tiny10", "16", "512"], cwd=ROOT, env=env, check=True)
-    score = json.loads((EXP / f"results-regimes/quantized/{label}/tiny10.json").read_text())
+    score_path = EXP / f"results-regimes/quantized/{label}/tiny10.json"
+    if not (reuse_tiny and score_path.exists()):
+        subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", label, str(checkpoint), "tiny10", "16", "512"], cwd=ROOT, env=env, check=True)
+    score = json.loads(score_path.read_text())
+    if reuse_tiny and (Path(score["model"]).resolve() != checkpoint.resolve() or score.get("max_seq_length") != 512 or score.get("regime") != "quantized"):
+        raise ValueError("Cached tiny10 result does not match the requested checkpoint/regime")
     if score.get("n_tasks") != 10 or not isinstance(score.get("mean_ndcg@10"), (int, float)) or not math.isfinite(score["mean_ndcg@10"]):
         raise ValueError("Incomplete tiny10 result")
     p = json.loads(profile.read_text())["models"][label]
