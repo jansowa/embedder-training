@@ -67,6 +67,21 @@ def compatible_export(source: Path, target: Path) -> Path:
     return target
 
 
+def same_model_source(evaluated: Path, expected: Path) -> bool:
+    """Accept an evaluation of the exact source of a verified alias-only export."""
+    if evaluated.resolve() == expected.resolve():
+        return True
+    manifest = expected / "checkpoint-compatibility.json"
+    if not manifest.is_file():
+        return False
+    recorded = json.loads(manifest.read_text())
+    return (recorded.get("compatibility") == "explicit-roberta-decoder-bias-v1"
+            and Path(recorded["source"]).resolve() == evaluated.resolve()
+            and _sha(evaluated / "model.safetensors") == recorded["weights_sha256"]
+            and _sha(evaluated / "config.json") == recorded["config_sha256"]
+            and _sha(expected / "model.safetensors") == recorded["export_weights_sha256"])
+
+
 def restore_and_verify_mlm_weights(model, checkpoint: Path) -> dict:
     """Repair the loaded bias, then compare all serialized tensors exactly."""
     import torch
@@ -88,3 +103,19 @@ def restore_and_verify_mlm_weights(model, checkpoint: Path) -> dict:
                 raise ValueError(f"Loaded MLM tensor differs from the checkpoint: {name}")
             checked += 1
     return {"verified_tensors": checked, "decoder_bias_restored": repaired}
+
+
+def reload_sparse_model_on_cpu(trainer, checkpoint: Path) -> dict:
+    """Copy checkpoint tensors into the existing model without a temporary GPU model."""
+    import gc
+    import torch
+
+    model = trainer.model
+    loaded = model.__class__(str(checkpoint), device="cpu", trust_remote_code=model.trust_remote_code)
+    model.load_state_dict(loaded.state_dict())
+    del loaded
+    gc.collect()
+    verification = restore_and_verify_mlm_weights(model, checkpoint)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return verification

@@ -55,15 +55,18 @@ def status(value: str, **extra) -> None:
 def environment() -> dict:
     return dict(os.environ, P1_TRAINING_APPROVED="yes", WANDB_MODE="disabled", ORPHAN_GUARD_EXEMPT="1",
                 PYTHONPATH=str(ROOT), PYTHONUNBUFFERED="1", TOKENIZERS_PARALLELISM="false",
+                PYTORCH_CUDA_ALLOC_CONF=os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True"),
                 OMP_NUM_THREADS="2", MKL_NUM_THREADS="2", REGIMES_ROOT=str(EXP / "results-regimes"),
                 RESULTS_ROOT=str(EXP / "results"))
 
 
 def tiny_result(path: Path, checkpoint: Path) -> dict:
+    sys.path.insert(0, str(ROOT))
+    from training.backends.splade_checkpoint_compat import same_model_source
     score = json.loads(path.read_text())
     if score.get("n_tasks") != 10 or not isinstance(score.get("mean_ndcg@10"), (int, float)) or not math.isfinite(score["mean_ndcg@10"]):
         raise ValueError("Incomplete tiny10 result")
-    if Path(score["model"]).resolve() != checkpoint.resolve() or score.get("max_seq_length") != 512 or score.get("regime") != "quantized":
+    if not same_model_source(Path(score["model"]), checkpoint) or score.get("max_seq_length") != 512 or score.get("regime") != "quantized":
         raise ValueError("tiny10 result refers to a different checkpoint")
     return score
 
@@ -119,7 +122,7 @@ def resume_worker() -> int:
     sys.path.insert(0, str(ROOT))
     from transformers import TrainerCallback
     from training.backends import sentence_transformers_backend as backend
-    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, restore_and_verify_mlm_weights
+    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, reload_sparse_model_on_cpu
     from sentence_transformers import SparseEncoderTrainer
     from training.train import main as train_main
 
@@ -139,11 +142,8 @@ def resume_worker() -> int:
 
     backend._training_args = training_args
     started = time.monotonic()
-    original_reload = SparseEncoderTrainer._load_from_checkpoint
-
     def verified_reload(trainer, checkpoint_path):
-        original_reload(trainer, checkpoint_path)
-        verification = restore_and_verify_mlm_weights(trainer.model, Path(checkpoint_path))
+        verification = reload_sparse_model_on_cpu(trainer, Path(checkpoint_path))
         save_json(run / "resume-weight-verification.json", dict(verification, checkpoint=checkpoint_path, time=now()))
         print(f"[P1] Verified every serialized MLM tensor after reload: {verification}", flush=True)
 
@@ -169,6 +169,12 @@ def resume_worker() -> int:
             with (run / "p1-resume-telemetry.jsonl").open("a") as log:
                 log.write(json.dumps(row) + "\n")
             save_json(ROOT / "logs/mlm-p1-resume-progress.json", row)
+            return control
+
+        def on_step_end(self, args, state, control, **kwargs):
+            # Prove the full save path promptly, then use the normal 500-step cadence.
+            if state.global_step == 21733:
+                control.should_save = True
             return control
 
         def on_save(self, args, state, control, **kwargs):
@@ -253,7 +259,7 @@ def continue_training(run: Path, env: dict) -> None:
     if shutil.disk_usage(run).free < 20_000_000_000 or shutil.disk_usage("/mnt/c").free < 10_000_000_000:
         raise RuntimeError("Insufficient disk reserve")
     status("training_resumed", checkpoint=approval["checkpoint"], checkpoint_policy=approval["checkpoint_policy"])
-    with (ROOT / "logs/mlm-p1-v2-resume-verified-train.log").open("x") as log:
+    with (ROOT / "logs/mlm-p1-v2-resume-cpu-load-train.log").open("x") as log:
         process = subprocess.Popen([str(PYTHON), str(Path(__file__).resolve()), "--worker"], cwd=ROOT, env=env,
                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         def terminate(sig, frame):

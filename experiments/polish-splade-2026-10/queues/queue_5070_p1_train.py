@@ -212,8 +212,10 @@ def measure_model(checkpoint: Path, label: str, env: dict, *, reuse_tiny: bool =
     if not (reuse_tiny and score_path.exists()):
         subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", label, str(checkpoint), "tiny10", "16", "512"], cwd=ROOT, env=env, check=True)
     score = json.loads(score_path.read_text())
-    if reuse_tiny and (Path(score["model"]).resolve() != checkpoint.resolve() or score.get("max_seq_length") != 512 or score.get("regime") != "quantized"):
-        raise ValueError("Cached tiny10 result does not match the requested checkpoint/regime")
+    if reuse_tiny:
+        from training.backends.splade_checkpoint_compat import same_model_source
+        if not same_model_source(Path(score["model"]), checkpoint) or score.get("max_seq_length") != 512 or score.get("regime") != "quantized":
+            raise ValueError("Cached tiny10 result does not match the requested checkpoint/regime")
     if score.get("n_tasks") != 10 or not isinstance(score.get("mean_ndcg@10"), (int, float)) or not math.isfinite(score["mean_ndcg@10"]):
         raise ValueError("Incomplete tiny10 result")
     p = json.loads(profile.read_text())["models"][label]
