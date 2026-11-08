@@ -1,0 +1,710 @@
+{
+  "created": "2026-11-08T16:50:54",
+  "reference": "models/onnx/r2v12b-bench/fp32",
+  "threads": [
+    1,
+    6
+  ],
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "seed": 7,
+    "query": 64,
+    "passage": 32
+  },
+  "batches": {
+    "query": 1,
+    "passage": 8
+  },
+  "environment": {
+    "loadavg_start": [
+      1.353515625,
+      2.95703125,
+      4.365234375
+    ],
+    "gpu_compute_processes": 1,
+    "mem_available_gb_start": 8.573406219482422,
+    "cpu_count": 12,
+    "loadavg_end": [
+      2.798828125,
+      2.9169921875,
+      4.138671875
+    ]
+  },
+  "results": [
+    {
+      "label": "fp32",
+      "kind": "onnx",
+      "path": "models/onnx/r2v12b-bench/fp32",
+      "rss_start_mb": 29.01953125,
+      "load_seconds": 1.58,
+      "rss_loaded_mb": 562.41015625,
+      "file_mb": 459.2996997833252,
+      "variant": "fp32",
+      "quantization": null,
+      "mean_tokens": {
+        "query": 17.875,
+        "passage": 93.21875
+      },
+      "tokenize_query_ms_p50": 0.03768998431041837,
+      "timings": {
+        "1": {
+          "query_ms_p50": 29.556562993093394,
+          "query_ms_p90": 48.496732817147866,
+          "query_ms_p99": 111.7181707060081,
+          "queries_per_s": 28.501754290984245,
+          "passage_batch_ms_p50": 2515.293770484277,
+          "passage_batch_ms_p90": 4040.088290892891,
+          "passages_per_s": 2.747017046916765,
+          "passage_tokens_per_s": 256.0734953422722
+        },
+        "6": {
+          "query_ms_p50": 13.457160006510094,
+          "query_ms_p90": 15.67739699385129,
+          "query_ms_p99": 28.301401016651653,
+          "queries_per_s": 69.9345269674679,
+          "passage_batch_ms_p50": 694.2817580129486,
+          "passage_batch_ms_p90": 1123.0999541963683,
+          "passages_per_s": 9.996356880818498,
+          "passage_tokens_per_s": 931.8478929837993
+        }
+      },
+      "rss_peak_mb": 5781.07421875,
+      "dims": {
+        "query": 108.46875,
+        "passage": 317.90625
+      },
+      "reference": true
+    },
+    {
+      "label": "dynamic-int8-u8",
+      "kind": "onnx",
+      "path": "models/onnx/r2v12b-bench/dynamic-int8-u8",
+      "rss_start_mb": 29.01953125,
+      "load_seconds": 0.88,
+      "rss_loaded_mb": 330.48828125,
+      "file_mb": 226.76177883148193,
+      "variant": "dynamic-int8",
+      "quantization": {
+        "method": "dynamic",
+        "op_types": [
+          "MatMul",
+          "Gemm"
+        ],
+        "per_channel": true,
+        "reduce_range": false,
+        "weight_type": "u8",
+        "activations": "uint8, per batch (dynamic)",
+        "nodes_excluded": 0
+      },
+      "mean_tokens": {
+        "query": 17.875,
+        "passage": 93.21875
+      },
+      "tokenize_query_ms_p50": 0.024070002837106586,
+      "timings": {
+        "1": {
+          "query_ms_p50": 14.894447012920864,
+          "query_ms_p90": 30.757125376840126,
+          "query_ms_p99": 72.4403067358071,
+          "queries_per_s": 50.42258890256084,
+          "passage_batch_ms_p50": 1807.7521815139335,
+          "passage_batch_ms_p90": 2966.403629104025,
+          "passages_per_s": 3.78405196914388,
+          "passage_tokens_per_s": 352.74459449863105
+        },
+        "6": {
+          "query_ms_p50": 4.890440497547388,
+          "query_ms_p90": 7.583815991529265,
+          "query_ms_p99": 16.719347806065343,
+          "queries_per_s": 171.85149501628445,
+          "passage_batch_ms_p50": 486.37889248493593,
+          "passage_batch_ms_p90": 805.2181286941051,
+          "passages_per_s": 14.074754135813999,
+          "passage_tokens_per_s": 1312.0309870979113
+        }
+      },
+      "rss_peak_mb": 5543.015625,
+      "dims": {
+        "query": 87.328125,
+        "passage": 278.78125
+      },
+      "fidelity": {
+        "query": {
+          "n": 64,
+          "cosine": {
+            "mean": 0.9667016007006168,
+            "p10": 0.9515198826789856,
+            "p50": 0.9677784144878387,
+            "p90": 0.9800377607345581
+          },
+          "rel_l1": {
+            "mean": 0.27581329667009413,
+            "p10": 0.2161082237958908,
+            "p50": 0.2744792550802231,
+            "p90": 0.3444184631109238
+          },
+          "active_jaccard": {
+            "mean": 0.6638875385399318,
+            "p10": 0.6044722719141323,
+            "p50": 0.6571604938271605,
+            "p90": 0.7366228070175439
+          },
+          "top10_term_overlap": {
+            "mean": 0.9234375000000001,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 108.46875,
+            "p10": 62.3,
+            "p50": 88.5,
+            "p90": 181.50000000000006
+          },
+          "dims": {
+            "mean": 87.328125,
+            "p10": 51.0,
+            "p50": 72.5,
+            "p90": 136.60000000000002
+          },
+          "dims_ratio": 0.8050993949870354
+        },
+        "passage": {
+          "n": 32,
+          "cosine": {
+            "mean": 0.9651115536689758,
+            "p10": 0.9552628934383393,
+            "p50": 0.9679946005344391,
+            "p90": 0.9725114822387695
+          },
+          "rel_l1": {
+            "mean": 0.2826087404973805,
+            "p10": 0.245977421104908,
+            "p50": 0.2757888436317444,
+            "p90": 0.3279656857252121
+          },
+          "active_jaccard": {
+            "mean": 0.6960582656864454,
+            "p10": 0.6469141413699971,
+            "p50": 0.6978333841928592,
+            "p90": 0.7411603613777527
+          },
+          "top10_term_overlap": {
+            "mean": 0.8843749999999999,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 317.90625,
+            "p10": 160.1,
+            "p50": 282.5,
+            "p90": 506.80000000000007
+          },
+          "dims": {
+            "mean": 278.78125,
+            "p10": 133.4,
+            "p50": 251.0,
+            "p90": 440.40000000000003
+          },
+          "dims_ratio": 0.8769291261181559
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 0.9125000000000001,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 0.9375,
+            "p10": 0.9,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 64,
+          "n_passages": 32
+        }
+      }
+    },
+    {
+      "label": "dynamic-int8-u8-headfp32",
+      "kind": "onnx",
+      "path": "models/onnx/r2v12b-bench/dynamic-int8-u8-headfp32",
+      "rss_start_mb": 29.04296875,
+      "load_seconds": 1.38,
+      "rss_loaded_mb": 441.1953125,
+      "file_mb": 338.0264081954956,
+      "variant": "mixed-int8",
+      "quantization": {
+        "method": "mixed (dynamic int8 + fp32 blocks)",
+        "op_types": [
+          "MatMul",
+          "Gemm"
+        ],
+        "per_channel": true,
+        "reduce_range": false,
+        "weight_type": "u8",
+        "activations": "uint8, per batch (dynamic)",
+        "nodes_excluded": 2,
+        "fp32_blocks": [
+          "head"
+        ],
+        "fp32_blocks_forced": [
+          "head"
+        ],
+        "fp32_blocks_auto": [],
+        "fp32_nodes": [
+          "/inner/lm_head/dense/MatMul",
+          "/inner/lm_head/decoder/MatMul"
+        ]
+      },
+      "mean_tokens": {
+        "query": 17.875,
+        "passage": 93.21875
+      },
+      "tokenize_query_ms_p50": 0.03405001189094037,
+      "timings": {
+        "1": {
+          "query_ms_p50": 22.260220503085293,
+          "query_ms_p90": 39.7952645958867,
+          "query_ms_p99": 91.06251975055783,
+          "queries_per_s": 36.69162894981447,
+          "passage_batch_ms_p50": 2164.5584060024703,
+          "passage_batch_ms_p90": 3489.3817863106965,
+          "passages_per_s": 3.188501486280028,
+          "passage_tokens_per_s": 297.2281229241663
+        },
+        "6": {
+          "query_ms_p50": 8.978240002761595,
+          "query_ms_p90": 11.212016994250009,
+          "query_ms_p99": 21.187563496932853,
+          "queries_per_s": 101.78785752616278,
+          "passage_batch_ms_p50": 592.8449675120646,
+          "passage_batch_ms_p90": 971.2695941881976,
+          "passages_per_s": 11.575907189833726,
+          "passage_tokens_per_s": 1079.0915983523128
+        }
+      },
+      "rss_peak_mb": 5654.29296875,
+      "dims": {
+        "query": 85.34375,
+        "passage": 268.90625
+      },
+      "fidelity": {
+        "query": {
+          "n": 64,
+          "cosine": {
+            "mean": 0.9702877150848508,
+            "p10": 0.9578648388385773,
+            "p50": 0.9714178740978241,
+            "p90": 0.9820395886898041
+          },
+          "rel_l1": {
+            "mean": 0.2591764272656292,
+            "p10": 0.19745925813913345,
+            "p50": 0.2571238875389099,
+            "p90": 0.32433624863624577
+          },
+          "active_jaccard": {
+            "mean": 0.6747902596681146,
+            "p10": 0.6152551368564713,
+            "p50": 0.6687763713080168,
+            "p90": 0.7398019801980198
+          },
+          "top10_term_overlap": {
+            "mean": 0.9343750000000001,
+            "p10": 0.9,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 108.46875,
+            "p10": 62.3,
+            "p50": 88.5,
+            "p90": 181.50000000000006
+          },
+          "dims": {
+            "mean": 85.34375,
+            "p10": 46.3,
+            "p50": 69.0,
+            "p90": 144.00000000000009
+          },
+          "dims_ratio": 0.7868049553442812
+        },
+        "passage": {
+          "n": 32,
+          "cosine": {
+            "mean": 0.9697834700345993,
+            "p10": 0.9606515467166901,
+            "p50": 0.9714937806129456,
+            "p90": 0.9789363503456116
+          },
+          "rel_l1": {
+            "mean": 0.26247104117646813,
+            "p10": 0.22428445369005204,
+            "p50": 0.2599135488271713,
+            "p90": 0.300280699133873
+          },
+          "active_jaccard": {
+            "mean": 0.7128030286504995,
+            "p10": 0.6580143540669856,
+            "p50": 0.7166393581228826,
+            "p90": 0.7495146918686328
+          },
+          "top10_term_overlap": {
+            "mean": 0.884375,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 317.90625,
+            "p10": 160.1,
+            "p50": 282.5,
+            "p90": 506.80000000000007
+          },
+          "dims": {
+            "mean": 268.90625,
+            "p10": 138.7,
+            "p50": 239.0,
+            "p90": 419.8
+          },
+          "dims_ratio": 0.8458665093875947
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 0.925,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 0.9468750000000001,
+            "p10": 0.9,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 64,
+          "n_passages": 32
+        }
+      }
+    },
+    {
+      "label": "mixed-int8-static",
+      "kind": "onnx",
+      "path": "models/onnx/r2v12b-bench/mixed-int8-static",
+      "rss_start_mb": 29.00390625,
+      "load_seconds": 1.4,
+      "rss_loaded_mb": 462.32421875,
+      "file_mb": 358.23652362823486,
+      "variant": "mixed-int8",
+      "quantization": {
+        "method": "mixed (static int8 + fp32 blocks)",
+        "format": "QDQ",
+        "op_types": [
+          "MatMul",
+          "Gemm"
+        ],
+        "per_channel": true,
+        "reduce_range": false,
+        "activation_type": "s8",
+        "weight_type": "s8",
+        "nodes_excluded": 8,
+        "activation_matmuls": "fp32 (12 nodes)",
+        "fp32_blocks": [
+          "layer.4",
+          "head"
+        ],
+        "fp32_blocks_forced": [
+          "head"
+        ],
+        "fp32_blocks_auto": [
+          "layer.4"
+        ],
+        "fp32_nodes": [
+          "/inner/roberta/encoder/layer.4/attention/self/key/MatMul",
+          "/inner/roberta/encoder/layer.4/attention/self/query/MatMul",
+          "/inner/roberta/encoder/layer.4/attention/self/value/MatMul",
+          "/inner/roberta/encoder/layer.4/attention/output/dense/MatMul",
+          "/inner/roberta/encoder/layer.4/intermediate/dense/MatMul",
+          "/inner/roberta/encoder/layer.4/output/dense/MatMul",
+          "/inner/lm_head/dense/MatMul",
+          "/inner/lm_head/decoder/MatMul"
+        ]
+      },
+      "mean_tokens": {
+        "query": 17.875,
+        "passage": 93.21875
+      },
+      "tokenize_query_ms_p50": 0.0254500046139583,
+      "timings": {
+        "1": {
+          "query_ms_p50": 55.13424749369733,
+          "query_ms_p90": 74.07649779925124,
+          "query_ms_p99": 129.19391765375622,
+          "queries_per_s": 16.470261353529402,
+          "passage_batch_ms_p50": 2423.3067789900815,
+          "passage_batch_ms_p90": 3890.551310195588,
+          "passages_per_s": 2.836303024944508,
+          "passage_tokens_per_s": 264.3966226065458
+        },
+        "6": {
+          "query_ms_p50": 39.86048998194747,
+          "query_ms_p90": 43.07082021550741,
+          "query_ms_p99": 53.88537433434976,
+          "queries_per_s": 24.50326220916842,
+          "passage_batch_ms_p50": 702.0459804916754,
+          "passage_batch_ms_p90": 1119.0227870101808,
+          "passages_per_s": 9.880256835536347,
+          "passage_tokens_per_s": 921.0251918876538
+        }
+      },
+      "rss_peak_mb": 5747.296875,
+      "dims": {
+        "query": 98.109375,
+        "passage": 263.375
+      },
+      "fidelity": {
+        "query": {
+          "n": 64,
+          "cosine": {
+            "mean": 0.9228237522765994,
+            "p10": 0.8902142107486725,
+            "p50": 0.9281485676765442,
+            "p90": 0.9502293109893799
+          },
+          "rel_l1": {
+            "mean": 0.45661666290834546,
+            "p10": 0.3765195161104202,
+            "p50": 0.452071413397789,
+            "p90": 0.5366492092609405
+          },
+          "active_jaccard": {
+            "mean": 0.5367093967690886,
+            "p10": 0.4713476634142763,
+            "p50": 0.5360322832595679,
+            "p90": 0.6063953488372092
+          },
+          "top10_term_overlap": {
+            "mean": 0.8406250000000001,
+            "p10": 0.7,
+            "p50": 0.8,
+            "p90": 0.9
+          },
+          "dims_ref": {
+            "mean": 108.46875,
+            "p10": 62.3,
+            "p50": 88.5,
+            "p90": 181.50000000000006
+          },
+          "dims": {
+            "mean": 98.109375,
+            "p10": 64.0,
+            "p50": 86.5,
+            "p90": 130.10000000000002
+          },
+          "dims_ratio": 0.9044943820224719
+        },
+        "passage": {
+          "n": 32,
+          "cosine": {
+            "mean": 0.9090871904045343,
+            "p10": 0.891211211681366,
+            "p50": 0.9175575971603394,
+            "p90": 0.9317556262016297
+          },
+          "rel_l1": {
+            "mean": 0.4621438551694155,
+            "p10": 0.4056087076663971,
+            "p50": 0.45594626665115356,
+            "p90": 0.49594963788986207
+          },
+          "active_jaccard": {
+            "mean": 0.5489785512164009,
+            "p10": 0.45440483429613865,
+            "p50": 0.56992389454417,
+            "p90": 0.6069136002593614
+          },
+          "top10_term_overlap": {
+            "mean": 0.8031250000000001,
+            "p10": 0.7,
+            "p50": 0.8,
+            "p90": 0.9
+          },
+          "dims_ref": {
+            "mean": 317.90625,
+            "p10": 160.1,
+            "p50": 282.5,
+            "p90": 506.80000000000007
+          },
+          "dims": {
+            "mean": 263.375,
+            "p10": 126.0,
+            "p50": 259.0,
+            "p90": 364.7
+          },
+          "dims_ratio": 0.8284675120416789
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 0.83125,
+            "p10": 0.7,
+            "p50": 0.8,
+            "p90": 0.9
+          },
+          "query_only": {
+            "mean": 0.8906250000000001,
+            "p10": 0.8,
+            "p50": 0.9,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 64,
+          "n_passages": 32
+        }
+      }
+    },
+    {
+      "label": "torch-fp32",
+      "kind": "torch",
+      "path": "models/arm-dense-kl-n5kj-ens400-r2v12-bias005",
+      "rss_start_mb": 28.984375,
+      "load_seconds": 3.75,
+      "rss_loaded_mb": 787.04296875,
+      "mean_tokens": {
+        "query": 17.875,
+        "passage": 93.21875
+      },
+      "tokenize_query_ms_p50": 0.06884998583700508,
+      "timings": {
+        "1": {
+          "query_ms_p50": 52.56219000148121,
+          "query_ms_p90": 77.44387780257968,
+          "query_ms_p99": 153.21077016124036,
+          "queries_per_s": 16.300370399642787,
+          "passage_batch_ms_p50": 3222.8024689975427,
+          "passage_batch_ms_p90": 4813.179578198469,
+          "passages_per_s": 2.2280216455944184,
+          "passage_tokens_per_s": 207.6933927752547
+        },
+        "6": {
+          "query_ms_p50": 47.904449005727656,
+          "query_ms_p90": 53.82147800992243,
+          "query_ms_p99": 69.32853262580466,
+          "queries_per_s": 20.7213172937789,
+          "passage_batch_ms_p50": 856.4047209947603,
+          "passage_batch_ms_p90": 1253.3317757945042,
+          "passages_per_s": 8.460428852338922,
+          "passage_tokens_per_s": 788.6706020789688
+        }
+      },
+      "rss_peak_mb": 4422.63671875,
+      "dims": {
+        "query": 108.484375,
+        "passage": 317.875
+      },
+      "fidelity": {
+        "query": {
+          "n": 64,
+          "cosine": {
+            "mean": 1.0000000158324838,
+            "p10": 0.9999998807907104,
+            "p50": 1.0,
+            "p90": 1.0000001192092896
+          },
+          "rel_l1": {
+            "mean": 1.906117000771701e-05,
+            "p10": 1.1733770315913717e-05,
+            "p50": 1.78162508746027e-05,
+            "p90": 2.6888657885137945e-05
+          },
+          "active_jaccard": {
+            "mean": 0.9998224431818181,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 108.46875,
+            "p10": 62.3,
+            "p50": 88.5,
+            "p90": 181.50000000000006
+          },
+          "dims": {
+            "mean": 108.484375,
+            "p10": 62.3,
+            "p50": 88.5,
+            "p90": 181.50000000000006
+          },
+          "dims_ratio": 1.0001440507058486
+        },
+        "passage": {
+          "n": 32,
+          "cosine": {
+            "mean": 1.0000000223517418,
+            "p10": 0.9999998867511749,
+            "p50": 1.0,
+            "p90": 1.0000001192092896
+          },
+          "rel_l1": {
+            "mean": 2.1507095141259924e-05,
+            "p10": 1.5968516527209432e-05,
+            "p50": 2.1648225811077282e-05,
+            "p90": 2.629283044370823e-05
+          },
+          "active_jaccard": {
+            "mean": 0.9999396718146718,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 317.90625,
+            "p10": 160.1,
+            "p50": 282.5,
+            "p90": 506.80000000000007
+          },
+          "dims": {
+            "mean": 317.875,
+            "p10": 160.1,
+            "p50": 282.5,
+            "p90": 506.80000000000007
+          },
+          "dims_ratio": 0.9999017005799665
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 64,
+          "n_passages": 32
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "model": "models/st/r2v12b-static-credit-k8-kd-query",
+  "queries": 50,
+  "threads": {
+    "1": {
+      "encode_query_ms_p50": 0.49913050315808505,
+      "encode_query_ms_p95": 0.6896410093759184,
+      "module_ms_p50": 0.1773450057953596,
+      "tokenize_ms_p50": 0.11091001215390861
+    },
+    "6": {
+      "encode_query_ms_p50": 0.42714500159490854,
+      "encode_query_ms_p95": 0.5254440024145878,
+      "module_ms_p50": 0.17203998868353665,
+      "tokenize_ms_p50": 0.10662000568117946
+    }
+  }
+}

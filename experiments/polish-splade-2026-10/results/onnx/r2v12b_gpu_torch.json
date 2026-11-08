@@ -1,0 +1,7 @@
+{
+  "gpu": "NVIDIA GeForce RTX 3060 Ti",
+  "model": "models/arm-dense-kl-n5kj-ens400-r2v12-bias005",
+  "dtype": "fp16",
+  "note": "8.11 ~17:00, the PIRB queue paused (it held 4 GB of VRAM, so fp32 and batch 64 did not fit); kd_v1 texts, seed 7, 50 queries at batch 1, 256 passages",
+  "query_ms_p50": 2.5, "query_ms_p95": 3.0, "passages_per_s_b8": 319.9, "passages_per_s_b16": 243.7, "peak_vram_mb": 2514.9
+}
