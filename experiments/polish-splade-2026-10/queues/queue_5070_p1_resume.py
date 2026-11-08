@@ -22,6 +22,12 @@ APPROVAL = ROOT / "logs/mlm-p1-resume-approval.json"
 RESUME_STATE = ROOT / "logs/mlm-p1-resume-queue.json"
 
 
+def loadable_checkpoint(source: Path, epoch: int) -> Path:
+    sys.path.insert(0, str(ROOT))
+    from training.backends.splade_checkpoint_compat import compatible_export
+    return compatible_export(source, ROOT / f"cache/mlm-p1-loadable-exports/epoch-{epoch}")
+
+
 def locate_run() -> Path:
     paths = list((ROOT / "runs/arm-mlm-p1").glob("**/resolved_config.yaml"))
     if len(paths) != 1:
@@ -67,6 +73,8 @@ def evaluate_saved_epochs(run: Path, env: dict) -> None:
     for epoch, step in ((1, 10866), (2, 21732)):
         checkpoint = run / "epoch-checkpoints" / f"epoch-{epoch:04d}-step-{step}"
         validate_checkpoint(checkpoint, step)
+        source_checkpoint = checkpoint
+        checkpoint = loadable_checkpoint(source_checkpoint, epoch)
         label = f"mlm-p1-ep{epoch}"
         output = EXP / f"results-regimes/quantized/{label}/tiny10.json"
         status("evaluating_saved_epochs", epoch=epoch, checkpoint=str(checkpoint))
@@ -75,6 +83,7 @@ def evaluate_saved_epochs(run: Path, env: dict) -> None:
                            cwd=ROOT, env=env, check=True)
         score = tiny_result(output, checkpoint)
         results["epochs"].append({"epoch": epoch, "checkpoint": str(checkpoint), "label": label,
+                                  "source_checkpoint": str(source_checkpoint),
                                   "tiny10": score["mean_ndcg@10"], "measured_at": now()})
         save_json(EVALUATION, results)
         print(f"[P1] Epoch {epoch}: tiny10={score['mean_ndcg@10']:.4f}", flush=True)
@@ -110,6 +119,8 @@ def resume_worker() -> int:
     sys.path.insert(0, str(ROOT))
     from transformers import TrainerCallback
     from training.backends import sentence_transformers_backend as backend
+    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, restore_and_verify_mlm_weights
+    from sentence_transformers import SparseEncoderTrainer
     from training.train import main as train_main
 
     approval = verify_approval()
@@ -128,6 +139,15 @@ def resume_worker() -> int:
 
     backend._training_args = training_args
     started = time.monotonic()
+    original_reload = SparseEncoderTrainer._load_from_checkpoint
+
+    def verified_reload(trainer, checkpoint_path):
+        original_reload(trainer, checkpoint_path)
+        verification = restore_and_verify_mlm_weights(trainer.model, Path(checkpoint_path))
+        save_json(run / "resume-weight-verification.json", dict(verification, checkpoint=checkpoint_path, time=now()))
+        print(f"[P1] Verified every serialized MLM tensor after reload: {verification}", flush=True)
+
+    SparseEncoderTrainer._load_from_checkpoint = verified_reload
 
     class ResumeMonitor(TrainerCallback):
         def on_train_begin(self, args, state, control, **kwargs):
@@ -142,6 +162,8 @@ def resume_worker() -> int:
             logs = logs or {}
             if any(not math.isfinite(float(logs[k])) for k in ("loss", "base_loss", "grad_norm") if k in logs):
                 raise RuntimeError("Non-finite training metrics")
+            if state.global_step <= 21832 and logs.get("base_loss", 0) > 100:
+                raise RuntimeError("Unexpected KL spike immediately after checkpoint reload")
             row = {"step": state.global_step, "epoch": state.epoch, "time": now(), "metrics": logs,
                    "elapsed_seconds": round(time.monotonic() - started, 2)}
             with (run / "p1-resume-telemetry.jsonl").open("a") as log:
@@ -151,8 +173,10 @@ def resume_worker() -> int:
 
         def on_save(self, args, state, control, **kwargs):
             checkpoint = Path(args.output_dir) / f"checkpoint-{state.global_step}"
+            add_decoder_bias_alias(checkpoint)
             validate_checkpoint(checkpoint, state.global_step)
             for target in (checkpoint, *list((run / "epoch-checkpoints").glob(f"epoch-*-step-{state.global_step}"))):
+                add_decoder_bias_alias(target)
                 for name in ("regularizer_control.json", "resume-checkpoint-policy.json"):
                     if (run / name).is_file():
                         shutil.copy2(run / name, target / name)
@@ -174,6 +198,7 @@ def resume_worker() -> int:
         return rc
     if not (run / "final/model.safetensors").is_file():
         raise RuntimeError("Final model was not saved")
+    add_decoder_bias_alias(run / "final")
     paths = list((run / "epoch-checkpoints").glob("epoch-0003-step-32595"))
     if len(paths) != 1:
         raise RuntimeError("Third epoch checkpoint was not preserved")
@@ -191,7 +216,9 @@ def finish_measurements(run: Path, env: dict) -> None:
               "pre_resume_tiny10": evaluation["epochs"]}
     for epoch, step in ((1, 10866), (2, 21732), (3, 32595)):
         checkpoint = run / "epoch-checkpoints" / f"epoch-{epoch:04d}-step-{step}"
-        record = measure_model(checkpoint, f"mlm-p1-ep{epoch}", env, reuse_tiny=True)
+        exported = loadable_checkpoint(checkpoint, epoch)
+        record = measure_model(exported, f"mlm-p1-ep{epoch}", env, reuse_tiny=True)
+        record["source_checkpoint"] = str(checkpoint)
         record["epoch"] = epoch
         record_epoch(result, record)
         save_json(RESULT, result)
@@ -226,7 +253,7 @@ def continue_training(run: Path, env: dict) -> None:
     if shutil.disk_usage(run).free < 20_000_000_000 or shutil.disk_usage("/mnt/c").free < 10_000_000_000:
         raise RuntimeError("Insufficient disk reserve")
     status("training_resumed", checkpoint=approval["checkpoint"], checkpoint_policy=approval["checkpoint_policy"])
-    with (ROOT / "logs/mlm-p1-v2-resume-train.log").open("x") as log:
+    with (ROOT / "logs/mlm-p1-v2-resume-verified-train.log").open("x") as log:
         process = subprocess.Popen([str(PYTHON), str(Path(__file__).resolve()), "--worker"], cwd=ROOT, env=env,
                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         def terminate(sig, frame):

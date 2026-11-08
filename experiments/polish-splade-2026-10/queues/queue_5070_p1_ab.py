@@ -123,6 +123,8 @@ def worker(config: Path, tag: str) -> int:
         raise RuntimeError("A/B arm did not complete one epoch")
     if not (Path(result["final"]) / "model.safetensors").is_file():
         raise RuntimeError("A/B final model missing")
+    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias
+    add_decoder_bias_alias(Path(result["final"]))
     result["finished_at"] = now()
     save_json(ROOT / f"logs/mlm-p1-ab-{tag}-result.json", result)
     return 0

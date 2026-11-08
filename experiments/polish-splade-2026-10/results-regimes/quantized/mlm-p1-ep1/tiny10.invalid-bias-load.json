@@ -1,0 +1,23 @@
+﻿{
+    "regime":  "quantized",
+    "label":  "mlm-p1-ep1",
+    "model":  "/mnt/c/work/embedder-training-v2/runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0001-step-10866",
+    "taskset":  "tiny10",
+    "max_seq_length":  512,
+    "tasks":  {
+                  "maupqa-gpt3-cc":  18.80798503039139,
+                  "maupqa-mkqa":  60.811947682490256,
+                  "maupqa-poleval2021-pairs":  77.93797445357286,
+                  "maupqa-templates":  73.99436519310262,
+                  "poleval-2022-test-A-allegro-faq":  71.4422743732876,
+                  "poleval-2022-test-B-allegro-faq":  67.57332529389383,
+                  "arguana-pl":  39.78861010334819,
+                  "nfcorpus-pl":  30.538298267924937,
+                  "scifact-pl":  52.894230057343385,
+                  "gpt-exams":  98.60817902813818
+              },
+    "n_tasks":  10,
+    "mean_ndcg@10":  59.239718948349335,
+    "valid":  false,
+    "invalid_reason":  "The loader replaced the saved MLM bias with zeros; this score does not evaluate the original checkpoint weights."
+}
