@@ -169,6 +169,8 @@ maturin==1.14.1
     # via fast-plaid
 mdurl==0.1.2
     # via markdown-it-py
+ml-dtypes==0.6.0
+    # via onnx
 mpmath==1.3.0
     # via sympy
 msgpack==1.2.1
@@ -267,8 +269,12 @@ nvidia-nvjitlink-cu12==12.8.61
     #   torch
 nvidia-nvtx-cu12==12.8.55
     # via torch
+onnx==1.23.2
+    # via -r requirements.in
 onnxruntime==1.23.2
-    # via pyserini
+    # via
+    #   -r requirements.in
+    #   pyserini
 openai==1.102.0
     # via
     #   -r requirements.in

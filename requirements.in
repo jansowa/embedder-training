@@ -24,3 +24,6 @@ pytrec-eval
 torch==2.7.1
 xformers
 pytest
+# ONNX export of released models (release/)
+onnx
+onnxruntime

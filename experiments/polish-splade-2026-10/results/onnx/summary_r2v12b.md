@@ -1,0 +1,20 @@
+# ONNX exports of r2v12b (arm-dense-kl-n5kj-ens400-r2v12-bias005)
+
+## PIRB, leaderboard regime (mean NDCG@10)
+
+| variant | q-only tiny10 | q-only heldout8 |
+|---|---|---|
+| torch fp16 (GPU) | 64.21 | 43.08 |
+| fp32 | 64.22 | 43.07 |
+| dynamic-int8-u8 | 64.17 | 42.99 |
+
+## CPU benchmark
+
+| variant | MB | RSS peak | q p50 ms (1t) | passages/s (1t) | q p50 ms (6t) | passages/s (6t) | cos q | cos p | Jacc p | dims q | dims p | top10 sym | top10 q-only |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| fp32 | 459 | 5781 | 29.6 | 2.7 | 13.5 | 10.0 | ref | ref | ref | 108.5 | 317.9 | ref | ref |
+| dynamic-int8-u8 | 227 | 5543 | 14.9 | 3.8 | 4.9 | 14.1 | 0.9667 | 0.9651 | 0.696 | 87.3 | 278.8 | 0.913 | 0.938 |
+| dynamic-int8-u8-headfp32 | 338 | 5654 | 22.3 | 3.2 | 9.0 | 11.6 | 0.9703 | 0.9698 | 0.713 | 85.3 | 268.9 | 0.925 | 0.947 |
+| mixed-int8-static | 358 | 5747 | 55.1 | 2.8 | 39.9 | 9.9 | 0.9228 | 0.9091 | 0.549 | 98.1 | 263.4 | 0.831 | 0.891 |
+| torch-fp32 | nan | 4423 | 52.6 | 2.2 | 47.9 | 8.5 | 1.0000 | 1.0000 | 1.000 | 108.5 | 317.9 | 1.000 | 1.000 |
+
