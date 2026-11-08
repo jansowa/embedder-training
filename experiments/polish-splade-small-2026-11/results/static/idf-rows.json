@@ -1,0 +1,101 @@
+{
+  "args": {
+    "pool": "cache/static_pools/n5kj",
+    "init": "models/static/idf",
+    "out": "runs/static-idf-rows",
+    "target": "rows",
+    "mix_weight": 0.5,
+    "in_batch": false,
+    "temperature": 1.0,
+    "teacher_scale": 1.0,
+    "query_l1": 0.0,
+    "query_flops": 0.0,
+    "epochs": 3.0,
+    "max_steps": 0,
+    "batch_size": 64,
+    "lr": 0.005,
+    "warmup_steps": 100,
+    "schedule": "linear",
+    "max_grad_norm": 0.0,
+    "val_rows": 1000,
+    "eval_every": 250,
+    "save_every": 0,
+    "log_every": 50,
+    "seed": 42,
+    "device": "cuda",
+    "threads": 0
+  },
+  "pool": {
+    "doc_model": "models/arm-dense-kl-n5kj-ens400",
+    "rows_file": "datasets/arms/n5-plus-kj-tens400.jsonl",
+    "rows": 20292,
+    "rows_with_scores": 20292,
+    "docs": 54605,
+    "dim": 50001,
+    "quantization_factor": 100,
+    "min_weight": 0.0,
+    "max_seq_length": 512,
+    "query_max_length": 128,
+    "teacher_queries": true,
+    "doc_dims_mean": 427.7,
+    "query_dims_mean": 105.5,
+    "dtype": "fp16",
+    "seconds": 101.4
+  },
+  "train_rows": 19292,
+  "val_rows": 1000,
+  "total_steps": 903,
+  "table": {
+    "rows": 50001,
+    "k": 1,
+    "live_rows": 49996,
+    "active_slots": 49996,
+    "slots_per_live_row": 1.0,
+    "rows_with_self_slot": 49996,
+    "weight_mean": 7.9826,
+    "weight_max": 13.3047
+  },
+  "val_splade_reference": {
+    "rows": 1000,
+    "kendall_tau": 0.7369,
+    "top1_agreement": 0.992,
+    "positive_first": 0.993,
+    "mrr": 0.9962,
+    "dims_per_query": 105.04,
+    "postings_fraction": 12.586
+  },
+  "val_init": {
+    "rows": 1000,
+    "kendall_tau": 0.4951,
+    "top1_agreement": 0.937,
+    "positive_first": 0.945,
+    "mrr": 0.9665,
+    "dims_per_query": 13.39,
+    "postings_fraction": 0.759
+  },
+  "val_final": {
+    "rows": 1000,
+    "kendall_tau": 0.4952,
+    "top1_agreement": 0.935,
+    "positive_first": 0.943,
+    "mrr": 0.9657,
+    "dims_per_query": 13.34,
+    "postings_fraction": 0.729
+  },
+  "steps": 903,
+  "best_val_mrr": [
+    0.966,
+    250
+  ],
+  "table_final": {
+    "rows": 50001,
+    "k": 1,
+    "live_rows": 49995,
+    "active_slots": 49995,
+    "slots_per_live_row": 1.0,
+    "rows_with_self_slot": 49995,
+    "weight_mean": 7.9763,
+    "weight_max": 13.4131
+  },
+  "seconds": 13.8
+}

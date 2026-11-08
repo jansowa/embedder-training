@@ -1,0 +1,23 @@
+{
+  "regime": "quantized",
+  "label": "asym-n5kj-q-static-idf-rows",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-ens400",
+  "taskset": "tiny10",
+  "max_seq_length": null,
+  "query_model": "models/static/idf-rows",
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-gpt3-cc": 17.11673408490587,
+    "maupqa-mkqa": 46.77017216103031,
+    "maupqa-poleval2021-pairs": 72.31009228732638,
+    "maupqa-templates": 69.46926838658648,
+    "poleval-2022-test-A-allegro-faq": 61.77365010299623,
+    "poleval-2022-test-B-allegro-faq": 58.079633824169754,
+    "arguana-pl": 41.0034847443309,
+    "nfcorpus-pl": 30.76869398640025,
+    "scifact-pl": 64.21698662569325,
+    "gpt-exams": 96.1042076892601
+  },
+  "n_tasks": 10,
+  "mean_ndcg@10": 55.761292389269954
+}

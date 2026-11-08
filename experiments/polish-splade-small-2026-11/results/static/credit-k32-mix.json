@@ -1,0 +1,101 @@
+{
+  "args": {
+    "pool": "cache/static_pools/n5kj",
+    "init": "models/static/credit-k32",
+    "out": "runs/static-credit-k32-mix",
+    "target": "mix",
+    "mix_weight": 0.5,
+    "in_batch": true,
+    "temperature": 1.0,
+    "teacher_scale": 1.0,
+    "query_l1": 0.0,
+    "query_flops": 0.0,
+    "epochs": 3.0,
+    "max_steps": 0,
+    "batch_size": 64,
+    "lr": 0.005,
+    "warmup_steps": 100,
+    "schedule": "linear",
+    "max_grad_norm": 0.0,
+    "val_rows": 1000,
+    "eval_every": 250,
+    "save_every": 0,
+    "log_every": 50,
+    "seed": 42,
+    "device": "cuda",
+    "threads": 0
+  },
+  "pool": {
+    "doc_model": "models/arm-dense-kl-n5kj-ens400",
+    "rows_file": "datasets/arms/n5-plus-kj-tens400.jsonl",
+    "rows": 20292,
+    "rows_with_scores": 20292,
+    "docs": 54605,
+    "dim": 50001,
+    "quantization_factor": 100,
+    "min_weight": 0.0,
+    "max_seq_length": 512,
+    "query_max_length": 128,
+    "teacher_queries": true,
+    "doc_dims_mean": 427.7,
+    "query_dims_mean": 105.5,
+    "dtype": "fp16",
+    "seconds": 101.4
+  },
+  "train_rows": 19292,
+  "val_rows": 1000,
+  "total_steps": 903,
+  "table": {
+    "rows": 50001,
+    "k": 32,
+    "live_rows": 49999,
+    "active_slots": 1260877,
+    "slots_per_live_row": 25.22,
+    "rows_with_self_slot": 33263,
+    "weight_mean": 0.3236,
+    "weight_max": 2.5131
+  },
+  "val_splade_reference": {
+    "rows": 1000,
+    "kendall_tau": 0.7369,
+    "top1_agreement": 0.992,
+    "positive_first": 0.993,
+    "mrr": 0.9962,
+    "dims_per_query": 105.04,
+    "postings_fraction": 12.586
+  },
+  "val_init": {
+    "rows": 1000,
+    "kendall_tau": 0.6661,
+    "top1_agreement": 0.983,
+    "positive_first": 0.988,
+    "mrr": 0.9934,
+    "dims_per_query": 332.23,
+    "postings_fraction": 37.9882
+  },
+  "val_final": {
+    "rows": 1000,
+    "kendall_tau": 0.6687,
+    "top1_agreement": 0.982,
+    "positive_first": 0.988,
+    "mrr": 0.9932,
+    "dims_per_query": 183.94,
+    "postings_fraction": 21.9698
+  },
+  "steps": 903,
+  "best_val_mrr": [
+    0.9932,
+    500
+  ],
+  "table_final": {
+    "rows": 50001,
+    "k": 32,
+    "live_rows": 49999,
+    "active_slots": 1095099,
+    "slots_per_live_row": 21.9,
+    "rows_with_self_slot": 33178,
+    "weight_mean": 0.3718,
+    "weight_max": 2.5508
+  },
+  "seconds": 13.3
+}
