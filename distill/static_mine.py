@@ -38,7 +38,7 @@ from typing import Any
 
 import torch
 
-from distill.static_pool import SparseMatrix, encode_texts, save_pool
+from distill.static_pool import DOCS_NAME, POOL_META, QUERIES_NAME, ROWS_NAME, SparseMatrix, encode_texts
 
 QUERY_MARK = '"kind": "query"'
 PASSAGE_MARK = '"kind": "passage"'
@@ -113,54 +113,72 @@ def mine(
     max_candidates: int,
     batch_size: int,
     device: str,
+    rows_out: Path,
     log_every: int = 50,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Rows ``{"query", "docs", "n_pos": 1, "scores", "from_students"}`` and recall diagnostics."""
+) -> dict[str, Any]:
+    """Writes one row ``{"query", "docs", "n_pos": 1, "scores"}`` per query to ``rows_out`` (streamed, the rows are
+    never held in memory) and returns the counts and recall diagnostics."""
     d = csr_on_device(docs, device)
     qf = docs.scale
     n = len(docs)
     t_top, s_top = min(teacher_top, n), min(student_top, n)
-    rows: list[dict[str, Any]] = []
+    n_rows = n_cands = student_only = recall_total = 0
     recall_hits = {name: 0 for name, _ in students}
-    recall_total = 0
-    student_only = 0
     started = time.time()
-    for n_batch, start in enumerate(range(0, len(queries), batch_size)):
-        ids = list(range(start, min(start + batch_size, len(queries))))
-        texts = [queries[i] for i in ids]
-        cols = [teacher_queries.dense_rows(ids, device)]
-        for _, model in students:
-            enc = model.tokenize(tokenizer, texts, device)
-            q = model(enc["input_ids"], enc["attention_mask"])
-            cols.append(torch.round(q * qf) / qf)  # the quantized regime quantizes the query side too
-        q_all = torch.cat(cols, dim=0)  # [(1 + S) * B, dim]
-        scores = (d @ q_all.T).T  # [(1 + S) * B, N]
-        b = len(ids)
-        t_scores = scores[:b]
-        t_ids = torch.topk(t_scores, t_top, dim=1).indices
-        s_ids = [torch.topk(scores[(k + 1) * b : (k + 2) * b], s_top, dim=1).indices for k in range(len(students))]
-        for j, qi in enumerate(ids):
-            cand, cand_scores = merge_candidates(t_scores[j], t_ids[j], [s[j] for s in s_ids], max_candidates)
-            teacher_set = set(t_ids[j].tolist())
-            top10 = set(t_ids[j, : min(10, t_top)].tolist())
-            recall_total += len(top10)
-            for (name, _), s in zip(students, s_ids):
-                recall_hits[name] += len(top10 & set(s[j].tolist()))
-            student_only += sum(c not in teacher_set for c in cand)
-            rows.append({"query": queries[qi], "docs": cand, "n_pos": 1, "scores": cand_scores})
-        if log_every and n_batch % log_every == 0:
-            done = ids[-1] + 1
-            print(f"[mine] {done}/{len(queries)} queries, {done / max(time.time() - started, 1e-6):.1f}/s", flush=True)
-    info = {
+    with Path(rows_out).open("w", encoding="utf-8") as handle:
+        for n_batch, start in enumerate(range(0, len(queries), batch_size)):
+            ids = list(range(start, min(start + batch_size, len(queries))))
+            texts = [queries[i] for i in ids]
+            cols = [teacher_queries.dense_rows(ids, device)]
+            for _, model in students:
+                enc = model.tokenize(tokenizer, texts, device)
+                q = model(enc["input_ids"], enc["attention_mask"])
+                cols.append(torch.round(q * qf) / qf)  # the quantized regime quantizes the query side too
+            # a contiguous [dim, C] right-hand side: the transposed view costs cuSPARSE ~20x (4.7 s vs 0.21 s for
+            # 300 k passages x 384 columns on the 3060 Ti)
+            q_all = torch.cat(cols, dim=0).T.contiguous()
+            scores = d @ q_all  # [N, (1 + S) * B]
+            b = len(ids)
+            t_ids = torch.topk(scores[:, :b], t_top, dim=0).indices.T  # [B, t_top]
+            s_ids = [torch.topk(scores[:, (k + 1) * b : (k + 2) * b], s_top, dim=0).indices.T for k in range(len(students))]
+            t_cols = scores[:, :b].T.contiguous()  # [B, N] teacher scores
+            for j, qi in enumerate(ids):
+                cand, cand_scores = merge_candidates(t_cols[j], t_ids[j], [s[j] for s in s_ids], max_candidates)
+                teacher_set = set(t_ids[j].tolist())
+                top10 = set(t_ids[j, : min(10, t_top)].tolist())
+                recall_total += len(top10)
+                for (name, _), s in zip(students, s_ids):
+                    recall_hits[name] += len(top10 & set(s[j].tolist()))
+                student_only += sum(c not in teacher_set for c in cand)
+                n_rows += 1
+                n_cands += len(cand)
+                handle.write(json.dumps({"query": queries[qi], "docs": cand, "n_pos": 1, "scores": cand_scores}, ensure_ascii=False) + "\n")
+            del scores, t_cols, q_all
+            if log_every and n_batch % log_every == 0:
+                done = ids[-1] + 1
+                print(f"[mine] {done}/{len(queries)} queries, {done / max(time.time() - started, 1e-6):.1f}/s", flush=True)
+    return {
+        "rows": n_rows,
         "teacher_top": t_top,
         "student_top": s_top,
         "max_candidates": max_candidates,
-        "candidates_mean": round(sum(len(r["docs"]) for r in rows) / max(len(rows), 1), 2),
-        "student_only_candidates_mean": round(student_only / max(len(rows), 1), 2),
+        "candidates_mean": round(n_cands / max(n_rows, 1), 2),
+        "student_only_candidates_mean": round(student_only / max(n_rows, 1), 2),
         "student_recall_of_teacher_top10": {name: round(hits / max(recall_total, 1), 4) for name, hits in recall_hits.items()},
         "search_seconds": round(time.time() - started, 1),
     }
-    return rows, info
+
+
+def release_host_memory() -> None:
+    """Return freed heap pages to the OS (the 16 GB box hangs instead of OOM-killing; glibc keeps freed arenas)."""
+    import ctypes
+    import gc
+
+    gc.collect()
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -208,9 +226,10 @@ def main(argv: list[str] | None = None) -> int:
     t = time.time()
     query_mat = encode_texts(model, tokenizer, queries, args.query_max_length, max(args.batch_size, 64), args.device, args.quantization_factor, args.min_weight, args.log_every)
     encode_queries_s = time.time() - t
-    del model
+    del model, passages
     if str(args.device).startswith("cuda"):
         torch.cuda.empty_cache()
+    release_host_memory()
     students = []
     for path in args.student:
         table = StaticSparseQueryEncoder.load(path, args.device)
@@ -218,15 +237,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[ERROR] {path} writes {table.output_dim} dims, the documents have {doc_mat.dim}", file=sys.stderr)
             return 2
         students.append((path.name, table))
-    del passages
-    rows, info = mine(doc_mat, query_mat, queries, students, tokenizer, args.teacher_top, args.student_top, args.max_candidates, args.search_batch, args.device, max(args.log_every // 10, 1))
+    from safetensors.torch import save_file
+
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / POOL_META).unlink(missing_ok=True)  # pool.json is written last: its presence marks a complete pool
+    save_file(doc_mat.tensors(), str(args.out / DOCS_NAME))
+    save_file(query_mat.tensors(), str(args.out / QUERIES_NAME))
+    info = mine(doc_mat, query_mat, queries, students, tokenizer, args.teacher_top, args.student_top, args.max_candidates, args.search_batch,
+                args.device, args.out / ROWS_NAME, max(args.log_every // 10, 1))
     meta = {
         "kind": "mined",
         "doc_model": str(args.doc_model),
         "corpus": str(args.corpus),
         "students": [str(p) for p in args.student],
-        "rows": len(rows),
-        "rows_with_scores": len(rows),
+        "rows_with_scores": info["rows"],
         "docs": len(doc_mat),
         "dim": doc_mat.dim,
         "quantization_factor": args.quantization_factor,
@@ -243,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         **info,
         "seconds": round(time.time() - started, 1),
     }
-    save_pool(args.out, meta, rows, doc_mat, query_mat)
+    (args.out / POOL_META).write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(meta, indent=2))
     return 0
 

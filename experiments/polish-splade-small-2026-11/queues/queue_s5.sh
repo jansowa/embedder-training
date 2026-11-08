@@ -5,7 +5,7 @@
 # (val MRR 0.97 at the start) and the lr 5e-3 moved the idf weights (~8) by 1 % on average.
 #   0  unit tests of the static modules (tests/test_distill_static*.py); then the code is committed
 #   1  smoke mining on the GPU (3 000 passages, 500 queries): the sparse CSR x dense search runs on CUDA
-#   2  mined pool: 300 k kd_v1 passages and 120 k kd_v1 queries encoded by n5kj; per query the teacher's top 32 and the
+#   2  mined pool: 250 k kd_v1 passages and 120 k kd_v1 queries encoded by n5kj; per query the teacher's top 32 and the
 #      top 16 of the idf and credit-k32 tables (the students' own false positives), teacher scores q_splade . d as targets
 #   3  credit-k8 = credit-k32 cut to the 8 strongest slots per token (fewer dims per query, cheaper search)
 #   4  training, KL over each query's candidates against the teacher scores, a learned global score scale:
@@ -81,7 +81,7 @@ log "=== s5 step 1: smoke mining on the GPU ==="
 mine "$SMOKE_POOL" smoke --n-docs 3000 --n-queries 500 --log-every 50 || { log "smoke mining failed; stopping"; exit 1; }
 
 log "=== s5 step 2: mined pool ==="
-mine "$POOL" kd-n5kj --n-docs 300000 --n-queries 120000 --teacher-top 32 --student-top 16 --max-candidates 64 --batch-size 16 --search-batch 128 \
+mine "$POOL" kd-n5kj --n-docs 250000 --n-queries 120000 --teacher-top 32 --student-top 16 --max-candidates 64 --batch-size 16 --search-batch 128 \
     || { log "mining failed; stopping"; exit 1; }
 
 log "=== s5 step 3: credit-k8 ==="
