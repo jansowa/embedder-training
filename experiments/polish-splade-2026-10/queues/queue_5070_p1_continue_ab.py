@@ -99,13 +99,10 @@ def worker(config_path: Path, tag: str, start_path: Path) -> int:
     sys.path.insert(0, str(ROOT))
     from transformers import TrainerCallback
     from training.backends import sentence_transformers_backend as backend
-    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, restore_and_verify_mlm_weights
+    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, clear_single_device_map, restore_and_verify_mlm_weights
 
-    # Match the resumed KL encoder memory policy in smoke and both arms.
-    # KL, in-batch MNRL, and FLOPS still use the complete batch of eight.
-    backend._splade_cached_loss_mini_batch = lambda backend_config: 2
     save_json(ROOT / f"logs/{PREFIX}-{tag}-memory-policy.json", {
-        "loss_wrapper": "CachedSpladeLoss", "mini_batch_size": 2,
+        "loss_wrapper": "SpladeLoss", "cached_loss": False,
         "full_batch_size": 8, "gradient_accumulation_steps": 4, "time": now(),
     })
     start = json.loads(start_path.read_text())
@@ -116,6 +113,7 @@ def worker(config_path: Path, tag: str, start_path: Path) -> int:
 
     def verified_builder(*args, **kwargs):
         model = original_builder(*args, **kwargs)
+        clear_single_device_map(model[0].auto_model)
         verification = restore_and_verify_mlm_weights(model, checkpoint)
         save_json(ROOT / f"logs/{PREFIX}-{tag}-initial-weights.json", dict(verification, start=start, time=now()))
         print(f"[CONTINUE A/B] Initial checkpoint weights verified: {verification}", flush=True)

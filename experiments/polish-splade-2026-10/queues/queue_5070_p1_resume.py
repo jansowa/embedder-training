@@ -136,14 +136,12 @@ def resume_worker() -> int:
 
     approval = verify_approval()
     run = Path(approval["run"])
-    # Runtime memory policy: retain the immutable original config and the full
-    # batch loss; only split encoder activation graphs into groups of two.
-    backend._splade_cached_loss_mini_batch = lambda backend_config: 2
+    # Use the originally approved SpladeLoss with a physical batch of eight.
     save_json(run / "resume-memory-policy.json", {
-        "updated_at": now(), "loss_wrapper": "CachedSpladeLoss", "mini_batch_size": 2,
+        "updated_at": now(), "loss_wrapper": "SpladeLoss", "cached_loss": False,
         "full_batch_size": 8, "gradient_accumulation_steps": 4,
         "full_batch_kl_and_regularizers": True,
-        "note": "Dropout draws may differ from unsplit execution; objective is unchanged.",
+        "note": "Original uncached execution restored at the user's request.",
     })
     original_builder = backend._build_splade_model
     def local_builder(sparse_cls, transformer_cls, pooling_cls, model_name, backend_config):
