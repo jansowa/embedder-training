@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n5kj-ens400-r2v12-bias010",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-ens400-r2v12-bias010",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "quora-pl": 79.56365832896701
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 79.56365832896701
+}

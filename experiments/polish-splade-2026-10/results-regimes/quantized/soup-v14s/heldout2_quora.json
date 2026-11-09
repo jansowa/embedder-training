@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "soup-v14s",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v14s",
+  "taskset": "heldout2_quora",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "quora-pl": 79.50292522223322
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 79.50292522223322
+}

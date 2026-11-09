@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "soup-v14s",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v14s",
+  "taskset": "heldout2_czywiesz",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-czy-wiesz-v2": 87.36389315482624
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 87.36389315482624
+}

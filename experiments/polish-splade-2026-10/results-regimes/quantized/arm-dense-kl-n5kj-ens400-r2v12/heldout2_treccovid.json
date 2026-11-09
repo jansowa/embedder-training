@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n5kj-ens400-r2v12",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-ens400-r2v12",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "trec-covid-pl": 67.02287902627354
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 67.02287902627354
+}
