@@ -1,0 +1,19 @@
+{
+  "regime": "quantized",
+  "label": "soup-v16",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v16",
+  "taskset": "heldout8",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.47,
+    "maupqa-multilingual-nli": 14.7237,
+    "mfaq": 63.29,
+    "poleval-2022-test-a-legal-questions": 84.362,
+    "maupqa-wiki-def": 67.6636,
+    "scidocs-pl": 14.9009
+  },
+  "n_tasks": 6,
+  "mean_ndcg@10": 44.23503333333333
+}
