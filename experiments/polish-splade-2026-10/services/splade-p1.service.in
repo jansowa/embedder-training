@@ -1,0 +1,32 @@
+[Unit]
+Description=SPLADE P1 @PHASE@ supervisor
+StartLimitIntervalSec=1800
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/.venv/bin/python @REPO@/experiments/polish-splade-2026-10/queues/queue_5070_p1_service.py --phase @PHASE@
+Environment=P1_TRAINING_APPROVED=yes
+Environment=P1_AB_APPROVED=yes
+Environment=P1_RECOVERY_SERVICE=yes
+Environment=PATH=/usr/lib/wsl/lib:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=ORPHAN_GUARD_EXEMPT=1
+Environment=WANDB_MODE=disabled
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=@REPO@
+Environment=TORCHINDUCTOR_COMPILE_THREADS=1
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Environment=OMP_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+Restart=on-failure
+RestartPreventExitStatus=2
+RestartSec=15
+KillMode=control-group
+OOMPolicy=stop
+TimeoutStopSec=90
+StandardOutput=append:@REPO@/logs/mlm-p1-systemd-@PHASE@.log
+StandardError=inherit
+
+[Install]
+WantedBy=default.target

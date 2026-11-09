@@ -3,6 +3,26 @@ from pathlib import Path
 import pytest
 
 
+def test_cpu_device_map_allows_both_roberta_tied_groups_to_save(tmp_path):
+    import torch
+    from transformers import RobertaConfig, RobertaForMaskedLM
+    from training.backends.splade_checkpoint_compat import clear_single_device_map
+
+    model = RobertaForMaskedLM(RobertaConfig(vocab_size=31, hidden_size=8, num_hidden_layers=1,
+                                           num_attention_heads=2, intermediate_size=16))
+    source = tmp_path / "source"
+    model.save_pretrained(source)
+    loaded = RobertaForMaskedLM.from_pretrained(source, device_map="cpu")
+    parameters = list(loaded.parameters())
+    clear_single_device_map(loaded)
+    target = tmp_path / "saved-again"
+    loaded.save_pretrained(target)
+    reloaded = RobertaForMaskedLM.from_pretrained(target)
+    assert all(a is b for a, b in zip(parameters, loaded.parameters()))
+    assert torch.equal(reloaded.get_input_embeddings().weight, loaded.get_input_embeddings().weight)
+    assert torch.equal(reloaded.get_output_embeddings().bias, loaded.get_output_embeddings().bias)
+
+
 def test_saved_roberta_bias_survives_export_and_runtime_restore(tmp_path):
     import torch
     from transformers import RobertaConfig, RobertaForMaskedLM
@@ -72,3 +92,16 @@ def test_cpu_reload_keeps_the_existing_parameter_objects(monkeypatch, tmp_path):
     assert devices == ["cpu"]
     assert model.weight is parameter
     assert torch.equal(model.weight, torch.ones(2))
+
+
+def test_resume_builder_uses_local_checkpoint_without_mutating_original_config(tmp_path):
+    from training.backends.splade_checkpoint_compat import build_from_local_checkpoint
+    config = {"max_seq_length": 256, "model_kwargs": {"trust_remote_code": False}}
+    seen = []
+    def builder(*args):
+        seen.append(args)
+        return "model"
+    assert build_from_local_checkpoint(builder, "Sparse", "MLM", "Pooling", tmp_path, config) == "model"
+    assert seen[0][3] == str(tmp_path.resolve())
+    assert seen[0][4]["model_kwargs"]["device_map"] == "cpu"
+    assert config == {"max_seq_length": 256, "model_kwargs": {"trust_remote_code": False}}

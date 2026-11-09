@@ -199,17 +199,24 @@ def publish_results(result: dict) -> dict:
     return publish_paths(result_paths(result), "Add the MLM P1 KL training results", ROOT / "logs/mlm-p1-v2-publish.log")
 
 
-def measure_model(checkpoint: Path, label: str, env: dict, *, reuse_tiny: bool = False) -> dict:
+def measure_model(checkpoint: Path, label: str, env: dict, *, reuse_tiny: bool = False, append_log: bool = False) -> dict:
     started = time.monotonic()
     profile = EXP / "results/sparsity" / f"{label}-index-cost.json"
     profile.parent.mkdir(parents=True, exist_ok=True)
     log_path = ROOT / "logs" / f"{label}-index-cost.log"
-    with log_path.open("x") as log:
+    with log_path.open("a" if append_log else "x") as log:
         subprocess.run([str(PYTHON), "scripts/splade_index_cost.py", "--model", f"{label}={checkpoint}",
                         "--device", "cuda", "--min-weight", "0.05", "--output-json", str(profile)],
                        cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
     score_path = EXP / f"results-regimes/quantized/{label}/tiny10.json"
-    if not (reuse_tiny and score_path.exists()):
+    complete_cache = False
+    if reuse_tiny and score_path.exists():
+        try:
+            cached = json.loads(score_path.read_text())
+        except (OSError, ValueError):
+            cached = {}
+        complete_cache = cached.get("n_tasks") == 10 and isinstance(cached.get("mean_ndcg@10"), (int, float)) and math.isfinite(cached["mean_ndcg@10"])
+    if not complete_cache:
         subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", label, str(checkpoint), "tiny10", "16", "512"], cwd=ROOT, env=env, check=True)
     score = json.loads(score_path.read_text())
     if reuse_tiny:

@@ -119,3 +119,26 @@ def reload_sparse_model_on_cpu(trainer, checkpoint: Path) -> dict:
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     return verification
+
+
+def build_from_local_checkpoint(builder, sparse_cls, transformer_cls, pooling_cls, checkpoint: Path, backend_config: dict):
+    """Initialize a resumed model locally, without fetching the original MLM again."""
+    config = dict(backend_config)
+    config["model_kwargs"] = dict(config.get("model_kwargs", {}), device_map="cpu")
+    model = builder(sparse_cls, transformer_cls, pooling_cls, str(checkpoint.resolve()), config)
+    # Transformers' single-device hf_device_map save path checks only the
+    # first tied parameter group, overlooking RoBERTa's decoder weight group.
+    # This CPU placement hint is obsolete once Trainer owns device placement.
+    if not isinstance(model, (str, bytes)) and hasattr(model, "__getitem__") and hasattr(model[0], "auto_model"):
+        clear_single_device_map(model[0].auto_model)
+    return model
+
+
+def clear_single_device_map(auto) -> None:
+    """Discard a placement hint for a non-offloaded, single-device model."""
+    mapping = getattr(auto, "hf_device_map", None)
+    if mapping is not None:
+        devices = {str(value) for value in mapping.values()}
+        if len(devices) != 1 or "disk" in devices or any(p.device.type == "meta" for p in auto.parameters()):
+            raise ValueError("Cannot discard an offloaded or multi-device map")
+        del auto.hf_device_map

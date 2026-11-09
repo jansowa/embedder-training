@@ -111,23 +111,45 @@ def verify_approval() -> dict:
     if approval["checkpoint_policy"] != {"save_strategy": "steps", "save_steps": 500, "save_total_limit": 2, "keep_epoch_checkpoints": True}:
         raise ValueError("Unexpected recovery checkpoint policy")
     checkpoint = Path(approval["checkpoint"])
-    validate_checkpoint(checkpoint, 21732)
+    state = validate_checkpoint(checkpoint, approval.get("resume_step", 21732))
+    approval.setdefault("resume_step", state["global_step"])
+    approval.setdefault("resume_epoch", state["epoch"])
     for name, expected in approval["checkpoint_sha256"].items():
         if digest(checkpoint / name) != expected:
             raise ValueError(f"Source checkpoint changed: {name}")
     return approval
 
 
+def assert_restored_state(state, approval: dict) -> None:
+    if (state.global_step != approval["resume_step"] or state.max_steps != 32595
+            or abs(state.epoch - approval["resume_epoch"]) > 0.00001):
+        raise ValueError("Trainer did not restore the approved checkpoint state")
+
+
 def resume_worker() -> int:
     sys.path.insert(0, str(ROOT))
     from transformers import TrainerCallback
     from training.backends import sentence_transformers_backend as backend
-    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, reload_sparse_model_on_cpu
+    from training.backends.splade_checkpoint_compat import add_decoder_bias_alias, build_from_local_checkpoint, reload_sparse_model_on_cpu
     from sentence_transformers import SparseEncoderTrainer
     from training.train import main as train_main
 
     approval = verify_approval()
     run = Path(approval["run"])
+    # Runtime memory policy: retain the immutable original config and the full
+    # batch loss; only split encoder activation graphs into groups of two.
+    backend._splade_cached_loss_mini_batch = lambda backend_config: 2
+    save_json(run / "resume-memory-policy.json", {
+        "updated_at": now(), "loss_wrapper": "CachedSpladeLoss", "mini_batch_size": 2,
+        "full_batch_size": 8, "gradient_accumulation_steps": 4,
+        "full_batch_kl_and_regularizers": True,
+        "note": "Dropout draws may differ from unsplit execution; objective is unchanged.",
+    })
+    original_builder = backend._build_splade_model
+    def local_builder(sparse_cls, transformer_cls, pooling_cls, model_name, backend_config):
+        return build_from_local_checkpoint(original_builder, sparse_cls, transformer_cls, pooling_cls,
+                                           Path(approval["checkpoint"]), backend_config)
+    backend._build_splade_model = local_builder
     history = run / "regularizer_control.json"
     backup = ROOT / "logs/mlm-p1-controller-before-resume.json"
     if history.is_file() and not backup.exists():
@@ -151,18 +173,17 @@ def resume_worker() -> int:
 
     class ResumeMonitor(TrainerCallback):
         def on_train_begin(self, args, state, control, **kwargs):
-            if state.global_step != 21732 or state.max_steps != 32595 or abs(state.epoch - 2) > 0.001:
-                raise ValueError("Trainer did not restore the approved epoch-two state")
+            assert_restored_state(state, approval)
             apply_checkpoint_policy(args, state)
             save_json(run / "resume-checkpoint-policy.json", dict(approval, restored_at=now(), restored_step=state.global_step))
-            print("[P1] Restored step 21732; save every 500 steps, retain two rotating checkpoints plus epoch copies", flush=True)
+            print(f"[P1] Restored step {state.global_step}; save every 500 steps, retain two rotating checkpoints plus epoch copies", flush=True)
             return control
 
         def on_log(self, args, state, control, logs=None, **kwargs):
             logs = logs or {}
             if any(not math.isfinite(float(logs[k])) for k in ("loss", "base_loss", "grad_norm") if k in logs):
                 raise RuntimeError("Non-finite training metrics")
-            if state.global_step <= 21832 and logs.get("base_loss", 0) > 100:
+            if state.global_step <= approval["resume_step"] + 100 and logs.get("base_loss", 0) > 100:
                 raise RuntimeError("Unexpected KL spike immediately after checkpoint reload")
             row = {"step": state.global_step, "epoch": state.epoch, "time": now(), "metrics": logs,
                    "elapsed_seconds": round(time.monotonic() - started, 2)}
@@ -173,7 +194,7 @@ def resume_worker() -> int:
 
         def on_step_end(self, args, state, control, **kwargs):
             # Prove the full save path promptly, then use the normal 500-step cadence.
-            if state.global_step == 21733:
+            if state.global_step == approval["resume_step"] + 1:
                 control.should_save = True
             return control
 
@@ -223,7 +244,7 @@ def finish_measurements(run: Path, env: dict) -> None:
     for epoch, step in ((1, 10866), (2, 21732), (3, 32595)):
         checkpoint = run / "epoch-checkpoints" / f"epoch-{epoch:04d}-step-{step}"
         exported = loadable_checkpoint(checkpoint, epoch)
-        record = measure_model(exported, f"mlm-p1-ep{epoch}", env, reuse_tiny=True)
+        record = measure_model(exported, f"mlm-p1-ep{epoch}", env, reuse_tiny=True, append_log=True)
         record["source_checkpoint"] = str(checkpoint)
         record["epoch"] = epoch
         record_epoch(result, record)
@@ -259,8 +280,10 @@ def continue_training(run: Path, env: dict) -> None:
     if shutil.disk_usage(run).free < 20_000_000_000 or shutil.disk_usage("/mnt/c").free < 10_000_000_000:
         raise RuntimeError("Insufficient disk reserve")
     status("training_resumed", checkpoint=approval["checkpoint"], checkpoint_policy=approval["checkpoint_policy"])
-    with (ROOT / "logs/mlm-p1-v2-resume-cpu-load-train.log").open("x") as log:
-        process = subprocess.Popen([str(PYTHON), str(Path(__file__).resolve()), "--worker"], cwd=ROOT, env=env,
+    attempt = approval.get("attempt_id", "cpu-load")
+    log_path = ROOT / f"logs/mlm-p1-v2-resume-{attempt}-train.log"
+    with log_path.open("x") as log:
+        process = subprocess.Popen([str(PYTHON), str(Path(__file__).resolve()), "--worker", "--approval", str(APPROVAL)], cwd=ROOT, env=env,
                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         def terminate(sig, frame):
             if process.poll() is None:
@@ -273,6 +296,16 @@ def continue_training(run: Path, env: dict) -> None:
                 os.killpg(process.pid, signal.SIGTERM)
                 process.wait(timeout=60)
                 raise RuntimeError("Disk reserve below 10 GB")
+            if time.time() - log_path.stat().st_mtime > 600:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=30)
+                raise RuntimeError("No training log progress for 10 minutes")
+            status("training_resumed", checkpoint=approval["checkpoint"], worker_pid=process.pid,
+                   log=str(log_path), attempt=attempt, checkpoint_policy=approval["checkpoint_policy"])
             time.sleep(15)
         if process.returncode:
             raise RuntimeError(f"Resumed training failed: exit {process.returncode}; see resume log")
@@ -281,12 +314,16 @@ def continue_training(run: Path, env: dict) -> None:
 
 
 def main() -> None:
+    global APPROVAL
     import fcntl
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--resume-after-evaluation", action="store_true")
     parser.add_argument("--worker", action="store_true")
+    parser.add_argument("--finish-only", action="store_true")
+    parser.add_argument("--approval", type=Path, default=APPROVAL)
     args = parser.parse_args()
+    APPROVAL = args.approval
     if os.environ.get("P1_TRAINING_APPROVED") != "yes":
         raise RuntimeError("P1 approval required")
     os.chdir(ROOT)
@@ -301,6 +338,9 @@ def main() -> None:
                 if subprocess.check_output(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"], text=True).strip():
                     raise RuntimeError("GPU already has a compute process")
                 run = locate_run()
+                if args.finish_only:
+                    finish_measurements(run, environment())
+                    return
                 if not args.resume_after_evaluation:
                     evaluate_saved_epochs(run, environment())
                 if args.evaluate_only:
@@ -308,7 +348,7 @@ def main() -> None:
                 else:
                     continue_training(run, environment())
         except Exception as exc:
-            status("failed", error=str(exc))
+            status("recovering" if os.environ.get("P1_RECOVERY_SERVICE") == "yes" else "failed", error=str(exc))
             raise
 
 
