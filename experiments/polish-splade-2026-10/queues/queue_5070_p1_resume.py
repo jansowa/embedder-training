@@ -36,12 +36,12 @@ def locate_run() -> Path:
     return paths[0].parent.relative_to(ROOT)
 
 
-def validate_checkpoint(path: Path, expected_step: int | None = None) -> dict:
+def validate_checkpoint(path: Path, expected_step: int | None = None, *, expected_max_steps: int = 32595) -> dict:
     required = ("model.safetensors", "trainer_state.json", "optimizer.pt", "scheduler.pt", "rng_state.pth")
     if any(not (path / name).is_file() or not (path / name).stat().st_size for name in required):
         raise ValueError(f"Incomplete resumable checkpoint: {path}")
     state = json.loads((path / "trainer_state.json").read_text())
-    if state.get("max_steps") != 32595 or (expected_step is not None and state.get("global_step") != expected_step):
+    if state.get("max_steps") != expected_max_steps or (expected_step is not None and state.get("global_step") != expected_step):
         raise ValueError("Unexpected checkpoint step or training duration")
     return state
 

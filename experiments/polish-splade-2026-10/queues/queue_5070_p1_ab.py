@@ -73,7 +73,7 @@ class Components:
         return {k: self.sums[k] / n for k, n in self.counts.items() if n}
 
 
-def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab") -> int:
+def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab", resume_from_checkpoint: Path | None = None) -> int:
     if os.environ.get("P1_AB_APPROVED") != "yes":
         raise RuntimeError("A/B approval required")
     sys.path.insert(0, str(ROOT))
@@ -95,6 +95,8 @@ def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab") -> int
     backend._load_sparse_kl_plus_mnrl_loss = instrumented_loader
     started = time.monotonic()
     result = {"tag": tag, "config": str(config), "config_sha256": digest(config), "started_at": now()}
+    if resume_from_checkpoint is not None:
+        result.update(resumed_from=str(resume_from_checkpoint), components_scope="resumed segment")
     class Monitor(TrainerCallback):
         def on_log(self, args, state, control, logs=None, **kwargs):
             logs = logs or {}
@@ -113,7 +115,10 @@ def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab") -> int
                           components_mean=components.means(), components_last_log=components.last)
             return control
     attach_checkpoint_observer(Monitor)
-    rc = train_main(["--config", str(config)])
+    command = ["--config", str(config)]
+    if resume_from_checkpoint is not None:
+        command.extend(["--resume-from-checkpoint", str(resume_from_checkpoint)])
+    rc = train_main(command)
     if rc:
         return rc
     if tag == "smoke":
@@ -125,6 +130,7 @@ def worker(config: Path, tag: str, *, artifact_prefix: str = "mlm-p1-ab") -> int
         raise RuntimeError("A/B final model missing")
     from training.backends.splade_checkpoint_compat import add_decoder_bias_alias
     add_decoder_bias_alias(Path(result["final"]))
+    result["final_weights_sha256"] = digest(Path(result["final"]) / "model.safetensors")
     result["finished_at"] = now()
     save_json(ROOT / f"logs/{artifact_prefix}-{tag}-result.json", result)
     return 0

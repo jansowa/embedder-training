@@ -69,3 +69,25 @@ jeszcze ustalona. Nie stosujemy reguły doboru wagi wyłącznie z wartości loss
 - Wyjścia: `cache/mlm-p1-v2-continuation-ab-runs` na dysku WSL, przez symlinki z `runs/`.
 - Wyniki: `results/data/mlm-p1-v2-continuation-ab.json` oraz
   `results/summary_5070_mlm_p1_continuation_ab.md`.
+
+## Wznowienie po wyłączeniu komputera
+
+Od 2026-11-10 usługa przekazuje `--resume`, gdy istnieje zamrożony manifest
+`bound.json`. Nadzorca porównuje start, konfiguracje, szablony i sumy danych
+z pierwotną zgodą. Gotowy smoke i gotowe ramiona wykorzystuje ponownie.
+Przerwane ramię odtwarza z najnowszego kompletnego checkpointu wraz
+z optymalizatorem, schedulerem i RNG; kontrola obejmuje długość safetensors
+oraz pełne CRC archiwów stanu. Uszkodzony nowszy zapis jest pomijany.
+
+Runtime zapisuje co **100 kroków**, zachowuje dwa ostatnie zapisy i kopię
+końca epoki. Dotyczy to obu ramion. Zamrożone konfiguracje pozostają
+niezmienione; odstęp zapisu jest rejestrowany w osobnym manifeście runtime.
+Batch 8 × akumulacja 4, brak GradCache i pozostałe parametry są bez zmian.
+Metryki utraconej gałęzi po ostatnim checkpointcie są archiwizowane osobno,
+aby nie mieszać ich z odtworzonym przebiegiem. Średnie składników lossu
+w wyniku wznowionego procesu opisują jego segment (`components_scope`).
+
+Przerwanie 10 listopada nastąpiło na kroku 399 ramienia KL, przed zapisem
+500. Ostatni checkpoint był z kroku 1, więc około 20 minut obliczeń trzeba
+powtórzyć. Wznowienie zachowało oryginalny katalog i potwierdziło wszystkie
+107 tensorów. Nowy checkpoint 2 przeszedł pełną kontrolę integralności.

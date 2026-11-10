@@ -141,7 +141,7 @@ def test_supervisor_binds_best_start_then_smoke_and_only_two_arms(monkeypatch, t
     approval = tmp_path / "logs/approval.json"
     approval.write_text(json.dumps({"pool_sha256": "pool-sha", "data_sha256": sha(data), "templates": specs}))
     calls = []
-    def run_arm(spec, tag, start_path, env):
+    def run_arm(spec, tag, start_path, env, **options):
         cfg = yaml.safe_load(Path(spec["snapshot"]).read_text())
         assert cfg["architectures"] == [str(start)]
         assert cfg["hparams"][0]["document_regularizer_weight"] == .0024
@@ -149,7 +149,7 @@ def test_supervisor_binds_best_start_then_smoke_and_only_two_arms(monkeypatch, t
         calls.append(tag)
         return {"tag": tag, "final": str(tmp_path / tag / "final")}
     monkeypatch.setitem(namespace, "run_arm", run_arm)
-    def measured(checkpoint, label, env):
+    def measured(checkpoint, label, env, **options):
         return {"checkpoint": str(checkpoint), "label": label, "density": costs,
                 "tiny10": 62.2 if label.endswith("-kl") else 63.1}
     monkeypatch.setitem(namespace, "measure_model", measured)
@@ -171,3 +171,17 @@ def test_supervisor_binds_best_start_then_smoke_and_only_two_arms(monkeypatch, t
     assert result["start_provenance"]["epoch"] == 2
     assert result["selected_label"] == "mlm-p1-continue-ab-kl-mnrl"
     assert json.loads((tmp_path / "logs/ab.json").read_text())["status"] == "completed"
+    # A restart must reuse the frozen binding instead of rejecting it or
+    # changing the selected start/configuration.
+    bound_path = tmp_path / "logs/mlm-p1-continue-ab-bound.json"
+    original_binding = bound_path.read_bytes()
+    calls.clear()
+    fn(approval, resume=True)
+    assert calls == ["smoke", "kl", "kl-mnrl"]
+    assert bound_path.read_bytes() == original_binding
+    frozen = tmp_path / "logs/mlm-p1-continue-ab-kl-bound.yaml"
+    frozen.write_text(frozen.read_text() + "# changed after approval\n")
+    calls.clear()
+    with pytest.raises(ValueError, match="Frozen continuation configuration"):
+        fn(approval, resume=True)
+    assert calls == []

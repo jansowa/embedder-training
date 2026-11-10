@@ -20,8 +20,8 @@ SERVICE_STATE = ROOT / "logs/mlm-p1-systemd-service.json"
 BASE_APPROVAL = ROOT / "logs/mlm-p1-resume-approval.json"
 
 
-def intact_checkpoint(path: Path) -> dict:
-    state = validate_checkpoint(path)
+def intact_checkpoint(path: Path, *, max_steps: int = 32595) -> dict:
+    state = validate_checkpoint(path, expected_max_steps=max_steps)
     weights = path / "model.safetensors"
     with weights.open("rb") as handle:
         header_size = struct.unpack("<Q", handle.read(8))[0]
@@ -131,9 +131,12 @@ def main() -> int:
     if result.exists() and json.loads(result.read_text()).get("status") == "completed":
         print("Continuation A/B already completed", flush=True)
         return 0
-    code = subprocess.run([str(PYTHON), str(Path(__file__).with_name("queue_5070_p1_continue_ab.py"))],
+    command = [str(PYTHON), str(Path(__file__).with_name("queue_5070_p1_continue_ab.py"))]
+    if (ROOT / "logs/mlm-p1-continue-ab-bound.json").exists():
+        command.append("--resume")
+    code = subprocess.run(command,
                           cwd=ROOT, env=environment()).returncode
-    # A/B preserves partial outputs for inspection instead of implicitly repeating an arm.
+    # Resume requires matching frozen provenance and an intact optimizer checkpoint.
     return 0 if code == 0 else 2
 
 
