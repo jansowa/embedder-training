@@ -1,0 +1,48 @@
+backend: sentence-transformers
+training_type: splade
+
+# Stage 3 of the KD-continued ALBERT student (models/kd-hl-r2) on n5 + kj with the three-way teacher (soup-v9b + PolDense-400M + the cross-encoder); the same recipe as stage3_hl_r2_n5kj_ens400.yaml, only the teacher scores differ.
+# distilled further from arm-dense-kl-n5kj-ens400-r2v12 on a 600 k-text subset of kd_v1), on the n5 + kj rows with the
+# ensemble teacher scores; the same recipe as stage3_hl_full_n5kj_ens400.yaml, so the two arms differ only in the KD pass.
+runs_dir: runs/arm-hl-r2-s3n5kj-ens3
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-tens3.jsonl
+
+architectures:
+  - models/kd-hl-r2
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

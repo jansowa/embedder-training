@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "soup-v16",
+  "model": "/home/jsowa/work/FlagEmbedding/models/soup-v16",
+  "taskset": "heldout8_1z10",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-1z10": 49.39012767751414
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 49.39012767751414
+}

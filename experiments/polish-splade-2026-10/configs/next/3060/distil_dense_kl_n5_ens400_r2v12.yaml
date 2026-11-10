@@ -1,0 +1,48 @@
+backend: sentence-transformers
+training_type: splade
+
+# Round 2 from soup-v12 on the n5 rows alone (18 073 gated fiqa + squadv2-v2 rows, no colleague rows): the r2v12 recipe
+# without kj. Question (v44/v45): r2v12 lost trec-covid (66.02 against 69.4-70.2 for soup-v9b / soup-v12-bias005);
+# when the colleague rows (64 % legal) are the cause, this arm keeps trec-covid and gives up some of legal-questions.
+runs_dir: runs/arm-dense-kl-n5-ens400-r2v12
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/fiqa-plus-squadv2v2-18k-tens400.jsonl
+
+architectures:
+  - models/soup-v12
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

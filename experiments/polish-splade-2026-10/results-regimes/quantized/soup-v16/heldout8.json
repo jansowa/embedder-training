@@ -12,8 +12,10 @@
     "mfaq": 63.29,
     "poleval-2022-test-a-legal-questions": 84.362,
     "maupqa-wiki-def": 67.6636,
-    "scidocs-pl": 14.9009
+    "scidocs-pl": 14.9009,
+    "fiqa-pl": 31.021210407316907,
+    "maupqa-1z10": 49.39012767751414
   },
-  "n_tasks": 6,
-  "mean_ndcg@10": 44.23503333333333
+  "n_tasks": 8,
+  "mean_ndcg@10": 43.22769226060388
 }

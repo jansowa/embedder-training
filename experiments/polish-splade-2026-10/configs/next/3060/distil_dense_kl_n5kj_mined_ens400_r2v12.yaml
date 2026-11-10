@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# Round 2 from soup-v12 on the n5 + kj queries and positives with STUDENT-MINED negatives: r2v12 ranks the passages of each row group (own texts only), 5 best + 5 random of its top-60 inside a 0.5-2.0 length window of the positive (kitchen bridge/splade_mine_row_negatives.py); scores = the two-way ensemble (soup-v9b + PolDense-400M) as in r2v12. Compared with r2v12 (64.20 / 43.15, trec-covid 67.02): the old negatives leave the teacher a near one-hot target (P(pos) 0.997 median at T = 2); do harder candidates carry more signal.
+runs_dir: runs/arm-dense-kl-n5kj-mined-ens400-r2v12
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-mined-tens400.jsonl
+
+architectures:
+  - models/soup-v12
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

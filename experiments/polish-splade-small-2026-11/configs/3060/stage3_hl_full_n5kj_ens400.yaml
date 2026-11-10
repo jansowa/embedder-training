@@ -1,0 +1,50 @@
+backend: sentence-transformers
+training_type: splade
+
+# Stage 3 of the ALBERT student (models/kd-b4-l0125-f1536-hl-r256-w-full, the full KD from soup-v9b) on the n5 + kj rows
+# with the ensemble teacher scores (-tens400), the r2v12 recipe of the full model (512 tokens, 10 negatives, lr 2e-5,
+# 2 epochs, 2 x 16, sparse_distill_kl_div, FLOPS 0.001 / 5e-5, no 23.5 filter). The s3 stage 3 used the n4 rows with
+# soup-v9b scores (62.97 / 42.10); the question is how much of the full model's gain from these rows (64.20 / 43.15)
+# the student takes without a new KD pass.
+runs_dir: runs/arm-hl-full-s3n5kj
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-tens400.jsonl
+
+architectures:
+  - models/kd-b4-l0125-f1536-hl-r256-w-full
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

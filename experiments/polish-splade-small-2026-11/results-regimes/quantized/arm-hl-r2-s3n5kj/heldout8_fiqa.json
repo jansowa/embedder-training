@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-hl-r2-s3n5kj",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-hl-r2-s3n5kj",
+  "taskset": "heldout8_fiqa",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "fiqa-pl": 30.03062893514244
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 30.03062893514244
+}
