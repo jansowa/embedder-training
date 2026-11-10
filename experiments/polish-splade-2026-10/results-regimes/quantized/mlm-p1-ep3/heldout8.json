@@ -1,0 +1,19 @@
+{
+  "regime": "quantized",
+  "label": "mlm-p1-ep3",
+  "model": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-3",
+  "taskset": "heldout8",
+  "max_seq_length": 512,
+  "tasks": {
+    "maupqa-gpt3.5-cc": 20.370991041808832,
+    "maupqa-multilingual-NLI": 13.637271047764932,
+    "mfaq": 61.681679477005225,
+    "poleval-2022-test-A-legal-questions": 84.8342711785737,
+    "maupqa-wiki-def": 63.7477516265197,
+    "scidocs-pl": 12.516166631191798,
+    "maupqa-1z10": 47.45224222765507,
+    "fiqa-pl": 25.94830822872923
+  },
+  "n_tasks": 8,
+  "mean_ndcg@10": 41.27358518240606
+}

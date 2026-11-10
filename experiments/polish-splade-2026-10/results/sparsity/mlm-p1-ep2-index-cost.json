@@ -1,0 +1,28 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "mlm-p1-ep2": {
+      "doc_active_mean": 418.2422222222222,
+      "doc_active_median": 418.0,
+      "query_active_mean": 87.11259259259259,
+      "query_active_median": 13.0,
+      "postings_per_query": 5860.827407407407,
+      "flops": 4.445911407470703,
+      "doc_weight_sum_mean": 413.52032470703125,
+      "query_weight_sum_mean": 89.4499282836914,
+      "min_weight": {
+        "0.05": {
+          "doc_active_mean": 408.9266666666667,
+          "doc_active_median": 407.0,
+          "query_active_mean": 85.29851851851852,
+          "query_active_median": 13.0,
+          "postings_per_query": 5633.7555555555555,
+          "flops": 4.441476821899414,
+          "doc_weight_sum_mean": 413.2611083984375,
+          "query_weight_sum_mean": 89.39942169189453
+        }
+      }
+    }
+  }
+}

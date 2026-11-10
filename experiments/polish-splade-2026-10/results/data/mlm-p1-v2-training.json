@@ -1,0 +1,145 @@
+{
+  "status": "completed",
+  "epochs": [
+    {
+      "checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-1",
+      "label": "mlm-p1-ep1",
+      "tiny10": 59.239718948349335,
+      "density": {
+        "doc_active_mean": 464.2437037037037,
+        "doc_active_median": 455.0,
+        "query_active_mean": 92.87037037037037,
+        "query_active_median": 11.0,
+        "postings_per_query": 5119.148148148148,
+        "flops": 4.474676132202148,
+        "doc_weight_sum_mean": 489.69970703125,
+        "query_weight_sum_mean": 100.5202865600586,
+        "min_weight": {
+          "0.05": {
+            "doc_active_mean": 454.9562962962963,
+            "doc_active_median": 445.0,
+            "query_active_mean": 91.01629629629629,
+            "query_active_median": 11.0,
+            "postings_per_query": 4930.343703703704,
+            "flops": 4.470667839050293,
+            "doc_weight_sum_mean": 489.4407958984375,
+            "query_weight_sum_mean": 100.46914672851562
+          }
+        }
+      },
+      "measured_at": "2026-11-10T07:22:35+01:00",
+      "evaluation_seconds": 32.92,
+      "source_checkpoint": "runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0001-step-10866",
+      "epoch": 1
+    },
+    {
+      "checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-2",
+      "label": "mlm-p1-ep2",
+      "tiny10": 60.33142117087981,
+      "density": {
+        "doc_active_mean": 418.2422222222222,
+        "doc_active_median": 418.0,
+        "query_active_mean": 87.11259259259259,
+        "query_active_median": 13.0,
+        "postings_per_query": 5860.827407407407,
+        "flops": 4.445911407470703,
+        "doc_weight_sum_mean": 413.52032470703125,
+        "query_weight_sum_mean": 89.4499282836914,
+        "min_weight": {
+          "0.05": {
+            "doc_active_mean": 408.9266666666667,
+            "doc_active_median": 407.0,
+            "query_active_mean": 85.29851851851852,
+            "query_active_median": 13.0,
+            "postings_per_query": 5633.7555555555555,
+            "flops": 4.441476821899414,
+            "doc_weight_sum_mean": 413.2611083984375,
+            "query_weight_sum_mean": 89.39942169189453
+          }
+        }
+      },
+      "measured_at": "2026-11-10T07:23:07+01:00",
+      "evaluation_seconds": 31.61,
+      "source_checkpoint": "runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0002-step-21732",
+      "epoch": 2
+    },
+    {
+      "checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-3",
+      "label": "mlm-p1-ep3",
+      "tiny10": 60.50974651972242,
+      "density": {
+        "doc_active_mean": 464.4807407407407,
+        "doc_active_median": 455.0,
+        "query_active_mean": 94.93407407407408,
+        "query_active_median": 13.0,
+        "postings_per_query": 5969.69037037037,
+        "flops": 4.421006679534912,
+        "doc_weight_sum_mean": 451.9096374511719,
+        "query_weight_sum_mean": 95.71760559082031,
+        "min_weight": {
+          "0.05": {
+            "doc_active_mean": 453.42,
+            "doc_active_median": 444.5,
+            "query_active_mean": 92.76074074074074,
+            "query_active_median": 13.0,
+            "postings_per_query": 5713.838518518519,
+            "flops": 4.4159255027771,
+            "doc_weight_sum_mean": 451.602783203125,
+            "query_weight_sum_mean": 95.65653228759766
+          }
+        }
+      },
+      "measured_at": "2026-11-10T07:33:00+01:00",
+      "evaluation_seconds": 593.14,
+      "source_checkpoint": "runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0003-step-32595",
+      "epoch": 3,
+      "heldout8": 41.27358518240606
+    }
+  ],
+  "resumed": true,
+  "checkpoint_policy": {
+    "save_strategy": "steps",
+    "save_steps": 500,
+    "save_total_limit": 2,
+    "keep_epoch_checkpoints": true
+  },
+  "teacher": {
+    "rows": 347687,
+    "examples": 347687,
+    "ab_rows": 40000,
+    "dense_scale": 97.41069280910885,
+    "dense_sidecar": "/mnt/c/work/embedder-training-v2/datasets/arms/mlm-p1-kl-v2-tpd400.jsonl.teacher.json",
+    "recipe": "mean(soup-v12 dot product, already scaled PolDense cosine)",
+    "training_score_scale": 1.0,
+    "input_pool_sha256": "d1bdfea47314829bf3ba5c2caa5a1da49cece837298c7d35f08ffaf9d46885eb",
+    "sha256": "1a6055aad2e4d7eae7bcc228d4a1874245f87474d50d412fd4f600ecbef646da",
+    "ab_sha256": "9979c907979cb8783c1f7e62954d2d82555b94ca5438ac9a0b7b57ebd29e1f83",
+    "mnrl_rows": 301042,
+    "mnrl_sha256": "2184196c430d0ea6edb047bafa9888e123d8248128cf73b8118a05fd7122d6d9"
+  },
+  "config_sha256": "c145a7fc06c7e4e10387a86ad0911840bb5a22fe17a288abdf7ff3b18eac3e9e",
+  "measurements_after_training": true,
+  "pre_resume_tiny10": [
+    {
+      "epoch": 1,
+      "checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-1",
+      "source_checkpoint": "runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0001-step-10866",
+      "label": "mlm-p1-ep1",
+      "tiny10": 59.239718948349335,
+      "verified_pirb_original_loader": true
+    },
+    {
+      "epoch": 2,
+      "checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-2",
+      "source_checkpoint": "runs/arm-mlm-p1/sentence-transformers/splade/sdadas_polish-distilroberta-lr-2e-05-ep-3-loss-sparse_distill_kl_div-docreg-0_003-20261107-160555/epoch-checkpoints/epoch-0002-step-21732",
+      "label": "mlm-p1-ep2",
+      "tiny10": 60.33142117087981,
+      "verified_pirb_original_loader": true
+    }
+  ],
+  "g1": "density_outside_band",
+  "g1_policy": "informational; continue all three epochs",
+  "finished_at": "2026-11-10T08:02:06+01:00",
+  "best_checkpoint": "/mnt/c/work/embedder-training-v2/cache/mlm-p1-loadable-exports/epoch-3",
+  "best_within_density_band": false
+}
