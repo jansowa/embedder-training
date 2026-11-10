@@ -84,7 +84,7 @@ esac
 RAW="$CACHE/results_raw.json"
 extra=()
 [ "$REGIME" != new-backend ] && extra=(--results_json "$RAW")
-( cd "$DIR" && "$PYBIN" run_benchmark.py --models_config "$CFG" --benchmark_config "$BENCH" \
+( cd "$DIR" && "$PYBIN" "$REPO/scripts/run_pirb.py" run_benchmark.py --models_config "$CFG" --benchmark_config "$BENCH" \
     --data_dir "$REPO/third_party/pirb/data" --cache_dir "$CACHE" --scope full --overwrite "${extra[@]}" ) > "$LOG" 2>&1
 rc=$?
 

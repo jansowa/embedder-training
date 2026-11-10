@@ -80,3 +80,27 @@ def test_three_unclean_service_stops_do_not_launch_another_gpu_attempt(monkeypat
     monkeypatch.setitem(namespace, "locate_run", lambda: pytest.fail("Must not start another recovery attempt"))
     assert fn() == 2
     assert json.loads(service_state.read_text())["status"] == "failed"
+
+
+def test_finished_training_recovery_runs_evaluation_without_training(monkeypatch, tmp_path):
+    fn = MODULE["run_kl"]
+    namespace = fn.__globals__
+    run = tmp_path / "run"
+    (run / "final").mkdir(parents=True)
+    (run / "final/model.safetensors").write_bytes(b"saved model")
+    for key, value in (("SERVICE_STATE", tmp_path / "service.json"), ("STATE", tmp_path / "state.json"), ("ROOT", tmp_path)):
+        monkeypatch.setitem(namespace, key, value)
+    monkeypatch.setitem(namespace, "locate_run", lambda: run)
+    monkeypatch.setitem(namespace, "latest_intact", lambda _: (run / "checkpoint-32595", {"global_step": 32595}))
+    monkeypatch.setitem(namespace, "recovery_approval", lambda *args: tmp_path / "approval.json")
+    monkeypatch.setitem(namespace, "environment", lambda: {})
+    commands = []
+    def execute(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(namespace["subprocess"], "run", execute)
+    assert fn() == 0
+    assert len(commands) == 1
+    assert "--finish-only" in commands[0]
+    assert "--resume-after-evaluation" not in commands[0]
+    assert json.loads((tmp_path / "service.json").read_text())["status"] == "completed"

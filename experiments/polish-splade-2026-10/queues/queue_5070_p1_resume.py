@@ -241,6 +241,7 @@ def finish_measurements(run: Path, env: dict) -> None:
               "pre_resume_tiny10": evaluation["epochs"]}
     for epoch, step in ((1, 10866), (2, 21732), (3, 32595)):
         checkpoint = run / "epoch-checkpoints" / f"epoch-{epoch:04d}-step-{step}"
+        status("evaluating_epochs", training_completed=True, epoch=epoch, checkpoint=str(checkpoint))
         exported = loadable_checkpoint(checkpoint, epoch)
         record = measure_model(exported, f"mlm-p1-ep{epoch}", env, reuse_tiny=True, append_log=True)
         record["source_checkpoint"] = str(checkpoint)
@@ -249,6 +250,7 @@ def finish_measurements(run: Path, env: dict) -> None:
         save_json(RESULT, result)
         render_report(result)
     best = max(result["epochs"], key=lambda r: r["tiny10"])
+    status("evaluating_heldout", training_completed=True, label=best["label"], checkpoint=best["checkpoint"])
     subprocess.run(["bash", "scripts/pirb_regime_eval.sh", "quantized", best["label"], best["checkpoint"], "heldout8", "16", "512"],
                    cwd=ROOT, env=env, check=True)
     heldout = json.loads((EXP / f"results-regimes/quantized/{best['label']}/heldout8.json").read_text())
