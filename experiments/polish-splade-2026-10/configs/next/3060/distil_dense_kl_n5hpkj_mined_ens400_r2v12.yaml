@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# The mined arm with hard positives (queue v52): the 16 000 random gated SQuAD-v2 rows of n5 are replaced by 16 000 other gated rows where the ensemble teacher ranks the positive first and r2v12 does not; fiqa and kj rows unchanged; negatives mined by r2v12 from the rows' own passages, scored by the ensemble (soup-v9b + PolDense-400M). The r2v12 recipe from soup-v12.
+runs_dir: runs/arm-dense-kl-n5hpkj-mined-ens400-r2v12
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5hp-plus-kj-mined.jsonl
+
+architectures:
+  - models/soup-v12
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

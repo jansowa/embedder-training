@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# Segment 4 of 4 of the refreshed-negatives arm (queue v52): half an epoch from models/arm-dense-kl-n5kj-iter4-r2v12-s3 on rows whose negatives models/arm-dense-kl-n5kj-iter4-r2v12-s3 mined from the rows' own passages (5 best + 5 random of its top-60, length window 0.5-2.0), scored by the ensemble teacher (soup-v9b + PolDense-400M). Otherwise the r2v12 recipe.
+runs_dir: runs/arm-dense-kl-n5kj-iter4-r2v12-s4
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-iter4.jsonl
+
+architectures:
+  - models/arm-dense-kl-n5kj-iter4-r2v12-s3
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 0.5
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
