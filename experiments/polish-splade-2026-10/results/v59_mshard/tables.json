@@ -1,0 +1,182 @@
+{
+  "sampled_queries": 200000,
+  "good_pairs": 71618,
+  "top_k": 64,
+  "groups": {
+    "base polish-splade": {
+      "both": 59714,
+      "only_dense": 7258,
+      "only_splade": 1678,
+      "neither": 2968
+    },
+    "mined arm, bias 0.13": {
+      "both": 60985,
+      "only_dense": 5987,
+      "only_splade": 1769,
+      "neither": 2877
+    }
+  },
+  "band_by_rank": {
+    "base polish-splade": {
+      "< 0.2": [
+        873,
+        887,
+        307,
+        687
+      ],
+      "0.2-0.4": [
+        4772,
+        2764,
+        442,
+        293
+      ],
+      "0.4-0.6": [
+        9151,
+        3930,
+        420,
+        284
+      ],
+      "0.6-0.8": [
+        14472,
+        4107,
+        211,
+        83
+      ],
+      ">= 0.8": [
+        18355,
+        4413,
+        336,
+        185
+      ]
+    },
+    "mined arm, bias 0.13": {
+      "< 0.2": [
+        937,
+        918,
+        281,
+        618
+      ],
+      "0.2-0.4": [
+        4900,
+        2750,
+        376,
+        245
+      ],
+      "0.4-0.6": [
+        9429,
+        3839,
+        300,
+        217
+      ],
+      "0.6-0.8": [
+        14776,
+        3865,
+        173,
+        59
+      ],
+      ">= 0.8": [
+        18948,
+        4057,
+        190,
+        94
+      ]
+    }
+  },
+  "transitions": {
+    "< 0.2": {
+      "all": {
+        "pairs": 1497,
+        "to_rank_1": 192,
+        "worse": 440
+      },
+      "dense_top3": {
+        "pairs": 1194,
+        "to_rank_1": 183,
+        "worse": 328
+      }
+    },
+    "0.2-0.4": {
+      "all": {
+        "pairs": 3969,
+        "to_rank_1": 611,
+        "worse": 906
+      },
+      "dense_top3": {
+        "pairs": 3206,
+        "to_rank_1": 574,
+        "worse": 676
+      }
+    },
+    "0.4-0.6": {
+      "all": {
+        "pairs": 5212,
+        "to_rank_1": 1013,
+        "worse": 1031
+      },
+      "dense_top3": {
+        "pairs": 4350,
+        "to_rank_1": 954,
+        "worse": 770
+      }
+    },
+    "0.6-0.8": {
+      "all": {
+        "pairs": 4996,
+        "to_rank_1": 1042,
+        "worse": 788
+      },
+      "dense_top3": {
+        "pairs": 4318,
+        "to_rank_1": 998,
+        "worse": 590
+      }
+    },
+    ">= 0.8": {
+      "all": {
+        "pairs": 5381,
+        "to_rank_1": 1427,
+        "worse": 686
+      },
+      "dense_top3": {
+        "pairs": 4749,
+        "to_rank_1": 1367,
+        "worse": 529
+      }
+    }
+  },
+  "H": {
+    "pairs": 0,
+    "kept_bands": [],
+    "skipped_bands": {
+      "< 0.2": {
+        "share_to_rank_1": 0.1283,
+        "pairs_at_base_rank_2_50": 1497,
+        "candidates_lost": 1199
+      },
+      "0.2-0.4": {
+        "share_to_rank_1": 0.1539,
+        "pairs_at_base_rank_2_50": 3969,
+        "candidates_lost": 3126
+      },
+      "0.4-0.6": {
+        "share_to_rank_1": 0.1944,
+        "pairs_at_base_rank_2_50": 5212,
+        "candidates_lost": 4139
+      },
+      "0.6-0.8": {
+        "share_to_rank_1": 0.2086,
+        "pairs_at_base_rank_2_50": 4996,
+        "candidates_lost": 4038
+      }
+    },
+    "highest_band_excluded": ">= 0.8",
+    "available_by_band": {},
+    "taken_by_band": {},
+    "rows": 0,
+    "min_for_the_arm": 8000,
+    "max_rows": 20000,
+    "reach_threshold": 0.25,
+    "build_arm": false,
+    "by_rank_bucket": {}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "pairs": 500732,
+  "verdicts": 500732,
+  "queries": 388327,
+  "dropped": {
+    "benchmark query": 767
+  },
+  "eligible_queries": 387560,
+  "sampled_queries": 200000,
+  "pool_passages": 198026,
+  "good_pairs": 71618,
+  "seed": 42,
+  "good_definition": "relevance >= 2, query_polish natural, passage_polish natural"
+}
