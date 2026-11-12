@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# The large-pool arm with a false-negative filter (queue v57): the rows of the v53 arm (datasets/arms/n5-plus-kj-minedxl.jsonl) without the negatives the ensemble teacher (soup-v9b + PolDense-400M) scores at or above 0.95 x the best positive of the row, refilled from the same row's own-pool negatives (datasets/arms/n5-plus-kj-mined-tens400.jsonl) under the same threshold. Queries, positives and the r2v12 recipe from soup-v12 are unchanged.
+runs_dir: runs/arm-dense-kl-n5kj-minedxl-f95-ens400-r2v12
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-minedxl-f95.jsonl
+
+architectures:
+  - models/soup-v12
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
