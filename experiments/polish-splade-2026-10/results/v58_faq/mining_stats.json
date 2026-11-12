@@ -1,0 +1,18 @@
+{
+  "rows": 60000,
+  "teacher_positive_mass_median": 0.9819817370551371,
+  "teacher_positive_mass_above_095": 0.6548,
+  "rows_with_negative_above_positive": 3864,
+  "student_ranks_the_positive_first": 0.8675,
+  "negatives_by_pool": {
+    "own": 186179,
+    "webfaq-v1": 413821
+  },
+  "dense_scale": 84.19441654567078,
+  "old_rows_of_the_mined_arm": {
+    "rows": 20292,
+    "teacher_positive_mass_median": 0.852,
+    "teacher_positive_mass_above_095": 0.303,
+    "rows_with_negative_above_positive": 2658
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "student": "models/arm-dense-kl-n5kj-ens400-r2v12",
+  "teacher": "ensemble: mean(models/soup-v9b, OPI-PIB/PolDense-400M cosine x 84.19)",
+  "dense_scale": 84.19441654567078,
+  "rows": 20000,
+  "by_origin": {
+    "hard": 99643,
+    "random": 98164,
+    "outside_window": 2193,
+    "old": 0
+  },
+  "negatives_by_pool": {
+    "own": 62377,
+    "webfaq-v1": 137623
+  },
+  "negatives_from_shared_pool": 0.688115,
+  "teacher_positive_mass_median": 0.9812059396820514,
+  "teacher_positive_mass_above_095": 0.6511,
+  "rows_with_negative_above_positive": 1341,
+  "student_ranks_a_positive_first": 0.8666,
+  "teacher_ranks_a_positive_first": 0.93295,
+  "median_negative_chars": 234.0,
+  "top_k": 60,
+  "hard": 5,
+  "len_window": [
+    0.5,
+    2.0
+  ],
+  "pools": {
+    "webfaq-v1": 20000
+  },
+  "extra_pool": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/pool-answers.jsonl",
+  "extra_max": 0,
+  "extra_chars": [
+    1,
+    1000000
+  ],
+  "dense_texts_encoded_now": 78807,
+  "seed": 42
+}

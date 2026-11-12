@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# The FAQ arm (queue v58): the rows of the student-mined arm (datasets/arms/n5-plus-kj-mined-tens400.jsonl, unchanged) plus 20000 native Polish FAQ rows (WebFAQ v2 + clips/mqa after the selection funnel of the data kitchen: decontaminated against PIRB, two-reranker agreement, semantic dedup), negatives mined by r2v12 under the same rules (5 best + 5 random of its top-60, length window 0.5-2.0) from the answers of the funnel's pool, scored by the ensemble teacher (soup-v9b + PolDense-400M) with the fixed dense scale 84.19441654567078. The recipe of the mined arm from soup-v12, only the row file differs.
+runs_dir: runs/arm-dense-kl-n5kj-mined-faq20-ens400-r2v12
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-mined-faq20.jsonl
+
+architectures:
+  - models/soup-v12
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

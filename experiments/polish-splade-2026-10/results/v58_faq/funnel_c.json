@@ -1,0 +1,1761 @@
+{
+  "step": "c: question similarity",
+  "model": "OPI-PIB/PolDense-400M",
+  "input_rows": 78945,
+  "kept_rows": 64487,
+  "removed_generic_clusters": 10408,
+  "generic_centres": 4156,
+  "removed_near_duplicates": 4050,
+  "rule_generic": ">= 5 neighbours at cosine >= 0.85 from >= 3 domains; the question and those neighbours go",
+  "rule_dedup": "greedy in priority order, cosine >= 0.9 to a kept question",
+  "top_k": 64,
+  "pair_samples": {
+    "0.80-0.85": {
+      "pairs_in_the_neighbour_lists": 232385,
+      "examples": [
+        {
+          "cos": 0.828,
+          "a": "Jakie metody płatności są dostępne w SpinBetter Casino?",
+          "b": "Jakie metody płatności mogę wykorzystać w kasynie mobilnym online?",
+          "domain_a": "kasynopolska10.com",
+          "domain_b": "slotsjudge-pl.com"
+        },
+        {
+          "cos": 0.81,
+          "a": "Jak optycznie powiększyć mały przedpokój?",
+          "b": "Jak powiększyć małe usta?",
+          "domain_a": "mebloteka24.pl",
+          "domain_b": "neonia.com.pl"
+        },
+        {
+          "cos": 0.807,
+          "a": "Jakie materiały są używane w druku 3D?",
+          "b": "Jakie materiały są wykorzystywane w otulaczach?",
+          "domain_a": "kde.edu.pl",
+          "domain_b": "rozmowyodzieciach.pl"
+        },
+        {
+          "cos": 0.804,
+          "a": "Co to są dostępne w Homla kody rabatowe?",
+          "b": "Jakie są formy płatności w Homla online?",
+          "domain_a": "bravokupony.pl",
+          "domain_b": "wydawajdobrze.com"
+        },
+        {
+          "cos": 0.842,
+          "a": "Jak często trzeba odkamieniać czajnik elektryczny?",
+          "b": "Jak często powinno się odpowietrzać grzejniki?",
+          "domain_a": "barokko.pl",
+          "domain_b": "technonicol.pl"
+        },
+        {
+          "cos": 0.819,
+          "a": "Czy można wykonywać te ćwiczenia w biurze?",
+          "b": "Jaka jest prawidłowa postawa przy pracy w biurze?",
+          "domain_a": "bcptoken.pl",
+          "domain_b": "mojcodziennik.pl"
+        },
+        {
+          "cos": 0.808,
+          "a": "Czy brodzik można zamontować na poziomie podłogi?",
+          "b": "Jak zamontować wannę wolnostojącą?",
+          "domain_a": "123lazienka.pl",
+          "domain_b": "komfort-wanny.pl"
+        },
+        {
+          "cos": 0.802,
+          "a": "Jakie są główne zabytki i atrakcje historyczne w Crotone?",
+          "b": "Jakie są atrakcje turystyczne w L’Aquila?",
+          "domain_a": "wlochy-wiadomosci.pl",
+          "domain_b": "wlochy-wiadomosci.pl"
+        },
+        {
+          "cos": 0.803,
+          "a": "Jakie szczepienia przed wyjazdem na Madagaskar?",
+          "b": "Jakie szczepienia przed wyjazdem na Seszele wykonam w Krakowie?",
+          "domain_a": "tropicalmed.pl",
+          "domain_b": "tropicalmed.pl"
+        },
+        {
+          "cos": 0.817,
+          "a": "Jak długo trwa leczenie magnetoterapią?",
+          "b": "Jak długo zazwyczaj trwa terapia radzenia sobie z gniewem?",
+          "domain_a": "rehabilitacja-mazowsze.pl",
+          "domain_b": "rolecatcher.com"
+        },
+        {
+          "cos": 0.823,
+          "a": "Jaka jest różnica między Dragon Home a Dragon Professional?",
+          "b": "Jaka jest różnica między domową a Profesjonalna kostkarka do lodu?",
+          "domain_a": "blitzhandel24.pl",
+          "domain_b": "klarstein.pl"
+        },
+        {
+          "cos": 0.81,
+          "a": "Jak często powinno się pielęgnować sierść psa?",
+          "b": "Jak długo trwa linienie u psa?",
+          "domain_a": "cricksydog.pl",
+          "domain_b": "unizoo.pl"
+        },
+        {
+          "cos": 0.823,
+          "a": "które mieszkania w ustroniu morskim cieszą się największą popularnością?",
+          "b": "które domy gościnne w kopalinie cieszą się największą popularnością?",
+          "domain_a": "e-wczasy.pl",
+          "domain_b": "e-wczasy.pl"
+        },
+        {
+          "cos": 0.82,
+          "a": "Jakie składniki zawierają naturalne kremy do rąk?",
+          "b": "czy odżywczy balsam do ciała i rąk jest naturalny?",
+          "domain_a": "mandispa.pl",
+          "domain_b": "nutridome.pl"
+        },
+        {
+          "cos": 0.801,
+          "a": "Dlaczego warto zdecydować się na badania satysfakcji i zaangażowania pracowników?",
+          "b": "Dlaczego relacje z pracownikami są ważne?",
+          "domain_a": "badania-rynku.com.pl",
+          "domain_b": "ecommercebridge.pl"
+        },
+        {
+          "cos": 0.8,
+          "a": "Jak długo trwa proces redukcji etatu?",
+          "b": "Czy pracodawca musi uzasadnić redukcję etatu?",
+          "domain_a": "toptalents.io",
+          "domain_b": "toptalents.io"
+        },
+        {
+          "cos": 0.834,
+          "a": "Ile czasu zajmuje przelot z Warszawy na Rodos?",
+          "b": "Jak długo trwa lot z Phuket do Warszawa?",
+          "domain_a": "hoteleuropa.pl",
+          "domain_b": "opodo.pl"
+        },
+        {
+          "cos": 0.814,
+          "a": "Dlaczego warto sadzić kłącza kanny do doniczek?",
+          "b": "Dlaczego warto używać donic ze styropianu?",
+          "domain_a": "sensagri.eu",
+          "domain_b": "sklepogrodnik.pl"
+        },
+        {
+          "cos": 0.836,
+          "a": "Ile kosztuje strona One Page?",
+          "b": "Ile kosztuje strona internetowa / koszt wykonania strony www",
+          "domain_a": "jlprojekt.pl",
+          "domain_b": "vizim.pl"
+        },
+        {
+          "cos": 0.807,
+          "a": "Dlaczego warto inwestować w ergonomiczne meble biurowe?",
+          "b": "Dlaczego warto wybierać meble z recyklingu?",
+          "domain_a": "klonplyt.pl",
+          "domain_b": "kornig.pl"
+        },
+        {
+          "cos": 0.803,
+          "a": "Czy Betsafe bonus bez depozytu wymaga kodowania promocyjnego?",
+          "b": "Czy potrzebuję Billybets kod promocyjny do otrzymania bonusu?",
+          "domain_a": "kodybonusowe.net",
+          "domain_b": "kodybonusowe.net"
+        },
+        {
+          "cos": 0.808,
+          "a": "Czy mogę używać AI HTML designerów do tworzenia sklepów internetowych?",
+          "b": "Jak korzystać z generatora stron internetowych z AI?",
+          "domain_a": "mobiri.se",
+          "domain_b": "wowslider.com"
+        },
+        {
+          "cos": 0.834,
+          "a": "Jak zrobić własny korek do wanny?",
+          "b": "Jak zrobić oczko wodne samemu?",
+          "domain_a": "komfort-wanny.pl",
+          "domain_b": "ogrodwpigulce.pl"
+        },
+        {
+          "cos": 0.806,
+          "a": "Jak długo trwa proces odświeżania ubrań za pomocą parownicy?",
+          "b": "Jak długo trwa remont kawalerki?",
+          "domain_a": "ceneo.pl",
+          "domain_b": "pomyslnaremont.pl"
+        },
+        {
+          "cos": 0.816,
+          "a": "Jakie informacje są potrzebne do przygotowania wyceny na produkty z nadrukiem indywidualnym?",
+          "b": "Jakie informacje są potrzebne do wyceny znaku towarowego i marki?",
+          "domain_a": "t-pack.pl",
+          "domain_b": "alpha-capital.pl"
+        },
+        {
+          "cos": 0.843,
+          "a": "Gdzie mogę najtaniej kupić opony Nokian WR A4?",
+          "b": "Gdzie mogę najtaniej kupić opony Pirelli P Zero Corsa Asimmetrico 2?",
+          "domain_a": "ranking-opon.eu",
+          "domain_b": "ranking-opon.eu"
+        },
+        {
+          "cos": 0.817,
+          "a": "Czy MOTOEXPERT oferuje usługi audytu pojazdów firmowych i flotowych?",
+          "b": "Jakie korzyści dla firm leasingowych oferuje współpraca z MotoExpert?",
+          "domain_a": "rzeczoznawca-samochodowy.de",
+          "domain_b": "rzeczoznawca-samochodowy.de"
+        },
+        {
+          "cos": 0.805,
+          "a": "Jak dbać o plecak, by nie stracił wodoodporności?",
+          "b": "Jak dbać o wkładki do butów, aby zachowały swoje właściwości?",
+          "domain_a": "plecakownia.pl",
+          "domain_b": "bhp-shop.com"
+        },
+        {
+          "cos": 0.803,
+          "a": "Od kiedy śliniaki dla niemowląt?",
+          "b": "Kiedy można wprowadzić poduszkę dla dziecka?",
+          "domain_a": "bajum.pl",
+          "domain_b": "danex24.pl"
+        },
+        {
+          "cos": 0.817,
+          "a": "Jak długo trwa kurs dla konserwatorów sprzętu gaśniczego?",
+          "b": "Ile czasu ważna jest gaśnica samochodowa?",
+          "domain_a": "star.edu.pl",
+          "domain_b": "swiatmotoryzacji.com"
+        }
+      ]
+    },
+    "0.85-0.90": {
+      "pairs_in_the_neighbour_lists": 45493,
+      "examples": [
+        {
+          "cos": 0.899,
+          "a": "Jakie są korzyści współpracy z MotoExpert w procesie likwidacji szkód komunikacyjnych?",
+          "b": "Dlaczego warto wybrać MOTOEXPERT do obsługi szkody?",
+          "domain_a": "wyceny-szkod-po-wypadku.pl",
+          "domain_b": "wypadeksamochodowywaustrii.pl"
+        },
+        {
+          "cos": 0.883,
+          "a": "Jak wybrać odpowiedni miernik wilgotności?",
+          "b": "Jak dobrać odpowiedni osuszacz?",
+          "domain_a": "bbosa.pl",
+          "domain_b": "dombezwirusow.pl"
+        },
+        {
+          "cos": 0.864,
+          "a": "Jakie korzyści niesie ze sobą korzystanie z ekologicznych tekturowych pojemników na jedzenie?",
+          "b": "Jakie są korzyści z używania torb ekologicznych?",
+          "domain_a": "eko-opakowania.pl",
+          "domain_b": "eko-opakowania.pl"
+        },
+        {
+          "cos": 0.876,
+          "a": "czy projektujecie sklepy internetowe lub strony internetowe dla firm z wrocławia",
+          "b": "czy projektujecie sklepy internetowe lub strony internetowe dla firm z torunia",
+          "domain_a": "m16.pl",
+          "domain_b": "m16.pl"
+        },
+        {
+          "cos": 0.872,
+          "a": "5- Ile kosztuje usługa Kraków Bieżanów-Prokocim Budowlane na HomeRun?",
+          "b": "5- Ile kosztuje usługa Kraków Prądnik Biały Sprzątanie na HomeRun?",
+          "domain_a": "homerun.pl",
+          "domain_b": "homerun.pl"
+        },
+        {
+          "cos": 0.888,
+          "a": "Czy bonus bez depozytu można wykorzystać na dowolnej grze w kasynie?",
+          "b": "Czy mogę użyć bonusów od depozytu na wszystkie gry?",
+          "domain_a": "kasynoplonline.com",
+          "domain_b": "polandbcgame.com"
+        },
+        {
+          "cos": 0.883,
+          "a": "Jaki jest najprostszy sposób na pobranie wielu zdjęć lub filmów z Instagrama?",
+          "b": "Jak pobierać filmy z Instagrama za darmo?",
+          "domain_a": "igram.world",
+          "domain_b": "vidownloader.cc"
+        },
+        {
+          "cos": 0.862,
+          "a": "Czy kryptowaluty AI to dobra inwestycja?",
+          "b": "Czy inwestowanie w AI jest ryzykowne?",
+          "domain_a": "coinjournal.net",
+          "domain_b": "beincrypto.com"
+        },
+        {
+          "cos": 0.876,
+          "a": "Czy boostowanie zwycięstw w LoL jest bezpieczne?",
+          "b": "Czy boostowanie w Overwatch 2 jest bezpieczne?",
+          "domain_a": "eloking.com",
+          "domain_b": "eloking.com"
+        },
+        {
+          "cos": 0.894,
+          "a": "Co to jest AI Builder stron afiliacyjnych?",
+          "b": "Czym jest builder sklepu dropshippingowego AI?",
+          "domain_a": "mobiri.se",
+          "domain_b": "mobiri.se"
+        },
+        {
+          "cos": 0.859,
+          "a": "Jak czyścić płyty z betonu?",
+          "b": "jak czyścić płytki ścienne?",
+          "domain_a": "weneve.com",
+          "domain_b": "salonyhoff.pl"
+        },
+        {
+          "cos": 0.859,
+          "a": "O której godzinie można się zameldować i wymeldować z Holiday Inn Zocalo?",
+          "b": "O której godzinie można się zameldować i wymeldować z Hotel Huerta Honda?",
+          "domain_a": "trivago.pl",
+          "domain_b": "trivago.pl"
+        },
+        {
+          "cos": 0.873,
+          "a": "Jak długo trwa zazwyczaj sesja terapii energetycznej?",
+          "b": "Jak długo trwa sesja refleksologii?",
+          "domain_a": "rolecatcher.com",
+          "domain_b": "rpklublin.pl"
+        },
+        {
+          "cos": 0.854,
+          "a": "Jakie nowoczesne elementy mogę dodać do architektury mojego ogrodu?",
+          "b": "Jakie elementy wodne najlepiej komponują się z nowoczesnym ogrodem?",
+          "domain_a": "buskozdroj24.pl",
+          "domain_b": "livendo.pl"
+        },
+        {
+          "cos": 0.864,
+          "a": "Czy zapewnienie nagród za udział w badaniu satysfakcji klienta jest konieczne?",
+          "b": "Jakie korzyści płyną z motywowania klientów do uczestnictwa w badaniu dotyczącym satysfakcji?",
+          "domain_a": "badania-satysfakcji-klientow.pl",
+          "domain_b": "badanie-opinii.pl"
+        },
+        {
+          "cos": 0.872,
+          "a": "Kiedy będą pierwsze wyniki SEO pojawiła się promocja? sztuczne kryształy w Augustowie?",
+          "b": "Kiedy będą pierwsze wyniki SEO pojawiła się promocja? skoki kangoo w Augustowie?",
+          "domain_a": "seo.computer",
+          "domain_b": "seo.computer"
+        },
+        {
+          "cos": 0.85,
+          "a": "Jakie rodzaje napraw gwarancyjnych wykonuje motoexpert?",
+          "b": "Jakie usługi oferuje MOTOEXPERT po kolizji?",
+          "domain_a": "rzeczoznawca-samochodowy.de",
+          "domain_b": "wypadek-samochodowy-w-niemczech.pl"
+        },
+        {
+          "cos": 0.854,
+          "a": "Czy Polacy mogą grać w wypłacalnych kasynach internetowych?",
+          "b": "Czy niemieckie kasyna są dostępne dla polskich graczy?",
+          "domain_a": "kasynoonline.io",
+          "domain_b": "polskiekasynaonline24.com"
+        },
+        {
+          "cos": 0.898,
+          "a": "Czy MOTOEXPERT oferuje pomoc w likwidacji szkód komunikacyjnych w Niemczech?",
+          "b": "Czy MOTOEXPERT zajmuje się tylko sprawami odszkodowań za wypadki komunikacyjne?",
+          "domain_a": "wypadeksamochodowywpolsce.pl",
+          "domain_b": "wypadeksamochodowywpolsce.pl"
+        },
+        {
+          "cos": 0.852,
+          "a": "Jaka jest rola ergonomicznych krzeseł obrotowych w miejscu pracy?",
+          "b": "Dlaczego meble do biura powinny być ergonomiczne?",
+          "domain_a": "uksslawa.pl",
+          "domain_b": "female.pl"
+        },
+        {
+          "cos": 0.874,
+          "a": "Czy można pomalować meble kuchenne z okleiny?",
+          "b": "Czy można wymienić okleinę na meblach?",
+          "domain_a": "meblowe-inspiracje.pl",
+          "domain_b": "parkmebli.pl"
+        },
+        {
+          "cos": 0.889,
+          "a": "Jak długo trwa proces pozycjonowania i kiedy można oczekiwać pierwszych rezultatów?",
+          "b": "po jakim czasie pojawią się efekty i jak sprawdzić wyniki pozycjonowania?",
+          "domain_a": "seosem24.pl",
+          "domain_b": "ks.pl"
+        },
+        {
+          "cos": 0.899,
+          "a": "Jaka jest różnica między kulturą masową a kulturą wysoką?",
+          "b": "Czym różni się kultura masowa od kultury popularnej?",
+          "domain_a": "kulturamasowa.pl",
+          "domain_b": "kulturamasowa.pl"
+        },
+        {
+          "cos": 0.872,
+          "a": "Czy można kupić Bitcoin anonimowo?",
+          "b": "Czy mogę zachować anonimowość grając Bitcoinem w kasynie online?",
+          "domain_a": "icobench.com",
+          "domain_b": "kasynaonlinepolskie.com"
+        },
+        {
+          "cos": 0.863,
+          "a": "Jakie są koszty wywozu szamba w województwie lubelskim?",
+          "b": "Jakie są koszty wywozu szamba we Wrocławiu?",
+          "domain_a": "slonik24.pl",
+          "domain_b": "slonik24.pl"
+        },
+        {
+          "cos": 0.852,
+          "a": "Jak długo trwa sesja zdjęciowa?",
+          "b": "Ile czasu trwa typowa sesja masażu?",
+          "domain_a": "michalkowalski.pl",
+          "domain_b": "polskie-spa.pl"
+        },
+        {
+          "cos": 0.854,
+          "a": "Jak dobrać odpowiednią obrożę elektryczną dla psa?",
+          "b": "Jaką obrożę wybrać dla szczeniaka?",
+          "domain_a": "bielskpodlaski24.pl",
+          "domain_b": "aquaelzoo.pl"
+        },
+        {
+          "cos": 0.867,
+          "a": "Jak mierzyć okno balkonowe i duże przeszklenia (karnisz i szyna)?",
+          "b": "Jak zmierzyć okna, aby dobrać odpowiednie firany i zasłony?",
+          "domain_a": "magdalena24.pl",
+          "domain_b": "magdalena24.pl"
+        },
+        {
+          "cos": 0.852,
+          "a": "Czy istnieją jakieś zagrożenia związane z magnesami neodymowymi walcowymi?",
+          "b": "Dlaczego trzeba uważać przy obchodzeniu się z neodymowymi magnesami?",
+          "domain_a": "dhit.pl",
+          "domain_b": "xinxin.pl"
+        },
+        {
+          "cos": 0.886,
+          "a": "Gdzie w Adamczowicach można naprawić filtr FAP do aut spod znaku Aixam?",
+          "b": "Jak w Chwaszczynie można wyremontować filtr FAP do aut sygnowanych logo Aixam?",
+          "domain_a": "filtry-dpf-fap.pl",
+          "domain_b": "filtry-dpf-fap.pl"
+        }
+      ]
+    },
+    "0.90-0.95": {
+      "pairs_in_the_neighbour_lists": 9411,
+      "examples": [
+        {
+          "cos": 0.919,
+          "a": "Który silnik jest najczęściej polecany dla Audi A4 B8?",
+          "b": "Jakie są dostępne opcje silników do modelu Audi A4 B8?",
+          "domain_a": "profesjonalnikierowcy.pl",
+          "domain_b": "profesjonalnikierowcy.pl"
+        },
+        {
+          "cos": 0.921,
+          "a": "Czy mogę zarobić na swojej muzyce za pomocą PIBEEP?",
+          "b": "Czy mogę sprzedawać swoje usługi muzyczne na PIBEEP?",
+          "domain_a": "pibeep.com",
+          "domain_b": "pibeep.com"
+        },
+        {
+          "cos": 0.902,
+          "a": "Czy YouTube może wykrywać filmy wyprodukowane przez AI?",
+          "b": "Czy mogę używać sztucznej inteligencji do tworzenia filmów na YouTube?",
+          "domain_a": "rask.ai",
+          "domain_b": "rask.ai"
+        },
+        {
+          "cos": 0.917,
+          "a": "Jaka jest rola pszczół w ekosystemie?",
+          "b": "Jakie jest znaczenie dzikich pszczół w ekosystemie?",
+          "domain_a": "malopolskie24.pl",
+          "domain_b": "pszczoly24.pl"
+        },
+        {
+          "cos": 0.932,
+          "a": "Czy mogę stracić cały swój majątek ogłaszając upadłość konsumencką?",
+          "b": "Czy upadłość konsumencka spowoduje utratę mojego majątku?",
+          "domain_a": "upadlosckonsumenckapolska.pl",
+          "domain_b": "upadlosckonsumenckapolska.pl"
+        },
+        {
+          "cos": 0.907,
+          "a": "Jakie usługi świadczy sieć MOTOEXPERT dla osób poszkodowanych w Niemczech?",
+          "b": "Jak firma MOTOEXPERT może pomóc osobie poszkodowanej w wypadku?",
+          "domain_a": "rzeczoznawca-samochodowy.de",
+          "domain_b": "wypadeksamochodowywpolsce.pl"
+        },
+        {
+          "cos": 0.903,
+          "a": "Jakie korzyści wynikają z korzystania z usług obsługi logistycznej sklepów internetowych?",
+          "b": "Czym jest obsługa logistyczna sklepów internetowych?",
+          "domain_a": "enemer.pl",
+          "domain_b": "enemer.pl"
+        },
+        {
+          "cos": 0.924,
+          "a": "Jak mogę zabezpieczyć swoją stronę WordPress przed atakami?",
+          "b": "Jak mogę zabezspieczyć swoją witrynę, która oparta o WordPress przed włamaniem się?",
+          "domain_a": "betterize.pl",
+          "domain_b": "webpanda.pl"
+        },
+        {
+          "cos": 0.901,
+          "a": "Jaka jest główna różnica między wełną mineralną a styropianem?",
+          "b": "Jakie są różnice między pianką PUR a wełną mineralną?",
+          "domain_a": "fastm.pl",
+          "domain_b": "komisreda.pl"
+        },
+        {
+          "cos": 0.92,
+          "a": "Co to jest tworzenie stron internetowych z pomocą sztucznej inteligencji?",
+          "b": "Co to jest kreator stron AI?",
+          "domain_a": "wowslider.com",
+          "domain_b": "wowslider.com"
+        },
+        {
+          "cos": 0.926,
+          "a": "Jakie warzywa i owoce można spożywać na diecie lekkostrawnej?",
+          "b": "Co można jeść przy diecie lekkostrawnej?",
+          "domain_a": "allevo.pl",
+          "domain_b": "koon.pl"
+        },
+        {
+          "cos": 0.917,
+          "a": "W jaki sposób MotoExpert pomaga w sprawach odszkodowawczych po wypadkach?",
+          "b": "Jakie są korzyści współpracy z MotoExpert w procesie likwidacji szkód komunikacyjnych?",
+          "domain_a": "rzeczoznawca-samochodowy.de",
+          "domain_b": "wyceny-szkod-po-wypadku.pl"
+        },
+        {
+          "cos": 0.933,
+          "a": "Czy potrzebuję własnej strony internetowej?",
+          "b": "Czy własna strona jest konieczna?",
+          "domain_a": "aleksandraniedzielska.pl",
+          "domain_b": "rankit.pl"
+        },
+        {
+          "cos": 0.941,
+          "a": "Czy AI może pomóc w SEO strony internetowej?",
+          "b": "Czy AI może pomóc w pozycjonowaniu stron?",
+          "domain_a": "mobiri.se",
+          "domain_b": "wowslider.com"
+        },
+        {
+          "cos": 0.901,
+          "a": "czy kupony xbox mogą łączyć się z innymi kuponami przy zamówieniu?",
+          "b": "czy kupony hotels mogą łączyć się z innymi kuponami przy zamówieniu?",
+          "domain_a": "noclegi-maja.pl",
+          "domain_b": "noclegi-maja.pl"
+        },
+        {
+          "cos": 0.912,
+          "a": "Jakie są różnice między TPE a silikonem w prawdziwych lalkach?",
+          "b": "Czym różnią się modele TPE i silikonowe?",
+          "domain_a": "hydoll.de",
+          "domain_b": "hydoll.de"
+        },
+        {
+          "cos": 0.923,
+          "a": "Gdzie kupić taśmę do pakowania?",
+          "b": "Gdzie kupię taśmę spinającą?",
+          "domain_a": "kartony24.eu",
+          "domain_b": "folie-kakol.pl"
+        },
+        {
+          "cos": 0.913,
+          "a": "Jakie materiały można ciąć laserem w HMM Steel?",
+          "b": "Jakie rury i profile można poddać cięciu laserowemu w HMM Steel?",
+          "domain_a": "hmmsteel.pl",
+          "domain_b": "hmmsteel.pl"
+        },
+        {
+          "cos": 0.901,
+          "a": "Dlaczego zrównoważone praktyki biznesowe są ważne dla polskich firm?",
+          "b": "Jakie znaczenie ma wdrażanie zielonych praktyk biznesowych dla polskich firm?",
+          "domain_a": "biogaz-tech.pl",
+          "domain_b": "liczevat.pl"
+        },
+        {
+          "cos": 0.906,
+          "a": "Czy poczta z kwiatami Gorzów Wielkopolski dostarcza wieńce pogrzebowe na cmentarz?",
+          "b": "Czy florystyczna poczta Poznań dowozi wieńce pogrzebowe na cmentarz?",
+          "domain_a": "laflora.pl",
+          "domain_b": "laflora.pl"
+        },
+        {
+          "cos": 0.939,
+          "a": "Czy mogę jeść spaghetti carbonara podczas ciąży?",
+          "b": "Jak bezpiecznie przygotować spaghetti carbonara podczas ciąży?",
+          "domain_a": "rozmowykobiece.pl",
+          "domain_b": "rozmowykobiece.pl"
+        },
+        {
+          "cos": 0.917,
+          "a": "Czy rumianek na pniu jest łatwy w uprawie?",
+          "b": "Czy margaretki na pniu są łatwe w uprawie?",
+          "domain_a": "malyogrod.pl",
+          "domain_b": "sensagri.eu"
+        },
+        {
+          "cos": 0.927,
+          "a": "Czy Jeton jest bezpieczną metodą płatności?",
+          "b": "Czy dokonywanie wpłat w kasynie za pośrednictwem Jeton jest bezpieczne?",
+          "domain_a": "bestcasinos-pl.com",
+          "domain_b": "kasyno-polskie-online.com"
+        },
+        {
+          "cos": 0.927,
+          "a": "Co lepsze: plecak czy torba na laptopa?",
+          "b": "Co lepsze tornister czy plecak?",
+          "domain_a": "plecakownia.pl",
+          "domain_b": "novakid.pl"
+        },
+        {
+          "cos": 0.916,
+          "a": "Ile czasu zajmuje wykonanie kuchnie na zamówienie w Szczecinie?",
+          "b": "Ile czasu zajmuje wykonanie kuchnie na zamówienie w Zielonej Górze?",
+          "domain_a": "kuchniekamduo.pl",
+          "domain_b": "kuchniekamduo.pl"
+        },
+        {
+          "cos": 0.949,
+          "a": "Jaką pojemność ma bateria w Xiaomi Redmi Note 9?",
+          "b": "Jakiej pojemności baterię zastosowano w Xiaomi Redmi Note 9S?",
+          "domain_a": "instrukcja-pdf.pl",
+          "domain_b": "instrukcja-pdf.pl"
+        },
+        {
+          "cos": 0.933,
+          "a": "Jak dokonać wypłaty pieniędzy z konta w kasynie 888Starz Casino?",
+          "b": "Jak wypłacić pieniądze z 888Starz?",
+          "domain_a": "polskiesloty.com",
+          "domain_b": "probukmacher.pl"
+        },
+        {
+          "cos": 0.903,
+          "a": "Ile trwa audyt energetyczny?",
+          "b": "Ile czasu zajmuje wykonanie audytu?",
+          "domain_a": "e-swiadectwa.com",
+          "domain_b": "mindu.pl"
+        },
+        {
+          "cos": 0.932,
+          "a": "Jak ocieplenie pianką PUR różni się od wełny mineralnej?",
+          "b": "Jak pianka pur wypada w porównaniu z wełną mineralną i styropianem?",
+          "domain_a": "budujemydom.pl",
+          "domain_b": "dcsystem.pl"
+        },
+        {
+          "cos": 0.904,
+          "a": "Czy możliwe jest dokonywanie wypłat z Paysafecard we wszystkich kasynach online?",
+          "b": "Czy mogę wypłacić wygrane z kasyna online za pomocą paysafecard?",
+          "domain_a": "goracekasyna.com",
+          "domain_b": "kasynopaysafecard.pl"
+        }
+      ]
+    }
+  },
+  "cluster_examples": [
+    {
+      "question": "Czy markizy kempingowe są łatwe w montażu?",
+      "domain": "elcamp.pl",
+      "neighbours": 8,
+      "domains": 8,
+      "examples": [
+        {
+          "cos": 0.929,
+          "question": "Czy szafki kempingowe są łatwe w montażu?",
+          "domain": "elcamp.pl"
+        },
+        {
+          "cos": 0.867,
+          "question": "Czy montaż rolet dzień noc jest trudny?",
+          "domain": "rolety24.net"
+        },
+        {
+          "cos": 0.862,
+          "question": "Czy bramy uchylne są łatwe w montażu?",
+          "domain": "kreatywnabudowa.pl"
+        },
+        {
+          "cos": 0.86,
+          "question": "Czy moskitiery na okna są łatwe w montażu?",
+          "domain": "knall.com.pl"
+        },
+        {
+          "cos": 0.858,
+          "question": "Czy mobilne regały są łatwe w montażu?",
+          "domain": "klaudynaczyta.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę grać w kasynie bez wpłacania pieniędzy?",
+      "domain": "topbonuzy.com",
+      "neighbours": 9,
+      "domains": 8,
+      "examples": [
+        {
+          "cos": 0.932,
+          "question": "Czy można grać w kasynie bez depozytu?",
+          "domain": "casinosinstructor.com"
+        },
+        {
+          "cos": 0.914,
+          "question": "Czy wygram w kasynie za prawdziwe pieniądze bez wpłaty?",
+          "domain": "polskiekasynaonline.net"
+        },
+        {
+          "cos": 0.911,
+          "question": "Czy można grać w kasynie online bez wydawania pieniędzy?",
+          "domain": "casinosgossip.com"
+        },
+        {
+          "cos": 0.906,
+          "question": "Czy możesz grać w kasyna online bez prawdziwych pieniędzy?",
+          "domain": "icecasino.com"
+        },
+        {
+          "cos": 0.881,
+          "question": "Czy mogę wygrać prawdziwe pieniądze bez dokonywania wpłaty?",
+          "domain": "onlinecasinopulse.com"
+        }
+      ]
+    },
+    {
+      "question": "Jakie są normy dotyczące czasu wiązania betonu B20?",
+      "domain": "schoolofknockingondoors.com",
+      "neighbours": 5,
+      "domains": 4,
+      "examples": [
+        {
+          "cos": 0.888,
+          "question": "Beton B20 – czas schnięcia",
+          "domain": "idealny-dom.pl"
+        },
+        {
+          "cos": 0.872,
+          "question": "Jak długo schnie beton B20?",
+          "domain": "chemik24.pl"
+        },
+        {
+          "cos": 0.864,
+          "question": "Ile czasu potrzeba, aby beton B20 całkowicie wyschnął?",
+          "domain": "idealny-dom.pl"
+        },
+        {
+          "cos": 0.861,
+          "question": "Jaka jest klasa wytrzymałości betonu B20?",
+          "domain": "krajowo.pl"
+        },
+        {
+          "cos": 0.851,
+          "question": "Jaki jest optymalny stosunek wody do cementu dla betonu B20?",
+          "domain": "nowacegla.pl"
+        }
+      ]
+    },
+    {
+      "question": "Ile kosztuje życie w Rzeszowie?",
+      "domain": "turystycznyninja.pl",
+      "neighbours": 9,
+      "domains": 8,
+      "examples": [
+        {
+          "cos": 0.888,
+          "question": "Ile kosztuje internet stacjonarny w Rzeszowie?",
+          "domain": "panwybierak.pl"
+        },
+        {
+          "cos": 0.869,
+          "question": "Ile kosztuje taksówka w Rzeszowie",
+          "domain": "supertaxi19622.pl"
+        },
+        {
+          "cos": 0.867,
+          "question": "Ile kosztuje życie w Tarnobrzegu?",
+          "domain": "turystycznyninja.pl"
+        },
+        {
+          "cos": 0.864,
+          "question": "Jakie są ceny wynajmu sali weselnej w lokalizacji Rzeszów?",
+          "domain": "weselna24.pl"
+        },
+        {
+          "cos": 0.863,
+          "question": "Ile kosztuje fotograf ślubny w Rzeszowie?",
+          "domain": "wedding.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jak zbudować stół ze starych desek krok po kroku?",
+      "domain": "eleganckie-stoly.pl",
+      "neighbours": 9,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.92,
+          "question": "Jak krok po kroku wykonać stół z palet?",
+          "domain": "eleganckie-stoly.pl"
+        },
+        {
+          "cos": 0.907,
+          "question": "Jak przebiega instrukcja krok po kroku tworzenia stołu z palet?",
+          "domain": "eleganckie-stoly.pl"
+        },
+        {
+          "cos": 0.907,
+          "question": "Jak zrobić stół ogrodowy z drewna?",
+          "domain": "eleganckie-stoly.pl"
+        },
+        {
+          "cos": 0.894,
+          "question": "Jak zrobić stół warsztatowy z drewna?",
+          "domain": "eleganckie-stoly.pl"
+        },
+        {
+          "cos": 0.891,
+          "question": "Jakie są podstawowe kroki do wykonania stołu warsztatowego z drewna?",
+          "domain": "eleganckie-stoly.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy picie wody z cytryną może mieć jakieś negatywne skutki?",
+      "domain": "krajowo.pl",
+      "neighbours": 6,
+      "domains": 4,
+      "examples": [
+        {
+          "cos": 0.886,
+          "question": "Co się stanie, jeśli będzie Pan/Pani codziennie pić wodę z cytryną?",
+          "domain": "ecosoft.com"
+        },
+        {
+          "cos": 0.883,
+          "question": "Jakie są główne korzyści zdrowotne z picia wody z cytryną?",
+          "domain": "twojeporadniki.pl"
+        },
+        {
+          "cos": 0.874,
+          "question": "Czy wypicie szklanki wody z cytryną na czczo rzeczywiście przynosi korzyści zdrowotne?",
+          "domain": "krajowo.pl"
+        },
+        {
+          "cos": 0.872,
+          "question": "Czy picie wody z cytryną sprzyja odchudzaniu?",
+          "domain": "twojeporadniki.pl"
+        },
+        {
+          "cos": 0.863,
+          "question": "Czy picie wody z cytryną “odkwasza” organizm?",
+          "domain": "twojeporadniki.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę samodzielnie zamontować fototapetę?",
+      "domain": "jakurzadzac.pl",
+      "neighbours": 16,
+      "domains": 12,
+      "examples": [
+        {
+          "cos": 0.948,
+          "question": "Czy mogę samodzielnie zamontować tapetę?",
+          "domain": "milejdi.pl"
+        },
+        {
+          "cos": 0.923,
+          "question": "Czy mogę samodzielnie zamontować tapety 3D?",
+          "domain": "galeriemebli.pl"
+        },
+        {
+          "cos": 0.894,
+          "question": "Czy mogę samodzielnie zamontować meble do ściany?",
+          "domain": "klonplyt.pl"
+        },
+        {
+          "cos": 0.885,
+          "question": "Czy panele ścienne można samodzielnie zamontować?",
+          "domain": "galeriemebli.pl"
+        },
+        {
+          "cos": 0.885,
+          "question": "Czy można samodzielnie usunąć tapetę?",
+          "domain": "albin.com.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy MOTOEXPERT pomaga również w uzyskaniu odszkodowania w euro?",
+      "domain": "wyceny-szkod-po-wypadku.pl",
+      "neighbours": 18,
+      "domains": 7,
+      "examples": [
+        {
+          "cos": 0.891,
+          "question": "Czy MOTOEXPERT Austria oferuje pomoc w uzyskaniu odszkodowania?",
+          "domain": "wypadeksamochodowywaustrii.pl"
+        },
+        {
+          "cos": 0.888,
+          "question": "Czy MOTOEXPERT oferuje również wsparcie prawne w dochodzeniu odszkodowania?",
+          "domain": "wypadeksamochodowywczechach.pl"
+        },
+        {
+          "cos": 0.882,
+          "question": "Czy MOTOEXPERT oferuje pomoc w likwidacji szkód komunikacyjnych w Niemczech?",
+          "domain": "wypadeksamochodowywpolsce.pl"
+        },
+        {
+          "cos": 0.876,
+          "question": "Czy mogę skorzystać z pomocy firmy MOTOEXPERT przy zgłoszeniu szkody w Niemczech?",
+          "domain": "wypadeksamochodowy.eu"
+        },
+        {
+          "cos": 0.875,
+          "question": "Czy firma MOTOEXPERT oferuje również pomoc prawną poszkodowanym w Niemczech?",
+          "domain": "wypadeksamochodowywpolsce.pl"
+        }
+      ]
+    },
+    {
+      "question": "Gdzie dokładnie leży Dubaj?",
+      "domain": "egzotycznywyjazd.pl",
+      "neighbours": 5,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.993,
+          "question": "Gdzie dokładnie znajduje się Dubaj?",
+          "domain": "podrozowacnajlepiej.pl"
+        },
+        {
+          "cos": 0.911,
+          "question": "Jakie jest położenie Dubaju na mapie Zjednoczonych Emiratów Arabskich?",
+          "domain": "wroclaw24.pl"
+        },
+        {
+          "cos": 0.903,
+          "question": "W jakim kraju znajduje się Dubaj?",
+          "domain": "hoteleuropa.pl"
+        },
+        {
+          "cos": 0.897,
+          "question": "Jakie jest położenie geograficzne Dubaju?",
+          "domain": "hoteleuropa.pl"
+        },
+        {
+          "cos": 0.852,
+          "question": "Nad jakim morzem leży Dubaj?",
+          "domain": "hoteleuropa.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy używanie Bitcoin w kasynach online jest bezpieczne?",
+      "domain": "onlinekasynopl.com",
+      "neighbours": 10,
+      "domains": 9,
+      "examples": [
+        {
+          "cos": 0.895,
+          "question": "Czy bezpiecznie jest używać Bitcoin Cash jako opcji bankowej dla hazardu online?",
+          "domain": "livecasinofinder.com"
+        },
+        {
+          "cos": 0.889,
+          "question": "Dlaczego warto używać Bitcoin w kasynach online?",
+          "domain": "hiwave.network"
+        },
+        {
+          "cos": 0.886,
+          "question": "Jak korzystać z Bitcoin w kasynach online?",
+          "domain": "casinos.cc"
+        },
+        {
+          "cos": 0.883,
+          "question": "Czy casino online Bitcoin jest legalnym miejscem do gry?",
+          "domain": "jednoreki-bandyta.pl"
+        },
+        {
+          "cos": 0.872,
+          "question": "Czy kasyna Bitcoin są legalne?",
+          "domain": "outkast-shop.com"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę wypłacić wygrane z bonusu bez depozytu w Vulkan Bet?",
+      "domain": "kasynopolska10.com",
+      "neighbours": 7,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.888,
+          "question": "Czy Vulkan Vegas Casino oferuje bonus bez depozytu?",
+          "domain": "kasynoplonline.com"
+        },
+        {
+          "cos": 0.887,
+          "question": "Czy Kasyno Vulkan Vegas oferuje bonus bez depozytu?",
+          "domain": "casinoonline-pl.com"
+        },
+        {
+          "cos": 0.872,
+          "question": "Czy mogę odebrać Vulkan Bet bonus bez depozytu dwa razy?",
+          "domain": "slotozilla-pl.com"
+        },
+        {
+          "cos": 0.864,
+          "question": "Czy jest możliwość skorzystania z dwóch bonusów bez depozytu w VulkanSpiele?",
+          "domain": "gryonline2.pl"
+        },
+        {
+          "cos": 0.859,
+          "question": "Czy jest potrzebny kod promocyjny Vulkan Vegas do uzyskania bonusu bez depozytu?",
+          "domain": "sizzlinghot-spot.com"
+        }
+      ]
+    },
+    {
+      "question": "Jak MOTOEXPERT Czechy może mi pomóc finansowo po wypadku drogowym?",
+      "domain": "wypadeksamochodowywpolsce.pl",
+      "neighbours": 22,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.933,
+          "question": "Jak MOTOEXPERT może pomóc w uzyskaniu odszkodowania za szkodę komunikacyjną w Czechach?",
+          "domain": "wypadeksamochodowywczechach.pl"
+        },
+        {
+          "cos": 0.894,
+          "question": "Jak firma MOTOEXPERT może pomóc osobie poszkodowanej w wypadku?",
+          "domain": "wypadeksamochodowywpolsce.pl"
+        },
+        {
+          "cos": 0.888,
+          "question": "Jakie korzyści daje skorzystanie z usług MOTOEXPERT przy likwidacji szkody w Czechach?",
+          "domain": "wypadeksamochodowywczechach.pl"
+        },
+        {
+          "cos": 0.888,
+          "question": "Jaką pomoc prawną oferuje MOTOEXPERT po wypadku samochodowym?",
+          "domain": "wypadeksamochodowywpolsce.pl"
+        },
+        {
+          "cos": 0.881,
+          "question": "W jaki sposób MotoExpert pomaga w sprawach odszkodowawczych po wypadkach?",
+          "domain": "rzeczoznawca-samochodowy.de"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę samodzielnie zamontować osłonę na grzejnik?",
+      "domain": "energetycznecentrum.pl",
+      "neighbours": 12,
+      "domains": 10,
+      "examples": [
+        {
+          "cos": 0.87,
+          "question": "Czy mogę samodzielnie zamontować kratę ochronną na mojej ładowarce?",
+          "domain": "agroglas.pl"
+        },
+        {
+          "cos": 0.869,
+          "question": "Czy mogę samodzielnie zamontować baterię termostatyczną?",
+          "domain": "bbosa.pl"
+        },
+        {
+          "cos": 0.867,
+          "question": "Czy mogę samodzielnie zainstalować kocioł grzewczy?",
+          "domain": "memex.pl"
+        },
+        {
+          "cos": 0.864,
+          "question": "Czy można samodzielnie zamontować wieszak na ręczniki?",
+          "domain": "emajsterkowicz.pl"
+        },
+        {
+          "cos": 0.863,
+          "question": "Czy mogę zamontować szynę zasłonową samodzielnie?",
+          "domain": "remonty-przebudowy-adaptacje.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jaki jest koszt wykonania ogrodzenia kutego?",
+      "domain": "muratordom.pl",
+      "neighbours": 10,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.898,
+          "question": "Ile kosztuje metal na ogrodzenie?",
+          "domain": "shemoans.pl"
+        },
+        {
+          "cos": 0.894,
+          "question": "Ile kosztuje ogrodzenie z siatki?",
+          "domain": "shemoans.pl"
+        },
+        {
+          "cos": 0.892,
+          "question": "Ile kosztuje ogrodzenie metalowe?",
+          "domain": "shemoans.pl"
+        },
+        {
+          "cos": 0.873,
+          "question": "Ile kosztuje brama i furtka do ogrodzenia?",
+          "domain": "shemoans.pl"
+        },
+        {
+          "cos": 0.87,
+          "question": "Jakie są koszty robocizny przy montażu ogrodzenia?",
+          "domain": "shemoans.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jak zamontować gałki do mebli?",
+      "domain": "meblownia.pl",
+      "neighbours": 7,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.912,
+          "question": "Jak zamontować uchwyty w meblach kuchennych?",
+          "domain": "marbelo.pl"
+        },
+        {
+          "cos": 0.909,
+          "question": "Jak zamontować kryształowe gałki?",
+          "domain": "meblowyuchwyt.pl"
+        },
+        {
+          "cos": 0.897,
+          "question": "Jak prawidłowo montować uchwyty meblowe?",
+          "domain": "deton.pl"
+        },
+        {
+          "cos": 0.889,
+          "question": "Jak zamontować uchwyty do mebli łazienkowych?",
+          "domain": "marbelo.pl"
+        },
+        {
+          "cos": 0.861,
+          "question": "Gdzie stosować gałki meblowe?",
+          "domain": "meblownia.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy sofa z funkcją relaks nadaje się do małego mieszkania?",
+      "domain": "umebluje.pl",
+      "neighbours": 9,
+      "domains": 9,
+      "examples": [
+        {
+          "cos": 0.877,
+          "question": "Czy duże kanapy są odpowiednie do małych pomieszczeń?",
+          "domain": "meblesid.pl"
+        },
+        {
+          "cos": 0.876,
+          "question": "Czy szafy przesuwne nadają się do małych mieszkań?",
+          "domain": "vipmeble.com.pl"
+        },
+        {
+          "cos": 0.869,
+          "question": "Czy styl loftowy sprawdzi się w małych mieszkaniach?",
+          "domain": "newstylemeble.pl"
+        },
+        {
+          "cos": 0.867,
+          "question": "Czy fotel nowoczesny sprawdzi się w małym mieszkaniu?",
+          "domain": "kb-london.com"
+        },
+        {
+          "cos": 0.863,
+          "question": "Czy rozkładane stoły jadalniane nadają się do małych przestrzeni?",
+          "domain": "boconcept.com"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę zagrać w dowolną grę z moim bonusem powitalnym?",
+      "domain": "onlinecasinopulse.com",
+      "neighbours": 6,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.884,
+          "question": "W jakie gry w kasynie można grać, korzystając z bonusu powitalnego?",
+          "domain": "kasynaonlinepolskie.com"
+        },
+        {
+          "cos": 0.874,
+          "question": "Czy bonus bez depozytu można wykorzystać w dowolnej grze?",
+          "domain": "bonusbezdepozytu.com"
+        },
+        {
+          "cos": 0.867,
+          "question": "Czy bonus bez depozytu można wykorzystać na dowolnej grze w kasynie?",
+          "domain": "kasynoplonline.com"
+        },
+        {
+          "cos": 0.864,
+          "question": "Czy będę mógł grać w sloty za pieniądze z bonusu powitalnego?",
+          "domain": "kasynopl.net"
+        },
+        {
+          "cos": 0.852,
+          "question": "Czy mogę wykorzystać bonus powitalny do zagrania w gry karciane online?",
+          "domain": "icecasino.com"
+        }
+      ]
+    },
+    {
+      "question": "Co lepiej ochroni markę – rejestracja nazwy czy logo firmy?",
+      "domain": "znakitowarowe-blog.pl",
+      "neighbours": 5,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.935,
+          "question": "Co lepiej zastrzec – logo czy nazwę Twojej firmy? Co daje silniejsza ochronę?",
+          "domain": "znakitowarowe-blog.pl"
+        },
+        {
+          "cos": 0.933,
+          "question": "Lepiej zgłosić do rejestracji nazwę czy logo?",
+          "domain": "ohstudio.pl"
+        },
+        {
+          "cos": 0.928,
+          "question": "Co lepiej zastrzec: nazwę czy logo?",
+          "domain": "kancelarialech.pl"
+        },
+        {
+          "cos": 0.913,
+          "question": "Co lepiej zastrzegać – nazwę czy logo firmy? Co bardziej się opłaca?",
+          "domain": "znakitowarowe-blog.pl"
+        },
+        {
+          "cos": 0.868,
+          "question": "Czy zastrzegając logo zabezpieczam również nazwę firmy?",
+          "domain": "znakitowarowe-blog.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę samodzielnie zamontować obrzeża trawnikowe?",
+      "domain": "ogrod.info.pl",
+      "neighbours": 11,
+      "domains": 10,
+      "examples": [
+        {
+          "cos": 0.885,
+          "question": "Czy listwy przypodłogowe można montować samodzielnie?",
+          "domain": "remonty-przebudowy-adaptacje.pl"
+        },
+        {
+          "cos": 0.882,
+          "question": "Czy mogę samodzielnie zamontować ogrodzenie panelowe?",
+          "domain": "shemoans.pl"
+        },
+        {
+          "cos": 0.876,
+          "question": "Czy mogę samodzielnie ułożyć kostkę brukową w ogrodzie?",
+          "domain": "nowacegla.pl"
+        },
+        {
+          "cos": 0.875,
+          "question": "Czy mogę samodzielnie zamontować ścianki działowe?",
+          "domain": "klonplyt.pl"
+        },
+        {
+          "cos": 0.866,
+          "question": "Czy można samodzielnie ułożyć kostkę brukową?",
+          "domain": "komfort-wanny.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jaki rozmiar narzuty na łóżko 180x200?",
+      "domain": "darymex.pl",
+      "neighbours": 5,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.919,
+          "question": "Jaki jest optymalny rozmiar narzuty dla łóżka 160×200 cm?",
+          "domain": "pieknesny.pl"
+        },
+        {
+          "cos": 0.901,
+          "question": "Jaka narzuta pasuje na łóżko 140x200?",
+          "domain": "pieknesny.pl"
+        },
+        {
+          "cos": 0.893,
+          "question": "Jaki rozmiar kołdry do pościeli 200/200?",
+          "domain": "hippo-sklep.pl"
+        },
+        {
+          "cos": 0.868,
+          "question": "jaki rozmiar prześcieradła pasuje na materac 160 x 200 cm?",
+          "domain": "wspolczesnaalkowa.com"
+        },
+        {
+          "cos": 0.867,
+          "question": "Dla kogo pościele 180x200?",
+          "domain": "hippo-sklep.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jakie są korzyści z wyboru kompletów kół z felgami stalowymi?",
+      "domain": "voida.pl",
+      "neighbours": 5,
+      "domains": 4,
+      "examples": [
+        {
+          "cos": 0.886,
+          "question": "Jakie są wady felg stalowych?",
+          "domain": "turlamfele.pl"
+        },
+        {
+          "cos": 0.862,
+          "question": "Czym różnią się alufelgi od felg stalowych?",
+          "domain": "voida.pl"
+        },
+        {
+          "cos": 0.861,
+          "question": "Felgi aluminiowe vs stalowe – co wybrać?",
+          "domain": "chemik24.pl"
+        },
+        {
+          "cos": 0.857,
+          "question": "Czy wybrać felgi stalowe czy aluminiowe?",
+          "domain": "chemik24.pl"
+        },
+        {
+          "cos": 0.854,
+          "question": "Czy felgi stalowe są wytrzymalsze niż alufelgi?",
+          "domain": "oponeo.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy mogę wykorzystać moje darmowe spiny na dowolny slot?",
+      "domain": "kasynopolska10.com",
+      "neighbours": 7,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.951,
+          "question": "Czy darmowe spiny można wykorzystać w dowolnej grze slotowej?",
+          "domain": "onlinecasinopulse.com"
+        },
+        {
+          "cos": 0.946,
+          "question": "Czy darmowe spiny mogą być wykorzystane na dowolnym automacie?",
+          "domain": "kodybonusowe.net"
+        },
+        {
+          "cos": 0.9,
+          "question": "Czy darmowe spiny bez depozytu mogę wykorzystać na każdym slocie?",
+          "domain": "topbonusy.com"
+        },
+        {
+          "cos": 0.899,
+          "question": "Czy mogę wybrać, na których automatach chcę wykorzystać moje darmowe spiny?",
+          "domain": "casinoble.pl"
+        },
+        {
+          "cos": 0.867,
+          "question": "Czy mogę wykorzystać darmowe spiny w mobilnej wersji kasyna?",
+          "domain": "kodybonusowe.net"
+        }
+      ]
+    },
+    {
+      "question": "Jaką farbą najlepiej pomalować meble na biało?",
+      "domain": "meblowe-inspiracje.pl",
+      "neighbours": 9,
+      "domains": 5,
+      "examples": [
+        {
+          "cos": 0.893,
+          "question": "Jakie są techniki malowania mebli na biało?",
+          "domain": "meblowe-inspiracje.pl"
+        },
+        {
+          "cos": 0.879,
+          "question": "Jaki kolor ścian będzie najlepiej pasować do białych mebli?",
+          "domain": "meblowe-inspiracje.pl"
+        },
+        {
+          "cos": 0.875,
+          "question": "Jak pomalować lakierowane meble na biało?",
+          "domain": "parkmebli.pl"
+        },
+        {
+          "cos": 0.871,
+          "question": "Czy malowanie mebli na biało jest trwałe?",
+          "domain": "meblowe-inspiracje.pl"
+        },
+        {
+          "cos": 0.868,
+          "question": "Czy mogę przemalować meble na biało samodzielnie?",
+          "domain": "meblowe-inspiracje.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czym jest generator szablonów internetowych AI?",
+      "domain": "mobiri.se",
+      "neighbours": 17,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.945,
+          "question": "Co to jest generator szablonów HTML AI?",
+          "domain": "mobiri.se"
+        },
+        {
+          "cos": 0.894,
+          "question": "Czym jest projektant stron internetowych AI?",
+          "domain": "mobiri.se"
+        },
+        {
+          "cos": 0.891,
+          "question": "Co to jest generator kodu stron AI?",
+          "domain": "wowslider.com"
+        },
+        {
+          "cos": 0.885,
+          "question": "Co to jest AI kreator stron internetowych HTML?",
+          "domain": "wowslider.com"
+        },
+        {
+          "cos": 0.885,
+          "question": "Co to jest kreator stron AI?",
+          "domain": "wowslider.com"
+        }
+      ]
+    },
+    {
+      "question": "Czy za korzystanie z Blik w kasynie pobierana jest prowizja?",
+      "domain": "malarstwonaszkle.pl",
+      "neighbours": 8,
+      "domains": 7,
+      "examples": [
+        {
+          "cos": 0.95,
+          "question": "Czy kasyna pobierają prowizję za wpłatę Blikiem?",
+          "domain": "znaki.fm"
+        },
+        {
+          "cos": 0.916,
+          "question": "Czy kasyna z opcją BLIK pobierają prowizje i opłaty za przeprowadzone transakcje?",
+          "domain": "szczecin.pl"
+        },
+        {
+          "cos": 0.908,
+          "question": "Czy muszę uiścić opłatę, aby korzystać z Blika w kasynie online?",
+          "domain": "zajazdwilczyapetyt.pl"
+        },
+        {
+          "cos": 0.89,
+          "question": "Czy muszę płacić, by skorzystać z Blika w kasynie online?",
+          "domain": "nv-kasyno-poland.com"
+        },
+        {
+          "cos": 0.877,
+          "question": "Czy kasyno płatność BLIK pobiera opłaty za transakcje wykonane daną metodą?",
+          "domain": "rankingcasino.pl"
+        }
+      ]
+    },
+    {
+      "question": "Czy wykładzina PCV jest łatwa w czyszczeniu?",
+      "domain": "carpetfloor.eu",
+      "neighbours": 7,
+      "domains": 3,
+      "examples": [
+        {
+          "cos": 0.916,
+          "question": "Czy wykładziny winylowe są łatwe do czyszczenia?",
+          "domain": "carpetfloor.eu"
+        },
+        {
+          "cos": 0.915,
+          "question": "Czy wykładziny PVC są antybakteryjne i łatwe w czyszczeniu?",
+          "domain": "grenwykladziny.pl"
+        },
+        {
+          "cos": 0.889,
+          "question": "Czy wykładziny PCV o właściwościach elektrostatycznych są trudne w utrzymaniu?",
+          "domain": "carpetfloor.eu"
+        },
+        {
+          "cos": 0.872,
+          "question": "Czy płytki dywanowe są łatwe w utrzymaniu czystości?",
+          "domain": "sklepwykladziny.pl"
+        },
+        {
+          "cos": 0.861,
+          "question": "Czy wykładziny hotelowe można łatwo czyścić?",
+          "domain": "carpetfloor.eu"
+        }
+      ]
+    },
+    {
+      "question": "Czy można pobrać aplikację 20 bet?",
+      "domain": "kasynopl.net",
+      "neighbours": 10,
+      "domains": 10,
+      "examples": [
+        {
+          "cos": 0.955,
+          "question": "Czy istnieje aplikacja mobilna 20Bet i jak ją pobrać?",
+          "domain": "20bets-online.com"
+        },
+        {
+          "cos": 0.941,
+          "question": "CZY MOGĘ POBRAĆ 20BET APP NA SWÓJ TELEFON?",
+          "domain": "20betpl.com"
+        },
+        {
+          "cos": 0.932,
+          "question": "Czy 20Bet oferuje aplikację mobilną?",
+          "domain": "kasynoplonline.com"
+        },
+        {
+          "cos": 0.929,
+          "question": "Czy 20Bet posiada aplikację mobilną?",
+          "domain": "polskiekasyno.com"
+        },
+        {
+          "cos": 0.903,
+          "question": "Czy Istnieje Dostępna Do Pobrania Aplikacja Mobilna Bet20 Kasyno?",
+          "domain": "20bet.online"
+        }
+      ]
+    },
+    {
+      "question": "Jakie powłoki są stosowane na magnesów neodymowych?",
+      "domain": "magnesy-neodymowe.pl",
+      "neighbours": 9,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.938,
+          "question": "Jakie są różne typy powłok dla magnesów neodymowych i jakie mają właściwości?",
+          "domain": "dhit.pl"
+        },
+        {
+          "cos": 0.874,
+          "question": "Czy neodymowe magnesy mogą być pokrywane farbą dla ochrony przed korozją?",
+          "domain": "xlink.com.pl"
+        },
+        {
+          "cos": 0.871,
+          "question": "W jaki metodą magnesy neodymowe są produkowane?",
+          "domain": "euro-magnesy.pl"
+        },
+        {
+          "cos": 0.869,
+          "question": "Czy magnesy neodymowe mogą być lakierowane dla ochrony przed korozją?",
+          "domain": "neo-cube.pl"
+        },
+        {
+          "cos": 0.863,
+          "question": "W jaki sposób neodymowe magnesy są produkowane?",
+          "domain": "neo-cube.pl"
+        }
+      ]
+    },
+    {
+      "question": "Jak ubiegać się o bonus powitalny w GGBet?",
+      "domain": "ggbet.win",
+      "neighbours": 6,
+      "domains": 4,
+      "examples": [
+        {
+          "cos": 0.875,
+          "question": "Jak się zalogować do GGBet?",
+          "domain": "ggbet-poland.com"
+        },
+        {
+          "cos": 0.86,
+          "question": "Gdzie mogę znaleźć pełny opis warunków bonusowych dla GGBet?",
+          "domain": "gg-bet-casino.com"
+        },
+        {
+          "cos": 0.856,
+          "question": "Czy bonus za rejestrację w kasynie GGBet wymaga wpisywania kodu promocyjnego?",
+          "domain": "gg-bet-pl.com"
+        },
+        {
+          "cos": 0.854,
+          "question": "Czy bonus powitalny od GGBet można wykorzystać kilka razy?",
+          "domain": "ggbet-poland.com"
+        },
+        {
+          "cos": 0.854,
+          "question": "Jaki jest obecnie bonus na start oferowany przez GGBet nowym graczom?",
+          "domain": "ggbet.world"
+        }
+      ]
+    },
+    {
+      "question": "Jakie korzyści płyną z przeprowadzania badań ankietowych online w firmach?",
+      "domain": "badania-rynku.com.pl",
+      "neighbours": 8,
+      "domains": 6,
+      "examples": [
+        {
+          "cos": 0.95,
+          "question": "Jakie korzyści płyną z przeprowadzania ankiet online dla małych firm?",
+          "domain": "analizy-danych.pl"
+        },
+        {
+          "cos": 0.894,
+          "question": "Jakie korzyści niesie ze sobą przeprowadzanie badań ankietowych?",
+          "domain": "analizy-danych.pl"
+        },
+        {
+          "cos": 0.887,
+          "question": "Dlaczego firmy potrzebują odpowiedzi z ankiet online?",
+          "domain": "elmaxi.com.pl"
+        },
+        {
+          "cos": 0.879,
+          "question": "Jakie korzyści przynosi zastosowanie badań online w marketingu farmaceutycznym i medycznym?",
+          "domain": "rejestry-medyczne.pl"
+        },
+        {
+          "cos": 0.878,
+          "question": "Dlaczego małe przedsiębiorstwa decydują się na przeprowadzanie ankiet online?",
+          "domain": "analizy-danych.pl"
+        }
+      ]
+    }
+  ],
+  "rejected_examples": [
+    {
+      "query": "W jakich miastach Niemiec można skorzystać z usług rzeczoznawców MOTOEXPERT?",
+      "domain": "rzeczoznawca-samochodowy.de",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czy muszę płacić, aby pobrać muzykę mp3 na SnapTik?",
+      "domain": "snaptik.biz",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak prawidłowo ułożyć sztućce na stole?",
+      "domain": "eleganckie-stoly.pl",
+      "reason": "near-duplicate of a kept question"
+    },
+    {
+      "query": "Jak długo trwa analiza wyników badań rynku?",
+      "domain": "badanie-opinii.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jakie korzyści dają smart liczniki?",
+      "domain": "technonicol.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak łączyć czapkę z zimową garderobą?",
+      "domain": "tacomat.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czy usługi VPN bez rejestrów są legalne?",
+      "domain": "surfshark.com",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak długo e-wiza do Gwinei pozostaje ważna?",
+      "domain": "evisajet.com",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak gotować ścierki kuchenne?",
+      "domain": "kuchenneprzyrzady.com",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czym są magnesy płytkowe neodymowe tj. MPL 12x10x4 / N38?",
+      "domain": "dhit.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak przedłużyć życie świnki morskiej?",
+      "domain": "bukowno24.pl",
+      "reason": "near-duplicate of a kept question"
+    },
+    {
+      "query": "Dlaczego warto konwertować pliki AVI na format MP4 w dzisiejszym świecie wideo?",
+      "domain": "mp4-converter.com",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czy kasyno na żywo jest aktywne całą dobę?",
+      "domain": "bestcasinos-pl.com",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Gdzie kupić dobre leżaki z technorattanu?",
+      "domain": "dekorio.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czym umyć wannę?",
+      "domain": "komfort-wanny.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jak długo buduje się dom szkieletowy?",
+      "domain": "ekspertbudowlany.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czy mogę grać w hot slot 777 na urządzeniach mobilnych?",
+      "domain": "bookofra.com.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Jaka jest różnica między bonusami bez depozytu a bonusami powitalnymi?",
+      "domain": "slotzy.net",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Czym jest UX na stronie internetowej?",
+      "domain": "noveo.pl",
+      "reason": "generic cluster"
+    },
+    {
+      "query": "Na jakiej wysokości wieszak na ręcznik?",
+      "domain": "armatura24.pl",
+      "reason": "generic cluster"
+    }
+  ],
+  "calibration_check": {
+    "pairs": 240,
+    "flagged_generic": 2,
+    "flagged_with_context_site": 0,
+    "not_flagged": 238,
+    "not_flagged_with_context_site": 89,
+    "note": "calibration questions scored against the questions of this step's input; labels of the LLM judge"
+  }
+}

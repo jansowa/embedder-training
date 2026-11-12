@@ -1,0 +1,393 @@
+{
+  "step": "b: two-reranker agreement inside the coverage band",
+  "input_rows": 232875,
+  "kept_rows": 78945,
+  "removed_rows": 153930,
+  "missing_roberta_scores": 0,
+  "percentile": 55,
+  "chosen_by": "lowest percentile with precision >= 0.85 on at least 20 kept calibration pairs",
+  "precision": 0.8548387096774194,
+  "recall": 0.37857142857142856,
+  "calibration": {
+    "pairs": 240,
+    "good": 140,
+    "labels": "/home/jsowa/work/speakleash/retrieval-data-kitchen/data/annotation/faq_calib_v1.v2.qwen.llm.jsonl",
+    "good_definition": "relevance >= 2, context none, answer_quality informative, language not broken"
+  },
+  "score_cutoffs_by_band": {
+    "0": {
+      "gemma": 21.5,
+      "roberta_v3": 8.25,
+      "pool": 34787,
+      "kept": 11667
+    },
+    "1": {
+      "gemma": 23.875,
+      "roberta_v3": 9.75,
+      "pool": 43750,
+      "kept": 15419
+    },
+    "2": {
+      "gemma": 25.75,
+      "roberta_v3": 10.9375,
+      "pool": 46895,
+      "kept": 16340
+    },
+    "3": {
+      "gemma": 26.875,
+      "roberta_v3": 11.875,
+      "pool": 51213,
+      "kept": 17076
+    },
+    "4": {
+      "gemma": 28.375,
+      "roberta_v3": 13.125,
+      "pool": 56230,
+      "kept": 18443
+    }
+  },
+  "table": [
+    {
+      "percentile": 0,
+      "calib_kept": 240,
+      "calib_good_kept": 140,
+      "precision": 0.5833333333333334,
+      "recall": 1.0,
+      "pool_kept": 232875
+    },
+    {
+      "percentile": 5,
+      "calib_kept": 165,
+      "calib_good_kept": 121,
+      "precision": 0.7333333333333333,
+      "recall": 0.8642857142857143,
+      "pool_kept": 215851
+    },
+    {
+      "percentile": 10,
+      "calib_kept": 149,
+      "calib_good_kept": 112,
+      "precision": 0.7516778523489933,
+      "recall": 0.8,
+      "pool_kept": 200300
+    },
+    {
+      "percentile": 15,
+      "calib_kept": 136,
+      "calib_good_kept": 105,
+      "precision": 0.7720588235294118,
+      "recall": 0.75,
+      "pool_kept": 185570
+    },
+    {
+      "percentile": 20,
+      "calib_kept": 115,
+      "calib_good_kept": 90,
+      "precision": 0.782608695652174,
+      "recall": 0.6428571428571429,
+      "pool_kept": 171376
+    },
+    {
+      "percentile": 25,
+      "calib_kept": 105,
+      "calib_good_kept": 83,
+      "precision": 0.7904761904761904,
+      "recall": 0.5928571428571429,
+      "pool_kept": 156467
+    },
+    {
+      "percentile": 30,
+      "calib_kept": 95,
+      "calib_good_kept": 75,
+      "precision": 0.7894736842105263,
+      "recall": 0.5357142857142857,
+      "pool_kept": 142472
+    },
+    {
+      "percentile": 35,
+      "calib_kept": 89,
+      "calib_good_kept": 70,
+      "precision": 0.7865168539325843,
+      "recall": 0.5,
+      "pool_kept": 129422
+    },
+    {
+      "percentile": 40,
+      "calib_kept": 78,
+      "calib_good_kept": 63,
+      "precision": 0.8076923076923077,
+      "recall": 0.45,
+      "pool_kept": 116384
+    },
+    {
+      "percentile": 45,
+      "calib_kept": 73,
+      "calib_good_kept": 60,
+      "precision": 0.821917808219178,
+      "recall": 0.42857142857142855,
+      "pool_kept": 103069
+    },
+    {
+      "percentile": 50,
+      "calib_kept": 66,
+      "calib_good_kept": 55,
+      "precision": 0.8333333333333334,
+      "recall": 0.39285714285714285,
+      "pool_kept": 90303
+    },
+    {
+      "percentile": 55,
+      "calib_kept": 62,
+      "calib_good_kept": 53,
+      "precision": 0.8548387096774194,
+      "recall": 0.37857142857142856,
+      "pool_kept": 78945
+    },
+    {
+      "percentile": 60,
+      "calib_kept": 54,
+      "calib_good_kept": 48,
+      "precision": 0.8888888888888888,
+      "recall": 0.34285714285714286,
+      "pool_kept": 65592
+    },
+    {
+      "percentile": 65,
+      "calib_kept": 50,
+      "calib_good_kept": 45,
+      "precision": 0.9,
+      "recall": 0.32142857142857145,
+      "pool_kept": 55000
+    },
+    {
+      "percentile": 70,
+      "calib_kept": 45,
+      "calib_good_kept": 41,
+      "precision": 0.9111111111111111,
+      "recall": 0.29285714285714287,
+      "pool_kept": 44725
+    },
+    {
+      "percentile": 75,
+      "calib_kept": 43,
+      "calib_good_kept": 39,
+      "precision": 0.9069767441860465,
+      "recall": 0.2785714285714286,
+      "pool_kept": 35050
+    },
+    {
+      "percentile": 80,
+      "calib_kept": 32,
+      "calib_good_kept": 29,
+      "precision": 0.90625,
+      "recall": 0.20714285714285716,
+      "pool_kept": 25412
+    },
+    {
+      "percentile": 85,
+      "calib_kept": 26,
+      "calib_good_kept": 24,
+      "precision": 0.9230769230769231,
+      "recall": 0.17142857142857143,
+      "pool_kept": 17437
+    },
+    {
+      "percentile": 90,
+      "calib_kept": 15,
+      "calib_good_kept": 14,
+      "precision": 0.9333333333333333,
+      "recall": 0.1,
+      "pool_kept": 10105
+    },
+    {
+      "percentile": 95,
+      "calib_kept": 8,
+      "calib_good_kept": 8,
+      "precision": 1.0,
+      "recall": 0.05714285714285714,
+      "pool_kept": 2836
+    }
+  ],
+  "rejected_examples": [
+    {
+      "query": "Jak aktywować bonus Miss Joker?",
+      "passage": "Bonus uruchamia się przy wystąpieniu specjalnych symboli na bębnach.",
+      "coverage_band": 1,
+      "gemma": 18.62,
+      "roberta_v3": 5.09,
+      "pct_gemma": 10.3,
+      "pct_roberta_v3": 5.9
+    },
+    {
+      "query": "Czy przedstawione ceny są ostateczne?",
+      "passage": "W zwiąku z tym, że każda usługa realizowana jest na indywidualne zamówienie i wymaga innego nakładu pracy - wycena jest również indywidualna. Ceny przedstawione na stronie są orientacyjne i nie są ostateczne.",
+      "coverage_band": 4,
+      "gemma": 23.5,
+      "roberta_v3": 8.88,
+      "pct_gemma": 4.5,
+      "pct_roberta_v3": 3.7
+    },
+    {
+      "query": "Dlaczego zostałem obciążony, ale nie otrzymałem potwierdzenia zamówienia?",
+      "passage": "Nieudane transakcje: Gdy próba transakcji jest podejmowana w naszym kasie, następuje autoryzacja na użytej karcie, co natychmiast zabiera środki z dostępnego kredytu. Jeśli wystąpią jakiekolwiek z poniższych zapobiegawcz…",
+      "coverage_band": 1,
+      "gemma": 17.75,
+      "roberta_v3": 5.44,
+      "pct_gemma": 7.0,
+      "pct_roberta_v3": 7.0
+    },
+    {
+      "query": "Jaki jest aktualny spis Twoich rękawic nitrylowych?",
+      "passage": "Nasze magazyny w Europie Środkowej przechowują 1 000 000 pudełek wysokiej klasy dwuręcznych bezpudrowych rękawic do badań nitrylowych, które są dostępne do natychmiastowej wysyłki.",
+      "coverage_band": 2,
+      "gemma": 17.75,
+      "roberta_v3": 6.28,
+      "pct_gemma": 2.3,
+      "pct_roberta_v3": 4.5
+    },
+    {
+      "query": "Jaką lampę najlepiej wybrać do sypialni?",
+      "passage": "Najlepiej wybrać lampę o ciepłym świetle, które nie będzie razić w oczy oraz dostosować ją do stylu i kolorystyki wnętrza.",
+      "coverage_band": 3,
+      "gemma": 24.75,
+      "roberta_v3": 9.62,
+      "pct_gemma": 24.4,
+      "pct_roberta_v3": 18.8
+    },
+    {
+      "query": "Jakie korzyści przynosi odkrycie horoskopu wedyjskiego według daty urodzenia?",
+      "passage": "Odkrycie horoskopu wedyjskiego według daty urodzenia pozwala na lepsze zrozumienie naszej osobowości, predyspozycji, a także wpływu planet na nasze życie. Umożliwia to również świadome kształtowanie przyszłości oraz leps…",
+      "coverage_band": 3,
+      "gemma": 29.0,
+      "roberta_v3": 11.75,
+      "pct_gemma": 90.6,
+      "pct_roberta_v3": 52.3
+    },
+    {
+      "query": "Co sądzą właściciele psów o kastracji chemicznej?",
+      "passage": "Opinie właścicieli są podzielone. Niektórzy zauważają zmniejszenie problemów behawioralnych, inni nie widzą wyraźnych efektów po zabiegu.",
+      "coverage_band": 1,
+      "gemma": 22.5,
+      "roberta_v3": 8.88,
+      "pct_gemma": 37.3,
+      "pct_roberta_v3": 38.0
+    },
+    {
+      "query": "jak zrealizować mój kod bad monday apparel rabatowy?",
+      "passage": "zeskanuj naszą listę kodów kuponów i kliknij przycisk „pobierz kod”. kod zostanie wyświetlony na ekranie, a bad monday apparel strona otworzy się w nowej zakładce. wprowadź kod kuponu przy bad monday apparel kasie, a rab…",
+      "coverage_band": 3,
+      "gemma": 27.0,
+      "roberta_v3": 11.88,
+      "pct_gemma": 55.4,
+      "pct_roberta_v3": 54.8
+    },
+    {
+      "query": "Jak przygotować Longfill Angel Pussy Juice do użytku?",
+      "passage": "Wystarczy uzupełnić butelkę zawierającą 13 ml aromatu wybraną bazą, aż do osiągnięcia łącznej pojemności 60 ml. Następnie wstrząsnąć mieszanką, aby aromat równomiernie się połączył.",
+      "coverage_band": 0,
+      "gemma": 21.88,
+      "roberta_v3": 5.59,
+      "pct_gemma": 59.2,
+      "pct_roberta_v3": 19.7
+    },
+    {
+      "query": "Jakie informację muszę podać, by pobierać płatności przez Stripe?",
+      "passage": "Do skonfigurowania integracji Stripe w formularzu wystarczą dane logowania Twojego konta Stripe.",
+      "coverage_band": 0,
+      "gemma": 20.75,
+      "roberta_v3": 9.0,
+      "pct_gemma": 43.7,
+      "pct_roberta_v3": 68.8
+    },
+    {
+      "query": "Czy metoda BLW jest zdrowa?",
+      "passage": "Metoda BLW jest zdrowa, pod warunkiem że dieta dziecka jest odpowiednio zbilansowana i dostarcza wszystkich niezbędnych składników odżywczych, w tym żelaza. Ta metoda wspiera kształtowanie prawidłowych nawyków żywieniowy…",
+      "coverage_band": 4,
+      "gemma": 29.0,
+      "roberta_v3": 11.0,
+      "pct_gemma": 66.6,
+      "pct_roberta_v3": 17.6
+    },
+    {
+      "query": "Wrocław - Pamplona - Jaki jest czas lotu?",
+      "passage": "Zazwyczaj lot na trasie Wrocław - Pamplona trwa od ∞g NaNm do -∞g NaNm.",
+      "coverage_band": 2,
+      "gemma": 22.62,
+      "roberta_v3": 12.69,
+      "pct_gemma": 19.4,
+      "pct_roberta_v3": 83.2
+    },
+    {
+      "query": "Co wyróżnia ofertę Pani firmy?",
+      "passage": "Usługa kuchnie na wymiar obejmuje nie tylko przygotowanie projektu funkcjonalnego kuchni, ale także wykonanie mebli na zamówienie. W moim zespole dodatkowo znajdziesz doświadczonych stolarzy, którzy zrealizują naszą wizj…",
+      "coverage_band": 0,
+      "gemma": 12.69,
+      "roberta_v3": 2.62,
+      "pct_gemma": 2.9,
+      "pct_roberta_v3": 6.4
+    },
+    {
+      "query": "Wirtualne kasyna rzadko oferują atrakcyjne bonusy za rejestrację.",
+      "passage": "Dla nowych graczy interesujące wydają się tylko dwie możliwości. Umożliwiają one rozpoczęcie zabawy bez potrzeby inwestowania. Dzięki temu ryzyko jest minimalne – nawet jeśli nie zdobędziesz żadnych prawdziwych pieniędzy…",
+      "coverage_band": 0,
+      "gemma": 15.56,
+      "roberta_v3": 4.72,
+      "pct_gemma": 8.7,
+      "pct_roberta_v3": 14.0
+    },
+    {
+      "query": "Czy mogę później zmodernizować szlaban o system ANPR?",
+      "passage": "Tak, możesz zmodernizować Parklio Gate za pomocą dowolnego inteligentnego systemu, w tym ANPR.",
+      "coverage_band": 3,
+      "gemma": 26.5,
+      "roberta_v3": 10.0,
+      "pct_gemma": 47.2,
+      "pct_roberta_v3": 23.3
+    },
+    {
+      "query": "Jaki jest kod EAN LEGO 40716 Środowisko naturalne kosmitów?",
+      "passage": "Kod EAN LEGO Środowisko naturalne kosmitów to 5702017597171.",
+      "coverage_band": 4,
+      "gemma": 27.12,
+      "roberta_v3": 11.0,
+      "pct_gemma": 29.6,
+      "pct_roberta_v3": 17.6
+    },
+    {
+      "query": "Dlaczego Palo Santo szybko gaśnie?",
+      "passage": "Prawdopodobnie podpalasz je zbyt krótko. Prawidłowe podpalenie Palo Santo jest wtedy, gdy złapie ogień i przez dłuższą chwilę go podtrzymuje. Dopiero wtedy należy je zdmuchnąć, gasząc płomień. W ten sposób podpalone Palo…",
+      "coverage_band": 2,
+      "gemma": 24.75,
+      "roberta_v3": 7.56,
+      "pct_gemma": 38.1,
+      "pct_roberta_v3": 9.6
+    },
+    {
+      "query": "wózki adamex - dlaczego warto kupić w naszym sklepie internetowym?",
+      "passage": "wózki firmy adamex umożliwiają transport dziecka w najlepszych możliwych warunkach. są solidne oraz wygodne. zapraszamy do zapoznania się z ofertą. kliknij i dowiedz się więcej!",
+      "coverage_band": 1,
+      "gemma": 22.75,
+      "roberta_v3": 8.88,
+      "pct_gemma": 39.5,
+      "pct_roberta_v3": 38.0
+    },
+    {
+      "query": "Jak dbać o skórę po usuwaniu?",
+      "passage": "W dniu zabiegu trzeba schładzać miejsce z tatuażem co godzinę, na kolejne 2 tygodnie należy odstawić opalanie, saunę, solarium, baseny. Można stosować krem SPF50.",
+      "coverage_band": 0,
+      "gemma": 16.75,
+      "roberta_v3": 4.53,
+      "pct_gemma": 13.0,
+      "pct_roberta_v3": 13.0
+    },
+    {
+      "query": "czy autorski cms jest dobrym wyborem?",
+      "passage": "stojąc przed zleceniem zewnętrznej firmie zadania wykonania strony internetowej, często możemy spotkać się z pytaniem o system zarządzania treścią. najczęściej wybieramy pomiędzy wordpressem a rozwiązaniem dedykowanym. c…",
+      "coverage_band": 4,
+      "gemma": 27.25,
+      "roberta_v3": 14.06,
+      "pct_gemma": 31.7,
+      "pct_roberta_v3": 73.7
+    }
+  ]
+}

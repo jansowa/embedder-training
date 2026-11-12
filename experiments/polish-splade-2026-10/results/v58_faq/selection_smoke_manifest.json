@@ -1,0 +1,460 @@
+{
+  "recipe": {
+    "name": "webfaq-kd-v1",
+    "input": "/media/jsowa/My Passport/ai/datasets/retrieval/webfaq-v2-clips-mqa-pl/pairs_annotated_overlap.parquet",
+    "output_dir": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1",
+    "columns": {
+      "id": "id",
+      "query": "question",
+      "passage": "answer",
+      "source": "source_dataset",
+      "domain": "domain_etld1",
+      "template_q": "template_id_q",
+      "template_a": "template_id_a",
+      "score": "score_stronger_reranker"
+    },
+    "keep_columns": [
+      "topic",
+      "question_type",
+      "answer_source",
+      "semantic_similarity_score",
+      "flag_question_no_entity",
+      "flag_not_a_question",
+      "url"
+    ],
+    "filters": {
+      "equals": {
+        "rejected": false
+      },
+      "null": [
+        "overlap_datasets"
+      ],
+      "not_true": [
+        "flag_answer_canned",
+        "flag_answer_teaser",
+        "flag_question_deictic",
+        "flag_no_answer_recovered",
+        "flag_answer_not_polish"
+      ],
+      "query_words": [
+        3,
+        40
+      ],
+      "passage_words": [
+        8,
+        400
+      ],
+      "domains_blocklist": [
+        "specprawnik.pl",
+        "e-prawnik.pl",
+        "abczdrowie.pl",
+        "zapytajfizyka.pl",
+        "techpedia.pl",
+        "gemini.pl",
+        "allegro.pl",
+        "onet.pl"
+      ]
+    },
+    "decontaminate": {
+      "queries": [
+        {
+          "path": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+          "field": "query"
+        }
+      ],
+      "passages": [
+        {
+          "glob": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/**/passages/passages.jsonl",
+          "field": "contents",
+          "max_mb": 300
+        }
+      ],
+      "min_chars": 40,
+      "prefix_chars": 150,
+      "expand_templates": true,
+      "cache": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/reference.npz"
+    },
+    "priority": {
+      "bands": "coverage",
+      "edges": [
+        0.2,
+        0.4,
+        0.6,
+        0.8
+      ],
+      "missing_score": "drop",
+      "seed": 42
+    },
+    "dedup": {
+      "passage": true
+    },
+    "caps": {
+      "template_q": 2,
+      "template_a": 2,
+      "domain": 200
+    },
+    "near_dup": {
+      "num_perm": 64,
+      "bands": 16,
+      "shingle": 5,
+      "min_similarity": 0.6,
+      "seed": 42
+    },
+    "target": null
+  },
+  "recipe_file": "/home/jsowa/work/speakleash/retrieval-data-kitchen/selection/recipes/webfaq-kd-v1.yaml",
+  "input": {
+    "path": "/media/jsowa/My Passport/ai/datasets/retrieval/webfaq-v2-clips-mqa-pl/pairs_annotated_overlap.parquet",
+    "rows_read": 200000,
+    "limit": 200000,
+    "bytes": 900737743,
+    "mtime": 1794119946
+  },
+  "steps": [
+    {
+      "step": "input",
+      "rows": 200000
+    },
+    {
+      "step": "filters.equals",
+      "removed": 63419,
+      "rows": 136581
+    },
+    {
+      "step": "filters.null",
+      "removed": 128,
+      "rows": 136453
+    },
+    {
+      "step": "filters.not_true",
+      "removed": 2462,
+      "rows": 133991
+    },
+    {
+      "step": "filters.query_words",
+      "removed": 162,
+      "rows": 133829
+    },
+    {
+      "step": "filters.passage_words",
+      "removed": 1324,
+      "rows": 132505
+    },
+    {
+      "step": "filters.domains_blocklist",
+      "removed": 0,
+      "rows": 132505
+    },
+    {
+      "step": "decontaminate.query",
+      "removed": 0,
+      "rows": 132505
+    },
+    {
+      "step": "decontaminate.passage",
+      "removed": 33,
+      "rows": 132472
+    },
+    {
+      "step": "decontaminate.template_family",
+      "removed": 0,
+      "rows": 132472
+    },
+    {
+      "step": "priority.missing_score",
+      "removed": 0,
+      "rows": 132472
+    },
+    {
+      "step": "dedup.passage",
+      "removed": 1359,
+      "rows": 131113
+    },
+    {
+      "step": "caps",
+      "removed": 108172,
+      "rows": 22941
+    },
+    {
+      "step": "near_dup.query",
+      "removed": 7145,
+      "rows": 15796
+    }
+  ],
+  "decontamination": {
+    "whole_input": {
+      "query_hits": 0,
+      "passage_hits": 40,
+      "template_family_rows": 31,
+      "families_q": 40,
+      "families_a": 33
+    },
+    "reference": {
+      "min_chars": 40,
+      "prefix_chars": 150,
+      "files": [
+        {
+          "kind": "queries",
+          "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+          "texts": 547072
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/arguana-pl/passages/passages.jsonl",
+          "texts": 8673
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/fiqa-pl/passages/passages.jsonl",
+          "texts": 57521
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/gpt-exams/passages/passages.jsonl",
+          "texts": 8130
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-1z10/passages/passages.jsonl",
+          "texts": 112338
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-czy-wiesz-v2/passages/passages.jsonl",
+          "texts": 154841
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3-cc/passages/passages.jsonl",
+          "texts": 10176
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3.5-cc/passages/passages.jsonl",
+          "texts": 29574
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3.5-wiki/passages/passages.jsonl",
+          "texts": 122931
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-mkqa/passages/passages.jsonl",
+          "texts": 20269
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-mqa/passages/passages.jsonl",
+          "texts": 177354
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-multilingual-NLI/passages/passages.jsonl",
+          "texts": 70057
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-poleval2021-pairs/passages/passages.jsonl",
+          "texts": 18646
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-poquad/passages/passages.jsonl",
+          "texts": 233178
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-templates/passages/passages.jsonl",
+          "texts": 43722
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-wiki-def/passages/passages.jsonl",
+          "texts": 76876
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/mfaq/passages/passages.jsonl",
+          "texts": 62076
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/nfcorpus-pl/passages/passages.jsonl",
+          "texts": 3633
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/poleval-2022/allegro-faq/passages/passages.jsonl",
+          "texts": 920
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/poleval-2022/legal-questions/passages/passages.jsonl",
+          "texts": 26287
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/quora-pl/passages/passages.jsonl",
+          "texts": 407720
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/scidocs-pl/passages/passages.jsonl",
+          "texts": 25592
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/scifact-pl/passages/passages.jsonl",
+          "texts": 5183
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/trec-covid-pl/passages/passages.jsonl",
+          "texts": 164850
+        }
+      ],
+      "unique": {
+        "query_exact": 533941,
+        "query_sorted_tokens": 531695,
+        "passage_full": 1735350,
+        "passage_prefix": 1700243
+      }
+    }
+  },
+  "selected": {
+    "rows": 15796,
+    "by_source": {
+      "webfaq_v2_pol": 15796
+    },
+    "by_coverage_band": {
+      "0.0-0.2": 2495,
+      "0.2-0.4": 3240,
+      "0.4-0.6": 3120,
+      "0.6-0.8": 4356,
+      "0.8-1.0": 2585
+    },
+    "by_topic": {
+      "Products and Commercial Services": 5689,
+      "Entertainment, Recreation and Leisure": 2725,
+      "Healthcare Services, Wellness and Lifestyle": 2272,
+      "General Information and Other": 1421,
+      "Traveling and Hospitality": 1043,
+      "Legal Services, Regulations and Government": 997,
+      "Employment, Education and Training": 856,
+      "Banking, Financial Services and Insurance": 793
+    },
+    "domains": 789,
+    "top_domains": [
+      [
+        "recenzje-kasyn-101.com",
+        168
+      ],
+      [
+        "akcesoriamotocyklowe.pl",
+        168
+      ],
+      [
+        "asana.com",
+        166
+      ],
+      [
+        "akademiaodpowiedzialnosci.pl",
+        164
+      ],
+      [
+        "adamnt.pl",
+        163
+      ],
+      [
+        "aboutmoney.pl",
+        161
+      ],
+      [
+        "apkmodbucket.com",
+        161
+      ],
+      [
+        "applemobile.pl",
+        161
+      ],
+      [
+        "automatycznaa4.pl",
+        161
+      ],
+      [
+        "annadragon.pl",
+        159
+      ],
+      [
+        "afterweb.pl",
+        158
+      ],
+      [
+        "agroglas.pl",
+        158
+      ],
+      [
+        "bajum.pl",
+        158
+      ],
+      [
+        "koledzyzwojska.pl",
+        157
+      ],
+      [
+        "allogo.pl",
+        157
+      ],
+      [
+        "blogwogrodzie.pl",
+        156
+      ],
+      [
+        "babskawizja.pl",
+        156
+      ],
+      [
+        "albin.com.pl",
+        155
+      ],
+      [
+        "artwest.pl",
+        154
+      ],
+      [
+        "armatura24.pl",
+        151
+      ]
+    ],
+    "score": {
+      "p5": 17.5,
+      "p25": 22.5,
+      "p50": 25.375,
+      "p75": 27.25,
+      "p95": 29.5
+    },
+    "coverage": {
+      "p5": 0.0,
+      "p25": 0.25,
+      "p50": 0.5,
+      "p75": 0.714,
+      "p95": 1.0
+    },
+    "query_words": {
+      "p5": 4.0,
+      "p25": 6.0,
+      "p50": 7.0,
+      "p75": 9.0,
+      "p95": 11.0
+    },
+    "passage_words": {
+      "p5": 12.0,
+      "p25": 20.0,
+      "p50": 29.0,
+      "p75": 43.0,
+      "p95": 82.0
+    }
+  },
+  "seconds": 95.4
+}

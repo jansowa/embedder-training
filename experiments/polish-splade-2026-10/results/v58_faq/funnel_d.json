@@ -1,0 +1,27 @@
+{
+  "step": "d: candidate set",
+  "input_rows": 64487,
+  "target": 100000,
+  "candidates": 64487,
+  "seed": 42,
+  "available_by_band": {
+    "0": 9656,
+    "1": 12411,
+    "2": 13317,
+    "3": 13812,
+    "4": 15291
+  },
+  "taken_by_band": {
+    "0": 9656,
+    "1": 12411,
+    "2": 13317,
+    "3": 13812,
+    "4": 15291
+  },
+  "by_source": {
+    "webfaq_v2_pol": 60641,
+    "clips_mqa_pl_all_question": 3846
+  },
+  "domains": 5553,
+  "output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/faq_kd_candidates_v1.jsonl"
+}

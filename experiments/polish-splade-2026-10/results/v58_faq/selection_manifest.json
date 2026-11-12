@@ -1,0 +1,462 @@
+{
+  "recipe": {
+    "name": "webfaq-kd-v1",
+    "input": "/media/jsowa/My Passport/ai/datasets/retrieval/webfaq-v2-clips-mqa-pl/pairs_annotated_overlap.parquet",
+    "output_dir": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1",
+    "columns": {
+      "id": "id",
+      "query": "question",
+      "passage": "answer",
+      "source": "source_dataset",
+      "domain": "domain_etld1",
+      "template_q": "template_id_q",
+      "template_a": "template_id_a",
+      "score": "score_stronger_reranker"
+    },
+    "keep_columns": [
+      "topic",
+      "question_type",
+      "answer_source",
+      "semantic_similarity_score",
+      "flag_question_no_entity",
+      "flag_not_a_question",
+      "url"
+    ],
+    "filters": {
+      "equals": {
+        "rejected": false
+      },
+      "null": [
+        "overlap_datasets"
+      ],
+      "not_true": [
+        "flag_answer_canned",
+        "flag_answer_teaser",
+        "flag_question_deictic",
+        "flag_no_answer_recovered",
+        "flag_answer_not_polish"
+      ],
+      "query_words": [
+        3,
+        40
+      ],
+      "passage_words": [
+        8,
+        400
+      ],
+      "domains_blocklist": [
+        "specprawnik.pl",
+        "e-prawnik.pl",
+        "abczdrowie.pl",
+        "zapytajfizyka.pl",
+        "techpedia.pl",
+        "gemini.pl",
+        "allegro.pl",
+        "onet.pl"
+      ]
+    },
+    "decontaminate": {
+      "queries": [
+        {
+          "path": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+          "field": "query"
+        }
+      ],
+      "passages": [
+        {
+          "glob": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/**/passages/passages.jsonl",
+          "field": "contents",
+          "max_mb": 300
+        }
+      ],
+      "min_chars": 40,
+      "prefix_chars": 150,
+      "expand_templates": true,
+      "cache": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/reference.npz"
+    },
+    "priority": {
+      "bands": "coverage",
+      "edges": [
+        0.2,
+        0.4,
+        0.6,
+        0.8
+      ],
+      "missing_score": "drop",
+      "seed": 42
+    },
+    "dedup": {
+      "passage": true
+    },
+    "caps": {
+      "template_q": 2,
+      "template_a": 2,
+      "domain": 200
+    },
+    "near_dup": {
+      "num_perm": 64,
+      "bands": 16,
+      "shingle": 5,
+      "min_similarity": 0.6,
+      "seed": 42
+    },
+    "target": null
+  },
+  "recipe_file": "/home/jsowa/work/speakleash/retrieval-data-kitchen/selection/recipes/webfaq-kd-v1.yaml",
+  "input": {
+    "path": "/media/jsowa/My Passport/ai/datasets/retrieval/webfaq-v2-clips-mqa-pl/pairs_annotated_overlap.parquet",
+    "rows_read": 5394188,
+    "limit": null,
+    "bytes": 900737743,
+    "mtime": 1794119946
+  },
+  "steps": [
+    {
+      "step": "input",
+      "rows": 5394188
+    },
+    {
+      "step": "filters.equals",
+      "removed": 3086074,
+      "rows": 2308114
+    },
+    {
+      "step": "filters.null",
+      "removed": 1942,
+      "rows": 2306172
+    },
+    {
+      "step": "filters.not_true",
+      "removed": 100057,
+      "rows": 2206115
+    },
+    {
+      "step": "filters.query_words",
+      "removed": 3396,
+      "rows": 2202719
+    },
+    {
+      "step": "filters.passage_words",
+      "removed": 69500,
+      "rows": 2133219
+    },
+    {
+      "step": "filters.domains_blocklist",
+      "removed": 4092,
+      "rows": 2129127
+    },
+    {
+      "step": "decontaminate.query",
+      "removed": 0,
+      "rows": 2129127
+    },
+    {
+      "step": "decontaminate.passage",
+      "removed": 16254,
+      "rows": 2112873
+    },
+    {
+      "step": "decontaminate.template_family",
+      "removed": 15675,
+      "rows": 2097198
+    },
+    {
+      "step": "priority.missing_score",
+      "removed": 0,
+      "rows": 2097198
+    },
+    {
+      "step": "dedup.passage",
+      "removed": 49200,
+      "rows": 2047998
+    },
+    {
+      "step": "caps",
+      "removed": 1648086,
+      "rows": 399912
+    },
+    {
+      "step": "near_dup.query",
+      "removed": 167037,
+      "rows": 232875
+    }
+  ],
+  "decontamination": {
+    "whole_input": {
+      "query_hits": 22,
+      "passage_hits": 254042,
+      "template_family_rows": 146188,
+      "families_q": 190889,
+      "families_a": 11061
+    },
+    "reference": {
+      "min_chars": 40,
+      "prefix_chars": 150,
+      "files": [
+        {
+          "kind": "queries",
+          "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+          "texts": 547072
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/arguana-pl/passages/passages.jsonl",
+          "texts": 8673
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/fiqa-pl/passages/passages.jsonl",
+          "texts": 57521
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/gpt-exams/passages/passages.jsonl",
+          "texts": 8130
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-1z10/passages/passages.jsonl",
+          "texts": 112338
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-czy-wiesz-v2/passages/passages.jsonl",
+          "texts": 154841
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3-cc/passages/passages.jsonl",
+          "texts": 10176
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3.5-cc/passages/passages.jsonl",
+          "texts": 29574
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-gpt3.5-wiki/passages/passages.jsonl",
+          "texts": 122931
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-mkqa/passages/passages.jsonl",
+          "texts": 20269
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-mqa/passages/passages.jsonl",
+          "texts": 177354
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-multilingual-NLI/passages/passages.jsonl",
+          "texts": 70057
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-poleval2021-pairs/passages/passages.jsonl",
+          "texts": 18646
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-poquad/passages/passages.jsonl",
+          "texts": 233178
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-templates/passages/passages.jsonl",
+          "texts": 43722
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/maupqa-wiki-def/passages/passages.jsonl",
+          "texts": 76876
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/mfaq/passages/passages.jsonl",
+          "texts": 62076
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/nfcorpus-pl/passages/passages.jsonl",
+          "texts": 3633
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/poleval-2022/allegro-faq/passages/passages.jsonl",
+          "texts": 920
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/poleval-2022/legal-questions/passages/passages.jsonl",
+          "texts": 26287
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/quora-pl/passages/passages.jsonl",
+          "texts": 407720
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/scidocs-pl/passages/passages.jsonl",
+          "texts": 25592
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/scifact-pl/passages/passages.jsonl",
+          "texts": 5183
+        },
+        {
+          "kind": "passages",
+          "file": "/home/jsowa/work/FlagEmbedding/third_party/pirb/data/trec-covid-pl/passages/passages.jsonl",
+          "texts": 164850
+        }
+      ],
+      "unique": {
+        "query_exact": 533941,
+        "query_sorted_tokens": 531695,
+        "passage_full": 1735350,
+        "passage_prefix": 1700243
+      }
+    }
+  },
+  "selected": {
+    "rows": 232875,
+    "by_source": {
+      "webfaq_v2_pol": 207547,
+      "clips_mqa_pl_all_question": 25328
+    },
+    "by_coverage_band": {
+      "0.0-0.2": 34787,
+      "0.2-0.4": 43750,
+      "0.4-0.6": 46895,
+      "0.6-0.8": 51213,
+      "0.8-1.0": 56230
+    },
+    "by_topic": {
+      "Products and Commercial Services": 72298,
+      "Healthcare Services, Wellness and Lifestyle": 33050,
+      "Entertainment, Recreation and Leisure": 29025,
+      "(none)": 25328,
+      "General Information and Other": 19770,
+      "Traveling and Hospitality": 15390,
+      "Banking, Financial Services and Insurance": 13768,
+      "Employment, Education and Training": 12850,
+      "Legal Services, Regulations and Government": 11396
+    },
+    "domains": 10937,
+    "top_domains": [
+      [
+        "dobreprogramy.pl",
+        175
+      ],
+      [
+        "izajasz.pl",
+        174
+      ],
+      [
+        "elektroda.pl",
+        172
+      ],
+      [
+        "biografia24.pl",
+        171
+      ],
+      [
+        "blix.pl",
+        170
+      ],
+      [
+        "it-swarm.dev",
+        168
+      ],
+      [
+        "rolecatcher.com",
+        167
+      ],
+      [
+        "gdziepolek.pl",
+        165
+      ],
+      [
+        "nspjlubcza.pl",
+        164
+      ],
+      [
+        "systim.pl",
+        164
+      ],
+      [
+        "laczynasnapiecie.pl",
+        163
+      ],
+      [
+        "gry.pl",
+        163
+      ],
+      [
+        "zdrowekolana.com",
+        163
+      ],
+      [
+        "asana.com",
+        162
+      ],
+      [
+        "thewindowsclub.blog",
+        162
+      ],
+      [
+        "wave.video",
+        159
+      ],
+      [
+        "eco-door.pl",
+        158
+      ],
+      [
+        "projektskora.pl",
+        158
+      ],
+      [
+        "zoona.pl",
+        158
+      ],
+      [
+        "microsoft.com",
+        157
+      ]
+    ],
+    "score": {
+      "p5": 17.75,
+      "p25": 22.75,
+      "p50": 25.5,
+      "p75": 27.625,
+      "p95": 29.5
+    },
+    "coverage": {
+      "p5": 0.0,
+      "p25": 0.333,
+      "p50": 0.5,
+      "p75": 0.75,
+      "p95": 1.0
+    },
+    "query_words": {
+      "p5": 4.0,
+      "p25": 6.0,
+      "p50": 7.0,
+      "p75": 9.0,
+      "p95": 11.0
+    },
+    "passage_words": {
+      "p5": 12.0,
+      "p25": 20.0,
+      "p50": 31.0,
+      "p75": 50.0,
+      "p95": 110.0
+    }
+  },
+  "seconds": 221.6
+}

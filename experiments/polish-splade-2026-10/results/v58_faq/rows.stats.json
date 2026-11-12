@@ -1,0 +1,115 @@
+{
+  "selected": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/deduped.parquet",
+  "selected_rows": 64487,
+  "pool_passages": 64487,
+  "pool_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/pool-answers.jsonl",
+  "benchmark_queries": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+  "benchmark_queries_read": 547072,
+  "leak_check": {
+    "selected_queries_matching_a_benchmark_query_after_normalisation": 0,
+    "selected_queries_matching_only_by_the_loose_key": 7,
+    "sampled_queries_matching_a_benchmark_query_after_normalisation": 0,
+    "examples": [
+      "Czy ma kasyno dodatkową weryfikację gracza w trakcie rejestracji w GGBet?",
+      "Jakich walut mogę używać w LuckyBird Casino?",
+      "Czy Millionaire Match jest bezpieczny?",
+      "Jakie języki są dostępne w Nitro Casino?",
+      "czy new balance oferuje zniżki dla nowych klientów?",
+      "robigreen man gaming masz zniżkę dla nowego klienta?",
+      "czy muszę się zarejestrować, aby otrzymywać e-maile pod adresem ninja kitchen ?"
+    ]
+  },
+  "left_out_of_the_sample": {
+    "benchmark_match": 0,
+    "loose_benchmark_match": 7,
+    "empty_text": 0
+  },
+  "candidates": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/webfaq-kd-v1/faq_kd_candidates_v1.jsonl",
+  "candidate_pairs": 64487,
+  "eligible_pairs": 64480,
+  "rows": 60000,
+  "rows_output": "datasets/arms/webfaq-kd-v1-60k.jsonl",
+  "seed": 42,
+  "dataset": "webfaq-v1",
+  "rows_by_source": {
+    "webfaq_v2_pol": 56419,
+    "clips_mqa_pl_all_question": 3581
+  },
+  "rows_by_coverage_band": {
+    "0": 8961,
+    "1": 11525,
+    "2": 12402,
+    "3": 12896,
+    "4": 14216
+  },
+  "rows_domains": 5442,
+  "rows_top_domains": [
+    [
+      "gdziepolek.pl",
+      146
+    ],
+    [
+      "bluestacks.com",
+      141
+    ],
+    [
+      "blix.pl",
+      140
+    ],
+    [
+      "rolecatcher.com",
+      138
+    ],
+    [
+      "ciroapp.com",
+      133
+    ],
+    [
+      "thewindowsclub.blog",
+      129
+    ],
+    [
+      "zdrowekolana.com",
+      127
+    ],
+    [
+      "instrukcjaobslugipdf.pl",
+      126
+    ],
+    [
+      "italmeble.pl",
+      126
+    ],
+    [
+      "akcesoriamotocyklowe.pl",
+      125
+    ],
+    [
+      "zoona.pl",
+      123
+    ],
+    [
+      "receptomat.pl",
+      122
+    ],
+    [
+      "nspjlubcza.pl",
+      118
+    ],
+    [
+      "automatycznaa4.pl",
+      118
+    ],
+    [
+      "plisio.net",
+      118
+    ]
+  ],
+  "rows_domains_with_allegro": {},
+  "selected_domains_with_allegro": {
+    "sprzedaznaallegro.pl": 1
+  },
+  "query_chars_median": 56.0,
+  "passage_chars_median": 225.0,
+  "score_gemma_pl_median": 27.625
+}

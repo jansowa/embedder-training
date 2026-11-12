@@ -1,0 +1,42 @@
+{
+  "smoke_rc": 0,
+  "smoke_queries": 200,
+  "smoke_corpus_passages": 5200,
+  "pool_passages": 64487,
+  "queries_for_the_estimate": 100000,
+  "steps": {
+    "ingest corpus (PolDense-150M + SPLADE -> LanceDB)": {
+      "smoke_seconds": 36,
+      "factor": 12.4,
+      "estimated_hours": 0.12
+    },
+    "score positives, candidate reranker": {
+      "smoke_seconds": 8,
+      "factor": 500.0,
+      "estimated_hours": 1.11
+    },
+    "mine candidates (hybrid + candidate reranker)": {
+      "smoke_seconds": 46,
+      "factor": 500.0,
+      "estimated_hours": 6.39
+    },
+    "score positives, roberta-v3": {
+      "smoke_seconds": 10,
+      "factor": 500.0,
+      "estimated_hours": 1.39
+    },
+    "final rerank, roberta-v3 (adaptive)": {
+      "smoke_seconds": 22,
+      "factor": 500.0,
+      "estimated_hours": 3.06
+    },
+    "export with mined positives": {
+      "smoke_seconds": 0,
+      "factor": 500.0,
+      "estimated_hours": 0.0
+    }
+  },
+  "estimated_hours_total": 12.1,
+  "complete": true,
+  "note": "linear extrapolation of the smoke's step times (ingest by the corpus size, the other steps by the number of queries); the smoke includes model loading, so it overestimates"
+}
