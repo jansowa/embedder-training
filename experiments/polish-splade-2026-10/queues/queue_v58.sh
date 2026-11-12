@@ -419,6 +419,9 @@ if None not in (t, h, d) and ref:
         word = "FAQ rows in this form HURT the polish-splade family (<= -0.2 on both sets); the package for the 5070 is built anyway (stage 1 from MLM is a different question)"
     elif mean(faq_d) >= 0.3 and mean(rest_d) <= -0.1:
         word = "within the noise on the means, but NOT 'no effect': the FAQ tasks gain and the other tasks pay for it"
+    elif mean(faq_d) >= 0.3:
+        word = ("at the edge of the seed noise on the means, but the gain sits on the FAQ tasks and the other tasks are flat on average: "
+                "a source with its own task profile, to be judged on top of the other sources and not by the means alone")
     else:
         word = "within the noise on the means and no clear gain on the FAQ tasks either"
     verdict = ("%s %.2f / %.2f at %.1f dims/doc against the mined arm %s %.2f / %.2f at %.1f: delta %+.2f / %+.2f, trec-covid %s against %s -> %s. "
