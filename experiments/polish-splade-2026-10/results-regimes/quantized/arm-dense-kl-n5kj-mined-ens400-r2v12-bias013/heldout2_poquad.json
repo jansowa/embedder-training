@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-mined-ens400-r2v12-bias013",
+  "taskset": "heldout2_poquad",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-poquad": 19.418604900320798
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 19.418604900320798
+}

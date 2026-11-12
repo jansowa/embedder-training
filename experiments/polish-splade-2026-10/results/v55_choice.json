@@ -1,0 +1,44 @@
+{
+  "rule": "sparsest measured bias form with tiny10 and heldout8 both within 0.1 of bias010 (unrounded)",
+  "reference": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias010",
+  "reference_tiny10": 64.63363735978345,
+  "reference_heldout8": 43.45321101487881,
+  "forms": [
+    {
+      "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias010",
+      "tiny10": 64.63363735978345,
+      "heldout8": 43.45321101487881,
+      "dims_per_doc": 405.3237037037037,
+      "within_0.1": true
+    },
+    {
+      "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias011",
+      "tiny10": 64.62187901557654,
+      "heldout8": 43.47967115471534,
+      "dims_per_doc": 395.53370370370374,
+      "within_0.1": true
+    },
+    {
+      "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias012",
+      "tiny10": 64.6254406522024,
+      "heldout8": 43.43988822755261,
+      "dims_per_doc": 385.9355555555555,
+      "within_0.1": true
+    },
+    {
+      "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013",
+      "tiny10": 64.64171212191013,
+      "heldout8": 43.403045940854405,
+      "dims_per_doc": 376.45592592592595,
+      "within_0.1": true
+    },
+    {
+      "label": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias015",
+      "tiny10": 64.66846450166857,
+      "heldout8": 43.347625751533016,
+      "dims_per_doc": 358.0070370370371,
+      "within_0.1": false
+    }
+  ],
+  "auto_pick": "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013"
+}
