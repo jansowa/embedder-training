@@ -36,6 +36,7 @@ PIRB_DTYPE="${PIRB_DTYPE:-fp16}"   # fp16 | bf16 (bf16 for ModernBERT backbones)
 #   PIRB_QUERY_MODEL=dir  asymmetric evaluation: the index is built with MODEL_DIR, the queries are
 #                         encoded with this model (a student as the query encoder over the big index)
 #   PIRB_MIN_WEIGHT=w     drop terms with weight < w on both sides before quantization (0 = usual rule)
+#   PIRB_QUERY_PREFIX=s   put this text in front of every query (models trained with a query prefix)
 # Both are written into the result JSON; choose a LABEL that names them.
 PIRB_QUERY_MODEL="${PIRB_QUERY_MODEL:-}"
 PIRB_MIN_WEIGHT="${PIRB_MIN_WEIGHT:-0}"
@@ -45,6 +46,7 @@ if [ -n "$PIRB_QUERY_MODEL" ]; then
     EXTRA_KEYS+=", \"query_model\": \"$(cd "$PIRB_QUERY_MODEL" && pwd)\""
 fi
 [ "$PIRB_MIN_WEIGHT" != 0 ] && EXTRA_KEYS+=", \"min_weight\": $PIRB_MIN_WEIGHT"
+[ -n "${PIRB_QUERY_PREFIX:-}" ] && EXTRA_KEYS+=", \"q_prefix\": \"$PIRB_QUERY_PREFIX\""
 case "$REGIMES_ROOT" in /*) ;; *) REGIMES_ROOT="$REPO/$REGIMES_ROOT" ;; esac
 OUT_DIR="$REGIMES_ROOT/$REGIME/$LABEL"; mkdir -p "$OUT_DIR" "$REPO/logs/regimes"
 OUT="$OUT_DIR/$TASKSET.json"

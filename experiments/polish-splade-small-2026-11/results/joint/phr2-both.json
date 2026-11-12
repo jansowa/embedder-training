@@ -1,0 +1,23 @@
+{
+  "final": "runs/joint-r2v12b-phr2-both/final",
+  "freeze_table": false,
+  "scale": 1.274961233139038,
+  "seconds": 3687.1,
+  "steps": 1243,
+  "val_final": {
+    "dims_per_doc": 431.3,
+    "dims_per_query": 65.8,
+    "mrr": 1.0,
+    "positive_first": 1.0,
+    "rows": 400,
+    "top1_agreement": 0.9925
+  },
+  "val_init": {
+    "dims_per_doc": 406.6,
+    "dims_per_query": 67.6,
+    "mrr": 0.9983,
+    "positive_first": 0.9975,
+    "rows": 400,
+    "top1_agreement": 0.99
+  }
+}
