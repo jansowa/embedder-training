@@ -1,0 +1,148 @@
+{
+  "source": "gooaq",
+  "dataset": "gooaq-kd",
+  "pairs": "datasets/qooaq.jsonl",
+  "pairs_read": 18819,
+  "unreadable_lines": 0,
+  "pairs_file_modified": "2026-11-13 06:47:06",
+  "rows": 17896,
+  "funnel": [
+    {
+      "step": "pairs read",
+      "removed": 0,
+      "left": 18819
+    },
+    {
+      "step": "empty_question_or_answer",
+      "removed": 0,
+      "left": 18819
+    },
+    {
+      "step": "untranslated_side",
+      "removed": 63,
+      "left": 18756
+    },
+    {
+      "step": "repeated_question",
+      "removed": 50,
+      "left": 18706
+    },
+    {
+      "step": "answer_of_an_earlier_question",
+      "removed": 332,
+      "left": 18374
+    },
+    {
+      "step": "debris:suggest_new_definition",
+      "removed": 1,
+      "left": 18373
+    },
+    {
+      "step": "debris:cut_answer_trailing_ellipsis",
+      "removed": 193,
+      "left": 18180
+    },
+    {
+      "step": "other_script_characters",
+      "removed": 45,
+      "left": 18135
+    },
+    {
+      "step": "answer_shorter_than_80_chars",
+      "removed": 225,
+      "left": 17910
+    },
+    {
+      "step": "positive_above_512_tokens",
+      "removed": 0,
+      "left": 17910
+    },
+    {
+      "step": "benchmark_query",
+      "removed": 14,
+      "left": 17896
+    },
+    {
+      "step": "benchmark_query_loose_key",
+      "removed": 0,
+      "left": 17896
+    },
+    {
+      "step": "query_in_exclude_rows",
+      "removed": 0,
+      "left": 17896
+    }
+  ],
+  "debris_patterns": {
+    "suggest_new_definition": "suggest new definition|zaproponuj nową definicję|zasugeruj nową definicję",
+    "cut_answer_trailing_ellipsis": "(\\.\\.\\.|…)\\s*$"
+  },
+  "other_script_pattern": "[぀-ヿ㐀-鿿가-힯Ѐ-ӿ؀-ۿ]",
+  "examples_of_removed": {
+    "debris:cut_answer_trailing_ellipsis": [
+      "andii, Jamajka, Trynidad i Tobago, Gujana, Bahamy, Belize, Grenada, Barbados, Dziewicze Wyspy Stanów Zjednoczonych, Wyspy Kanałowe, Antigua i Barbuda, Dominika, Bermudy, Saint Vincent i Grenadyny, ...",
+      "Morgan Silver Dollar. CoinTrackers.com oszacował wartość monety 1921 Morgan Silver Dollar na średnią 31 USD, jedna w certyfikowanym stanie menniczym (MS+) może być warta 132 USD. (zobacz szczegóły)...",
+      "tywne nastawienie, dumę z sukcesu, wsparcie i zachęcanie do nowych pomysłów, odpowiedzialność społeczną, zapewnianie wsparcia technologicznego, zachęcanie do powiązań międzyfirmowych oraz promocję ..."
+    ],
+    "answer_shorter_than_80_chars": [
+      "Znaczenie. N/V. Nudności/wymioty. NV. Hałas i wibracje (wydajność pojazdu)",
+      "Nie myj włosów ponownie przez 1–2 dni po usunięciu leku na wszy.",
+      "Ludzie mają 23 pary chromosomów, co daje łącznie 46 chromosomów."
+    ],
+    "answer_of_an_earlier_question": [
+      " rozpoczęciem następnej miesiączki. To jest czas w miesiącu, kiedy najbardziej prawdopodobne jest zajście w ciążę. Mało prawdopodobne, że zajdziesz w ciążę tuż po miesiączce, choć może się to zdarzyć.",
+      "logowym kliknij opcję Utwórz nowe połączenie lub sieć w dolnej części.', 'W oknie dialogowym nowego połączenia przewiń w dół, aż zobaczysz opcję Utwórz bezprzewodową sieć ad hoc (komputer-komputer).']",
+      " rozpoczęciem następnej miesiączki. To jest czas w miesiącu, kiedy najbardziej prawdopodobne jest zajście w ciążę. Mało prawdopodobne, że zajdziesz w ciążę tuż po miesiączce, choć może się to zdarzyć."
+    ],
+    "other_script_characters": [
+      "rs oficjalnie pobraли się 3 sierpnia podczas intymnej ceremonii ślubnej, której przewodniczył bliski przyjaciel, potwierdza PEOPLE. Otrzymuj powiadomienia push z wiadomościami, artykułami i nie tylko.",
+      "ler Bee. Killer Bee (キラービー, Kirabi) to shinobi z Kumogakure i ostatni Jinchūriki Ośmiu Ogonów. Pochodzi z klanu Yotsuki, jest adoptowanym młodszym bratem Raikage i adoptowanym synem Trzeciego Raikage.",
+      "o 6 miesięcy, ale przed podróżą musisz uzyskać nowozelandzką elektroniczną władzę podróżną (NZeTA). ... Nowozelandzkie władze imigracyjne zalecają, aby wnioskodawcy预留ili do 72 godzin na przetwarzanie."
+    ],
+    "benchmark_query": [
+      "czy owsianka jest zdrowa?",
+      "jak zostać modelem?",
+      "jak działa ładowarka bezprzewodowa?"
+    ],
+    "untranslated_side": [
+      "jakie miejscowości są w pobliżu Hershey PA? | ['Colonial Park, PA.', 'Elizabethtown, PA.', 'Progress, PA.', 'Harrisburg, PA.', 'Lebanon, PA.', 'Columbia, PA.', 'York, PA.', 'Lancaster, PA.']",
+      "an Colour Protect Shampoo. ... ', 'amika Bust Your Brass Cool Blonde Shampoo. ... ', 'Aveda Color Conserve Shampoo. ... ', 'Pureology Hydrate Shampoo. ... ', 'Olaplex No. 4 Bond Maintenance Shampoo.']",
+      "'12 — UCLA (2019, 2010, 2004, 2003, 1999, 1992, 1990, 1989, 1988, 1985, 1984, 1982) ... ', '8 — Arizona (2007, 2006, 2001, 1997, 1996, 1994, 1993, 1991) ... ', '4 — Oklahoma (2017, 2016, 2013, 2000)']"
+    ],
+    "repeated_question": [
+      "jak długo trzeba się głodować przed badaniem krwi?",
+      "jaki jest zasada działania generatora elektrycznego?",
+      "jak obliczyć różnicę procentową?"
+    ],
+    "debris:suggest_new_definition": [
+      "XD. oznacza Mixed Doubles (sport) Suggest new definition."
+    ]
+  },
+  "benchmark_queries": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+  "benchmark_queries_read": 547072,
+  "exclude_rows": [
+    "datasets/arms/n5-plus-kj-mined-dose3.jsonl"
+  ],
+  "excluded_queries_read": 60282,
+  "min_answer_chars": 80,
+  "max_positive_tokens": 512,
+  "question_words_p10_p50_p90": [
+    5,
+    7,
+    10
+  ],
+  "answer_chars_p10_p50_p90": [
+    177,
+    283,
+    346
+  ],
+  "positive_tokens_median": 63.0,
+  "positive_tokens_max": 228,
+  "pool_passages": 100000,
+  "pool_from": "datasets/msmarco-full-judged-qwen/pairs_msmarco_full.unique.jsonl",
+  "pool_distinct_passages_in_source": 467514,
+  "pool_note": "MS MARCO-pl passages only; the miner adds the positives of the rows",
+  "seed": 42,
+  "rows_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/gooaq-kd-v1/gooaq-rows.jsonl",
+  "pool_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/gooaq-kd-v1/gooaq-pool.jsonl"
+}
