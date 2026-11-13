@@ -1,0 +1,8 @@
+{
+  "winner": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "arm": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12",
+  "rows": "datasets/arms/n5-plus-kj-mined-dose3.jsonl",
+  "config": "experiments/polish-splade-2026-10/configs/next/3060/distil_dense_kl_n5kj_mined_dose3_ens400_r2v12.yaml",
+  "why": "dose3 + faq20 does not win by the rule (reading: noise), so the dose arm stays",
+  "reading": "noise"
+}

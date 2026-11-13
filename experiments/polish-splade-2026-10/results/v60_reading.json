@@ -1,0 +1,53 @@
+{
+  "pick": "arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016",
+  "ref": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "threshold": 0.2,
+  "verdict": "noise",
+  "tiny10": 64.9348246113333,
+  "heldout8": 43.599448301402916,
+  "dims_per_doc": 375.4703703703704,
+  "ref_tiny10": 64.95931851396324,
+  "ref_heldout8": 43.6338181871955,
+  "ref_dims_per_doc": 374.73814814814807,
+  "delta_tiny10": -0.024493902629942,
+  "delta_heldout8": -0.03436988579258582,
+  "trec_covid": 70.78961458608916,
+  "ref_trec_covid": 72.82043671726952,
+  "groups_vs_first_column": {
+    "FAQ tasks (Allegro FAQ A, B, mfaq)": {
+      "dose3 (v56)": 0.41977716022957406,
+      "faq20 (v58)": 1.0380573922382936,
+      "dose3 + faq20 (v60)": 0.6280298485363881
+    },
+    "tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions)": {
+      "dose3 (v56)": 0.7412086368329813,
+      "faq20 (v58)": 0.004719212230865466,
+      "dose3 + faq20 (v60)": 0.3612540220649496
+    },
+    "scifact-pl": {
+      "dose3 (v56)": 0.6810804950349905,
+      "faq20 (v58)": -0.5818794561668454,
+      "dose3 + faq20 (v60)": 0.40287729285819296
+    },
+    "maupqa-mkqa": {
+      "dose3 (v56)": -0.019701748999764845,
+      "faq20 (v58)": -0.4365390464758292,
+      "dose3 + faq20 (v60)": -0.0419886501629918
+    },
+    "MAUPQA tasks": {
+      "dose3 (v56)": 0.09691801636380748,
+      "faq20 (v58)": 0.017349719393268348,
+      "dose3 + faq20 (v60)": 0.11531602672273888
+    },
+    "all tasks": {
+      "dose3 (v56)": 0.27901343840332643,
+      "faq20 (v58)": 0.17469275628692849,
+      "dose3 + faq20 (v60)": 0.2501302099233176
+    }
+  },
+  "m23": {
+    "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013": 58.370150673524115,
+    "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015": 58.73130831779261,
+    "arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016": null
+  }
+}

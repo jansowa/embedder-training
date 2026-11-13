@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "trec-covid-pl": 70.78961458608916
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 70.78961458608916
+}

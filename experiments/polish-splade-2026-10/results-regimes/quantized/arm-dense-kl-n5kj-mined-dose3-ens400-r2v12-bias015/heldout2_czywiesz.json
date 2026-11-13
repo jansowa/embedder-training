@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "taskset": "heldout2_czywiesz",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-czy-wiesz-v2": 87.65852087533604
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 87.65852087533604
+}
