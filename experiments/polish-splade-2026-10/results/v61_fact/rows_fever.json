@@ -1,0 +1,89 @@
+{
+  "source": "fever",
+  "dataset": "fever-kd",
+  "rows_from": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/fever/train_pl.jsonl",
+  "pool_from": [
+    "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/fever/train_pl.jsonl"
+  ],
+  "limit": null,
+  "rules": {
+    "exclude_domain": [],
+    "answer_location": [],
+    "polish_veto": true,
+    "annotation_source": "fever-pool-8000",
+    "annotation_records": 8706,
+    "max_positive_tokens": 512,
+    "one_positive": "best allowed positive by pos_scores_stronger_reranker (pos_scores when the source has no such field)"
+  },
+  "benchmark_queries": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+  "benchmark_queries_read": 547072,
+  "exclude_rows": [
+    "datasets/arms/n5-plus-kj-mined-dose3.jsonl"
+  ],
+  "excluded_queries_read": 60282,
+  "funnel": [
+    {
+      "step": "rows read",
+      "removed": 0,
+      "left": 109810
+    },
+    {
+      "step": "empty_query_or_positive",
+      "removed": 73,
+      "left": 109737
+    },
+    {
+      "step": "polish_veto",
+      "removed": 49,
+      "left": 109688
+    },
+    {
+      "step": "benchmark_query",
+      "removed": 0,
+      "left": 109688
+    },
+    {
+      "step": "query_in_exclude_rows",
+      "removed": 0,
+      "left": 109688
+    },
+    {
+      "step": "repeated_query",
+      "removed": 10792,
+      "left": 98896
+    },
+    {
+      "step": "drawn at random (seed 42), examined for the token limit",
+      "removed": 92120,
+      "left": 6776
+    },
+    {
+      "step": "no allowed positive within 512 tokens",
+      "removed": 1776,
+      "left": 5000
+    }
+  ],
+  "eligible": 98896,
+  "rows": 5000,
+  "seed": 42,
+  "positives_per_row_in_source": {
+    "1": 89034,
+    "2": 16074,
+    "3": 2177,
+    "4": 845,
+    "5": 537,
+    "6": 1070
+  },
+  "score_field_of_the_chosen_positive": {
+    "pos_scores_stronger_reranker": 5000
+  },
+  "positive_tokens_median": 269.0,
+  "positive_tokens_max": 512,
+  "query_chars_median": 48.0,
+  "positive_chars_median": 1201.0,
+  "pool_passages": 79276,
+  "pool_passages_from_the_drawn_rows": 37642,
+  "pool_chars_median": 523.0,
+  "rows_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/fever-rows.jsonl",
+  "pool_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/fever-pool.jsonl"
+}

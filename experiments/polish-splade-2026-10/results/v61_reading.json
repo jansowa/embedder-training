@@ -1,0 +1,60 @@
+{
+  "pick": "arm-dense-kl-n5kj-mined-dose3-fact20-ens400-r2v12-bias014",
+  "ref": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "threshold": 0.2,
+  "verdict": "noise",
+  "tiny10": 64.77192119078077,
+  "heldout8": 43.48793606379126,
+  "dims_per_doc": 379.94555555555553,
+  "ref_tiny10": 64.95931851396324,
+  "ref_heldout8": 43.6338181871955,
+  "ref_dims_per_doc": 374.73814814814807,
+  "delta_tiny10": -0.18739732318246638,
+  "delta_heldout8": -0.14588212340424178,
+  "trec_covid": 73.7494624851203,
+  "ref_trec_covid": 72.82043671726952,
+  "groups_vs_first_column": {
+    "wiki-factual tasks (MAUPQA incl. czywiesz, poquad, 1z10, wiki-def)": {
+      "dose3 (v56)": 0.09891837325394678,
+      "faq20 (v58)": 0.017349719393268348,
+      "dose3 + faq20 (v60)": 0.11531602672273888,
+      "dose3 + fact20 (v61)": 0.14641903969352885
+    },
+    "legal questions and mfaq (old TriviaQA pattern)": {
+      "dose3 (v56)": 0.3640907540526932,
+      "faq20 (v58)": 0.3307852563914402,
+      "dose3 + faq20 (v60)": 0.25184251985998785,
+      "dose3 + fact20 (v61)": 0.04922865098987472
+    },
+    "Allegro FAQ A, B (old NQ pattern)": {
+      "dose3 (v56)": 0.6224650878364884,
+      "faq20 (v58)": 1.2396350076189862,
+      "dose3 + faq20 (v60)": 0.6403440283242574,
+      "dose3 + fact20 (v61)": 0.2955197913668002
+    },
+    "arguana-pl (old HotpotQA pattern)": {
+      "dose3 (v56)": 0.8592881888153343,
+      "faq20 (v58)": 0.2616181734597518,
+      "dose3 + faq20 (v60)": 0.6699211293403025,
+      "dose3 + fact20 (v61)": -0.41893439687622447
+    },
+    "maupqa-czy-wiesz-v2 (old FEVER pattern)": {
+      "dose3 (v56)": 0.2071914608315666,
+      "faq20 (v58)": null,
+      "dose3 + faq20 (v60)": null,
+      "dose3 + fact20 (v61)": 0.17999794343813846
+    },
+    "maupqa-poquad": {
+      "dose3 (v56)": 0.006648140797441471,
+      "faq20 (v58)": null,
+      "dose3 + faq20 (v60)": null,
+      "dose3 + fact20 (v61)": 0.26832614618866657
+    },
+    "all tasks": {
+      "dose3 (v56)": 0.2618040746444442,
+      "faq20 (v58)": 0.17469275628692849,
+      "dose3 + faq20 (v60)": 0.2501302099233176,
+      "dose3 + fact20 (v61)": 0.12147678809140725
+    }
+  }
+}

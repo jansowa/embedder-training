@@ -1,0 +1,40 @@
+{
+  "student": "models/arm-dense-kl-n5kj-ens400-r2v12",
+  "teacher": "ensemble: mean(models/soup-v9b, OPI-PIB/PolDense-400M cosine x 84.19)",
+  "dense_scale": 84.19441654567078,
+  "rows": 5000,
+  "by_origin": {
+    "hard": 24997,
+    "random": 24995,
+    "outside_window": 8,
+    "old": 0
+  },
+  "negatives_by_pool": {
+    "trivia-kd": 44850,
+    "own": 5150
+  },
+  "negatives_from_shared_pool": 0.897,
+  "teacher_positive_mass_median": 0.6644312459662574,
+  "teacher_positive_mass_above_095": 0.2226,
+  "rows_with_negative_above_positive": 1510,
+  "student_ranks_a_positive_first": 0.6318,
+  "teacher_ranks_a_positive_first": 0.698,
+  "median_negative_chars": 620.0,
+  "top_k": 60,
+  "hard": 5,
+  "len_window": [
+    0.5,
+    2.0
+  ],
+  "pools": {
+    "trivia-kd": 4907
+  },
+  "extra_pool": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/trivia-pool.jsonl",
+  "extra_max": 0,
+  "extra_chars": [
+    1,
+    1000000
+  ],
+  "dense_texts_encoded_now": 40631,
+  "seed": 42
+}

@@ -1,0 +1,92 @@
+{
+  "source": "nq",
+  "dataset": "nq-kd",
+  "rows_from": "datasets/arms/pool/nq-pool-8000.jsonl",
+  "pool_from": [
+    "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/nq/train_pl.jsonl"
+  ],
+  "limit": null,
+  "rules": {
+    "exclude_domain": [
+      "culture_entertainment",
+      "sport"
+    ],
+    "answer_location": [],
+    "polish_veto": true,
+    "annotation_source": "nq-pool-8000",
+    "annotation_records": 8128,
+    "max_positive_tokens": 512,
+    "one_positive": "best allowed positive by pos_scores_stronger_reranker (pos_scores when the source has no such field)"
+  },
+  "benchmark_queries": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+  "benchmark_queries_read": 547072,
+  "exclude_rows": [
+    "datasets/arms/n5-plus-kj-mined-dose3.jsonl"
+  ],
+  "excluded_queries_read": 60282,
+  "funnel": [
+    {
+      "step": "rows read",
+      "removed": 0,
+      "left": 8000
+    },
+    {
+      "step": "domain_excluded",
+      "removed": 4349,
+      "left": 3651
+    },
+    {
+      "step": "polish_veto",
+      "removed": 67,
+      "left": 3584
+    },
+    {
+      "step": "benchmark_query",
+      "removed": 12,
+      "left": 3572
+    },
+    {
+      "step": "benchmark_query_loose_key",
+      "removed": 1,
+      "left": 3571
+    },
+    {
+      "step": "query_in_exclude_rows",
+      "removed": 0,
+      "left": 3571
+    },
+    {
+      "step": "repeated_query",
+      "removed": 7,
+      "left": 3564
+    },
+    {
+      "step": "drawn at random (seed 42), examined for the token limit",
+      "removed": 0,
+      "left": 3564
+    },
+    {
+      "step": "no allowed positive within 512 tokens",
+      "removed": 0,
+      "left": 3564
+    }
+  ],
+  "eligible": 3564,
+  "rows": 3564,
+  "seed": 42,
+  "positives_per_row_in_source": {
+    "1": 8000
+  },
+  "score_field_of_the_chosen_positive": {
+    "pos_scores": 3564
+  },
+  "positive_tokens_median": 125.0,
+  "positive_tokens_max": 510,
+  "query_chars_median": 47.0,
+  "positive_chars_median": 566.5,
+  "pool_passages": 103298,
+  "pool_passages_from_the_drawn_rows": 33578,
+  "pool_chars_median": 337.0,
+  "rows_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/nq-rows.jsonl",
+  "pool_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/nq-pool.jsonl"
+}

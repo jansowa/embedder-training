@@ -1,0 +1,66 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "base": {
+      "doc_active_mean": 450.0451851851852,
+      "doc_active_median": 432.0,
+      "query_active_mean": 138.58,
+      "query_active_median": 76.0,
+      "postings_per_query": 16414.82074074074,
+      "flops": 2.643812894821167,
+      "doc_weight_sum_mean": 188.88064575195312,
+      "query_weight_sum_mean": 61.94696807861328
+    },
+    "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013": {
+      "doc_active_mean": 384.00814814814817,
+      "doc_active_median": 386.0,
+      "query_active_mean": 122.18222222222222,
+      "query_active_median": 70.0,
+      "postings_per_query": 14478.873333333333,
+      "flops": 2.1650869846343994,
+      "doc_weight_sum_mean": 155.46693420410156,
+      "query_weight_sum_mean": 55.46514892578125
+    },
+    "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015": {
+      "doc_active_mean": 381.52666666666664,
+      "doc_active_median": 384.5,
+      "query_active_mean": 121.94592592592592,
+      "query_active_median": 71.0,
+      "postings_per_query": 14079.274814814815,
+      "flops": 1.9981755018234253,
+      "doc_weight_sum_mean": 152.15664672851562,
+      "query_weight_sum_mean": 53.93130874633789
+    },
+    "arm-dense-kl-n5kj-mined-faq20-ens400-r2v12-bias015": {
+      "doc_active_mean": 385.8488888888889,
+      "doc_active_median": 386.0,
+      "query_active_mean": 127.57185185185185,
+      "query_active_median": 71.0,
+      "postings_per_query": 15288.515555555556,
+      "flops": 2.237725257873535,
+      "doc_weight_sum_mean": 153.8256072998047,
+      "query_weight_sum_mean": 56.90392303466797
+    },
+    "arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016": {
+      "doc_active_mean": 382.7659259259259,
+      "doc_active_median": 383.0,
+      "query_active_mean": 129.44592592592593,
+      "query_active_median": 74.0,
+      "postings_per_query": 15000.551111111112,
+      "flops": 2.0657668113708496,
+      "doc_weight_sum_mean": 149.95750427246094,
+      "query_weight_sum_mean": 56.164363861083984
+    },
+    "arm-dense-kl-n5kj-mined-dose3-fact20-ens400-r2v12-bias014": {
+      "doc_active_mean": 385.97407407407405,
+      "doc_active_median": 387.5,
+      "query_active_mean": 128.66518518518518,
+      "query_active_median": 75.0,
+      "postings_per_query": 15113.273333333333,
+      "flops": 2.0813941955566406,
+      "doc_weight_sum_mean": 150.8647918701172,
+      "query_weight_sum_mean": 56.22739028930664
+    }
+  }
+}

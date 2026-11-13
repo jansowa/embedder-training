@@ -1,0 +1,84 @@
+{
+  "source": "hotpotqa",
+  "dataset": "hotpotqa-kd",
+  "rows_from": "datasets/arms/pool/hotpotqa-pool-8000.jsonl",
+  "pool_from": [
+    "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/FlagEmbedding-data/speakleash/hotpotqa/train_pl.jsonl"
+  ],
+  "limit": null,
+  "rules": {
+    "exclude_domain": [],
+    "answer_location": [
+      "explicit",
+      "inferred"
+    ],
+    "polish_veto": true,
+    "annotation_source": "hotpotqa-pool-8000",
+    "annotation_records": 13272,
+    "max_positive_tokens": 512,
+    "one_positive": "best allowed positive by pos_scores_stronger_reranker (pos_scores when the source has no such field)"
+  },
+  "benchmark_queries": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/reference/pirb-queries.jsonl",
+  "benchmark_queries_read": 547072,
+  "exclude_rows": [
+    "datasets/arms/n5-plus-kj-mined-dose3.jsonl"
+  ],
+  "excluded_queries_read": 60282,
+  "funnel": [
+    {
+      "step": "rows read",
+      "removed": 0,
+      "left": 8000
+    },
+    {
+      "step": "no_positive_with_the_answer",
+      "removed": 4077,
+      "left": 3923
+    },
+    {
+      "step": "polish_veto",
+      "removed": 85,
+      "left": 3838
+    },
+    {
+      "step": "benchmark_query",
+      "removed": 0,
+      "left": 3838
+    },
+    {
+      "step": "query_in_exclude_rows",
+      "removed": 0,
+      "left": 3838
+    },
+    {
+      "step": "drawn at random (seed 42), examined for the token limit",
+      "removed": 0,
+      "left": 3838
+    },
+    {
+      "step": "no allowed positive within 512 tokens",
+      "removed": 0,
+      "left": 3838
+    }
+  ],
+  "eligible": 3838,
+  "rows": 3838,
+  "seed": 42,
+  "positives_per_row_in_source": {
+    "1": 3056,
+    "2": 4926,
+    "3": 18
+  },
+  "score_field_of_the_chosen_positive": {
+    "pos_scores_stronger_reranker": 3838
+  },
+  "positive_tokens_median": 97.0,
+  "positive_tokens_max": 419,
+  "query_chars_median": 104.0,
+  "positive_chars_median": 402.5,
+  "pool_passages": 120000,
+  "pool_passages_from_the_drawn_rows": 40449,
+  "pool_chars_median": 279.0,
+  "rows_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/hotpotqa-rows.jsonl",
+  "pool_output": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/hotpotqa-pool.jsonl"
+}

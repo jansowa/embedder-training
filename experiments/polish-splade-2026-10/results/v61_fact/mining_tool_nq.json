@@ -1,0 +1,40 @@
+{
+  "student": "models/arm-dense-kl-n5kj-ens400-r2v12",
+  "teacher": "ensemble: mean(models/soup-v9b, OPI-PIB/PolDense-400M cosine x 84.19)",
+  "dense_scale": 84.19441654567078,
+  "rows": 3564,
+  "by_origin": {
+    "hard": 17653,
+    "random": 17187,
+    "outside_window": 800,
+    "old": 0
+  },
+  "negatives_by_pool": {
+    "nq-kd": 32833,
+    "own": 2807
+  },
+  "negatives_from_shared_pool": 0.9212401795735129,
+  "teacher_positive_mass_median": 0.6890845910198005,
+  "teacher_positive_mass_above_095": 0.21296296296296297,
+  "rows_with_negative_above_positive": 892,
+  "student_ranks_a_positive_first": 0.5841750841750841,
+  "teacher_ranks_a_positive_first": 0.7497194163860831,
+  "median_negative_chars": 478.0,
+  "top_k": 60,
+  "hard": 5,
+  "len_window": [
+    0.5,
+    2.0
+  ],
+  "pools": {
+    "nq-kd": 3405
+  },
+  "extra_pool": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/fact-kd-v1/nq-pool.jsonl",
+  "extra_max": 0,
+  "extra_chars": [
+    1,
+    1000000
+  ],
+  "dense_texts_encoded_now": 30298,
+  "seed": 42
+}

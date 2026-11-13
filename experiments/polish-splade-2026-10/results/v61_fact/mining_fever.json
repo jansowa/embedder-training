@@ -1,0 +1,15 @@
+{
+  "rows": 5000,
+  "datasets": {
+    "fever-kd": 5000
+  },
+  "teacher_positive_mass_median": 0.9670040161604976,
+  "teacher_positive_mass_above_095": 0.5748,
+  "rows_with_negative_above_positive": 475,
+  "student_ranks_the_positive_first": 0.8178,
+  "negatives_by_pool": {
+    "fever-kd": 44303,
+    "own": 5697
+  },
+  "dense_scale": 84.19441654567078
+}
