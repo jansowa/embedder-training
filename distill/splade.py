@@ -109,6 +109,9 @@ def pooled_vector(model: nn.Module, hidden: torch.Tensor, attention_mask: torch.
     """SPLADE vector ``[B, V]`` from hidden states, through the model's own MLM head, with a sparse gradient."""
     transform, decoder = split_mlm_head(model)
     z = transform(hidden)
+    if z.dtype != decoder.weight.dtype and not torch.is_autocast_enabled():
+        # a head-layer student loaded in fp16 after prepare_head_layer: the transform ran in fp32, the decoder is fp16
+        z = z.to(decoder.weight.dtype)
     best = sparse_max_decoder(z, decoder.weight, decoder.bias, attention_mask, chunk)
     return torch.log1p(torch.relu(best))
 

@@ -86,9 +86,9 @@ PYEOF
 fi
 rm -rf "$PACK/bench/pirb_tasks"; cp -r configs/pirb_tasks "$PACK/bench/pirb_tasks"
 mkdir -p "$PACK/results"
-for f in "$RESULTS_ROOT/summary_v62.md" "$RESULTS_ROOT/v62_freeze.json" "$SEXP/results/summary_r1.md" "$SEXP/results/r1_freeze.json" "$SEXP/results/summary_st1.md" "$RES"/export_*.json; do [ -e "$f" ] && cp "$f" "$PACK/results/"; done
+for f in "$RESULTS_ROOT/summary_v62.md" "$RESULTS_ROOT/v62_freeze.json" "$SEXP/results/summary_r1.md" "$SEXP/results/r1_freeze.json" "$SEXP/results/summary_a1.md" "$SEXP/results/a1_freeze.json" "$SEXP/results/summary_st1.md" "$RES"/export_*.json; do [ -e "$f" ] && cp "$f" "$PACK/results/"; done
 note "bench" "datasets/kd/kd_v1.jsonl, configs/pirb_tasks" "benchmark inputs: 3 000 queries + 1 500 passages of kd_v1 for release.onnx_bench; the PIRB task sets"
-note "results" "$RESULTS_ROOT, $SEXP/results" "summaries and choices of v62 / r1 / st1, the ONNX export reports"
+note "results" "$RESULTS_ROOT, $SEXP/results" "summaries and choices of v62 / r1 / a1 / st1, the ONNX export reports"
 ATXT="(no ALBERT was chosen)"; [ -n "$ALB" ] && ATXT="\`albert/$ALB\`"
 {
     echo "# Release package 2026-11-13 (from the 3060 box)"; echo
@@ -98,7 +98,7 @@ ATXT="(no ALBERT was chosen)"; [ -n "$ALB" ] && ATXT="\`albert/$ALB\`"
     sort "$PACK/CONTENTS.tsv" | awk -F'\t' '{printf "| `%s` | %s | `%s` | %s |\n", $1, $2, $3, $4}'
     echo; echo "## Models"; echo
     echo "- Full model (82 M): \`full/$FULL\` — quantized regime tiny10 / heldout8 $(lbs "$FULL"), trec-covid $(tc "$FULL"), $(dims "$FULL") dims/doc. Choice and table: \`results/summary_v62.md\`."
-    echo "- ALBERT student (50 M): $ATXT. Choice and table: \`results/summary_r1.md\`."
+    echo "- ALBERT student (50 M): $ATXT. Choice and table: \`results/summary_a1.md\` (the earlier lineage from soup-v9b: \`results/summary_r1.md\`)."
     echo "- Static query table: \`${STATIC:-not built}\` on the 3060; here under \`static/\` (the table, the Sentence Transformers model with the table as the query route, and the query side alone). Load the Sentence Transformers model with \`SparseEncoder(path, trust_remote_code=True)\`. Numbers: \`results/summary_st1.md\`."
     echo; echo "## Publication benchmark (PIRB) on the 5070"; echo
     echo "From the repository root, with P=datasets/transfer/release-20261113. One task set per call; the task sets are \`configs/pirb_tasks/*.json\` (copied to \`bench/pirb_tasks/\`): tiny10, heldout8, heldout2_czywiesz, heldout2_gpt35wiki, heldout2_quora, heldout2_poquad, heldout2_treccovid are the 23 tasks measured on the 3060; the remaining files are the large PIRB tasks. Batch 8 for poquad and trec-covid."; echo
