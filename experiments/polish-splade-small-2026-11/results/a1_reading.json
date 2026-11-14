@@ -1,0 +1,41 @@
+{
+  "pick": "arm-hl-dqf-full-s3n5kj-r2d3-bias020",
+  "ref": "arm-hl-full-s3n5kj-r2d3-bias020",
+  "threshold": 0.2,
+  "verdict": "noise",
+  "tiny10": 64.34135303562557,
+  "heldout8": 42.8925213879697,
+  "dims_per_doc": 339.75148148148145,
+  "ref_tiny10": 64.14298141722134,
+  "ref_heldout8": 42.61152896603429,
+  "ref_dims_per_doc": 359.5962962962963,
+  "delta_tiny10": 0.1983716184042379,
+  "delta_heldout8": 0.28099242193540874,
+  "trec_covid": 64.79887823673435,
+  "ref_trec_covid": 61.346394360417456,
+  "groups_vs_first_column": {
+    "FAQ tasks (Allegro FAQ A, B, mfaq)": {
+      "old lineage, round 2 (r1)": 0.7521029980852774,
+      "new lineage, stage 3 (a1)": 0.6639583311436775,
+      "new lineage, round 2 (a1)": 0.9325009331312563
+    },
+    "tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions)": {
+      "old lineage, round 2 (r1)": 0.48621595908741355,
+      "new lineage, stage 3 (a1)": 1.0358758803563486,
+      "new lineage, round 2 (a1)": 1.1538077320180733
+    },
+    "MAUPQA tasks": {
+      "old lineage, round 2 (r1)": 0.10905532547433827,
+      "new lineage, stage 3 (a1)": 0.2833654729154178,
+      "new lineage, round 2 (a1)": 0.24763435831550384
+    },
+    "all tasks": {
+      "old lineage, round 2 (r1)": 0.3288687375797308,
+      "new lineage, stage 3 (a1)": 0.4793781464756333,
+      "new lineage, round 2 (a1)": 0.5639607131089293
+    }
+  },
+  "m23": {
+    "arm-hl-dqf-full-s3n5kj-r2d3-bias020": 57.71993481891415
+  }
+}
