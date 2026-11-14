@@ -1,0 +1,95 @@
+{
+  "pick": "soup-v20-dqf-bias015",
+  "ref": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
+  "threshold": 0.2,
+  "verdict": "noise",
+  "tiny10": 65.06411264126366,
+  "heldout8": 43.64249224489668,
+  "dims_per_doc": 371.40629629629626,
+  "ref_tiny10": 64.95931851396324,
+  "ref_heldout8": 43.6338181871955,
+  "ref_dims_per_doc": 374.73814814814807,
+  "delta_tiny10": 0.1047941273004227,
+  "delta_heldout8": 0.008674057701178128,
+  "trec_covid": 72.48217952683218,
+  "ref_trec_covid": 72.82043671726952,
+  "groups_vs_first_column": {
+    "FAQ tasks (Allegro FAQ A, B, mfaq)": {
+      "dose3 (v56)": 0.41977716022957406,
+      "faq20 (v58)": 1.0380573922382936,
+      "dose3 + faq20 (v60)": 0.6280298485363881,
+      "dose3 + fact20 (v61)": 0.17476993602191251,
+      "dose3 + gooaq (v61b)": 0.2779211977618819,
+      "soup-v20-dq (dose3 + faq20)": 0.9367857147968645,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.7955172603146181,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 1.067283570836847,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.9341797669805084,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.9887049204827747
+    },
+    "tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions)": {
+      "dose3 (v56)": 0.7412086368329813,
+      "faq20 (v58)": 0.004719212230865466,
+      "dose3 + faq20 (v60)": 0.3612540220649496,
+      "dose3 + fact20 (v61)": 0.12789859850966145,
+      "dose3 + gooaq (v61b)": 0.20582908804076006,
+      "soup-v20-dq (dose3 + faq20)": 0.49263517603318796,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.5882279654766904,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 0.5103022298021163,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.4276589036088314,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.5054198609391367
+    },
+    "scifact-pl": {
+      "dose3 (v56)": 0.6810804950349905,
+      "faq20 (v58)": -0.5818794561668454,
+      "dose3 + faq20 (v60)": 0.40287729285819296,
+      "dose3 + fact20 (v61)": 0.5671530602850936,
+      "dose3 + gooaq (v61b)": -0.7568725200947313,
+      "soup-v20-dq (dose3 + faq20)": 0.4119715861177582,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.7033953712978303,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 0.4149879065899711,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.12445830522017332,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.4435679450170511
+    },
+    "maupqa-mkqa": {
+      "dose3 (v56)": -0.019701748999764845,
+      "faq20 (v58)": -0.4365390464758292,
+      "dose3 + faq20 (v60)": -0.0419886501629918,
+      "dose3 + fact20 (v61)": -0.28293182571212583,
+      "dose3 + gooaq (v61b)": 0.0456723702654358,
+      "soup-v20-dq (dose3 + faq20)": -0.05877264324385578,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.08561674787168272,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 0.071698050302345,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.025978350509092252,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.11082046074281493
+    },
+    "MAUPQA tasks": {
+      "dose3 (v56)": 0.09691801636380748,
+      "faq20 (v58)": 0.017349719393268348,
+      "dose3 + faq20 (v60)": 0.11531602672273888,
+      "dose3 + fact20 (v61)": 0.12698328841356044,
+      "dose3 + gooaq (v61b)": 0.062247730332865236,
+      "soup-v20-dq (dose3 + faq20)": 0.11096642146227098,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.1877836656099936,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 0.15256377909384589,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.12615775236522309,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.16550627266220008
+    },
+    "all tasks": {
+      "dose3 (v56)": 0.27901343840332643,
+      "faq20 (v58)": 0.17469275628692849,
+      "dose3 + faq20 (v60)": 0.2501302099233176,
+      "dose3 + fact20 (v61)": 0.11006731512229667,
+      "dose3 + gooaq (v61b)": 0.13561432362747025,
+      "soup-v20-dq (dose3 + faq20)": 0.32699442719115307,
+      "soup-v20-dqf (dose3 + faq20 + fact20)": 0.3410875347707482,
+      "soup-v20-dqm (dose3 + faq20 + (dose3 + faq20))": 0.3666740199614053,
+      "soup-v20-dqg (dose3 + faq20 + gooaq)": 0.3155445554312182,
+      "soup-v20-dqfg (dose3 + faq20 + fact20 + gooaq)": 0.35478430057738275
+    }
+  },
+  "m23": {
+    "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013": 58.370150673524115,
+    "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015": 58.73130831779261,
+    "soup-v20-dqf-bias015": 58.7991324813644
+  }
+}

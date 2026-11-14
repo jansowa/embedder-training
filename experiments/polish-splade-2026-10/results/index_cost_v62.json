@@ -1,0 +1,126 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "base": {
+      "doc_active_mean": 450.0451851851852,
+      "doc_active_median": 432.0,
+      "query_active_mean": 138.58,
+      "query_active_median": 76.0,
+      "postings_per_query": 16414.82074074074,
+      "flops": 2.643812894821167,
+      "doc_weight_sum_mean": 188.88064575195312,
+      "query_weight_sum_mean": 61.94696807861328
+    },
+    "arm-dense-kl-n5kj-mined-ens400-r2v12-bias013": {
+      "doc_active_mean": 384.00814814814817,
+      "doc_active_median": 386.0,
+      "query_active_mean": 122.18222222222222,
+      "query_active_median": 70.0,
+      "postings_per_query": 14478.873333333333,
+      "flops": 2.1650869846343994,
+      "doc_weight_sum_mean": 155.46693420410156,
+      "query_weight_sum_mean": 55.46514892578125
+    },
+    "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015": {
+      "doc_active_mean": 381.52666666666664,
+      "doc_active_median": 384.5,
+      "query_active_mean": 121.94592592592592,
+      "query_active_median": 71.0,
+      "postings_per_query": 14079.274814814815,
+      "flops": 1.9981755018234253,
+      "doc_weight_sum_mean": 152.15664672851562,
+      "query_weight_sum_mean": 53.93130874633789
+    },
+    "arm-dense-kl-n5kj-mined-faq20-ens400-r2v12-bias015": {
+      "doc_active_mean": 385.8488888888889,
+      "doc_active_median": 386.0,
+      "query_active_mean": 127.57185185185185,
+      "query_active_median": 71.0,
+      "postings_per_query": 15288.515555555556,
+      "flops": 2.237725257873535,
+      "doc_weight_sum_mean": 153.8256072998047,
+      "query_weight_sum_mean": 56.90392303466797
+    },
+    "arm-dense-kl-n5kj-mined-dose3-faq20-ens400-r2v12-bias016": {
+      "doc_active_mean": 382.7659259259259,
+      "doc_active_median": 383.0,
+      "query_active_mean": 129.44592592592593,
+      "query_active_median": 74.0,
+      "postings_per_query": 15000.551111111112,
+      "flops": 2.0657668113708496,
+      "doc_weight_sum_mean": 149.95750427246094,
+      "query_weight_sum_mean": 56.164363861083984
+    },
+    "arm-dense-kl-n5kj-mined-dose3-fact20-ens400-r2v12-bias014": {
+      "doc_active_mean": 385.97407407407405,
+      "doc_active_median": 387.5,
+      "query_active_mean": 128.66518518518518,
+      "query_active_median": 75.0,
+      "postings_per_query": 15113.273333333333,
+      "flops": 2.0813941955566406,
+      "doc_weight_sum_mean": 150.8647918701172,
+      "query_weight_sum_mean": 56.22739028930664
+    },
+    "arm-dense-kl-n5kj-mined-dose3-gooaq-ens400-r2v12-bias016": {
+      "doc_active_mean": 389.25333333333333,
+      "doc_active_median": 394.0,
+      "query_active_mean": 125.88888888888889,
+      "query_active_median": 68.0,
+      "postings_per_query": 14707.46074074074,
+      "flops": 2.1136386394500732,
+      "doc_weight_sum_mean": 153.4668426513672,
+      "query_weight_sum_mean": 55.79450988769531
+    },
+    "soup-v20-dq-bias015": {
+      "doc_active_mean": 382.41703703703706,
+      "doc_active_median": 382.0,
+      "query_active_mean": 123.95407407407407,
+      "query_active_median": 70.0,
+      "postings_per_query": 14311.757777777777,
+      "flops": 2.10311222076416,
+      "doc_weight_sum_mean": 153.37254333496094,
+      "query_weight_sum_mean": 55.41720962524414
+    },
+    "soup-v20-dqf-bias015": {
+      "doc_active_mean": 378.5362962962963,
+      "doc_active_median": 380.0,
+      "query_active_mean": 122.98148148148148,
+      "query_active_median": 70.0,
+      "postings_per_query": 13945.037777777778,
+      "flops": 2.0509276390075684,
+      "doc_weight_sum_mean": 151.52684020996094,
+      "query_weight_sum_mean": 55.02982711791992
+    },
+    "soup-v20-dqm-bias015": {
+      "doc_active_mean": 384.8681481481481,
+      "doc_active_median": 386.5,
+      "query_active_mean": 126.31185185185186,
+      "query_active_median": 71.0,
+      "postings_per_query": 14529.457037037037,
+      "flops": 2.109856605529785,
+      "doc_weight_sum_mean": 153.56649780273438,
+      "query_weight_sum_mean": 55.9939079284668
+    },
+    "soup-v20-dqg-bias015": {
+      "doc_active_mean": 386.2051851851852,
+      "doc_active_median": 387.0,
+      "query_active_mean": 124.8762962962963,
+      "query_active_median": 69.0,
+      "postings_per_query": 14339.01925925926,
+      "flops": 2.115342855453491,
+      "doc_weight_sum_mean": 154.5184783935547,
+      "query_weight_sum_mean": 55.76254653930664
+    },
+    "soup-v20-dqfg-bias015": {
+      "doc_active_mean": 382.1607407407407,
+      "doc_active_median": 384.0,
+      "query_active_mean": 123.77111111111111,
+      "query_active_median": 70.0,
+      "postings_per_query": 14048.142222222223,
+      "flops": 2.072577953338623,
+      "doc_weight_sum_mean": 152.7996826171875,
+      "query_weight_sum_mean": 55.35124969482422
+    }
+  }
+}
