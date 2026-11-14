@@ -1,0 +1,46 @@
+backend: sentence-transformers
+training_type: splade
+
+# Round 2 of the ALBERT student (queue r1): from models/arm-hl-full-s3n5kj (stage 3 on n5 + kj, 63.78 / 42.55) on the rows of the dose arm of the full model (datasets/arms/n5-plus-kj-mined-dose3.jsonl: student-mined negatives, the SQuAD-v2 dose, ensemble teacher scores), the recipe of the full model's second round (2 epochs, lr 2e-5, 2 x 16, 512 tokens, KL); the head path as in the earlier ALBERT arms.
+runs_dir: runs/arm-hl-full-s3n5kj-r2d3
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-mined-dose3.jsonl
+
+architectures:
+  - models/arm-hl-full-s3n5kj
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

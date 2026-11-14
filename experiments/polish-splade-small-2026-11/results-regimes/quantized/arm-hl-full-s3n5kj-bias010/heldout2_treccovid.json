@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-hl-full-s3n5kj-bias010",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-hl-full-s3n5kj-bias010",
+  "taskset": "heldout2_treccovid",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "trec-covid-pl": 64.23087189780522
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 64.23087189780522
+}

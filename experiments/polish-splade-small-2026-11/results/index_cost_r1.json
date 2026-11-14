@@ -1,0 +1,46 @@
+{
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "models": {
+    "base": {
+      "doc_active_mean": 450.0451851851852,
+      "doc_active_median": 432.0,
+      "query_active_mean": 138.58,
+      "query_active_median": 76.0,
+      "postings_per_query": 16414.82074074074,
+      "flops": 2.643812894821167,
+      "doc_weight_sum_mean": 188.88064575195312,
+      "query_weight_sum_mean": 61.94696807861328
+    },
+    "arm-hl-full-s3n5kj-bias010": {
+      "doc_active_mean": 381.53925925925927,
+      "doc_active_median": 382.0,
+      "query_active_mean": 146.07555555555555,
+      "query_active_median": 100.0,
+      "postings_per_query": 17436.791851851853,
+      "flops": 2.4015066623687744,
+      "doc_weight_sum_mean": 152.3134307861328,
+      "query_weight_sum_mean": 64.85250091552734
+    },
+    "arm-hl-full-s3n5kj-r2d3-bias020": {
+      "doc_active_mean": 365.4148148148148,
+      "doc_active_median": 365.0,
+      "query_active_mean": 124.30222222222223,
+      "query_active_median": 76.0,
+      "postings_per_query": 13397.205185185185,
+      "flops": 1.4501550197601318,
+      "doc_weight_sum_mean": 123.03046417236328,
+      "query_weight_sum_mean": 49.71702575683594
+    },
+    "arm-hl-full-s3n5kj-r2d3faq-bias020": {
+      "doc_active_mean": 376.9459259259259,
+      "doc_active_median": 377.0,
+      "query_active_mean": 133.82962962962964,
+      "query_active_median": 81.0,
+      "postings_per_query": 14790.191111111111,
+      "flops": 1.5398247241973877,
+      "doc_weight_sum_mean": 123.37320709228516,
+      "query_weight_sum_mean": 51.98558044433594
+    }
+  }
+}
