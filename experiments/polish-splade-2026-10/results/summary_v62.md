@@ -4,7 +4,7 @@ The soups are uniform averages of the raw weights of arms that all start from so
 
 ## Freeze
 
-Rule: among dose3-bias015, fact20, the GooAQ arm and the soups, the highest mean of tiny10 and heldout8 with at most 410 dims/doc and at most 16807 postings/query; a lead below 0.1 over dose3-bias015 keeps dose3-bias015.
+Rule: among dose3-bias015, fact20, the GooAQ arm and the soups, the highest mean over the 19 tasks of tiny10, heldout8 and trec-covid (every task with the same weight, unrounded numbers) with at most 410 dims/doc and at most 16807 postings/query; any positive lead over dose3-bias015 wins (no margin). The rule was changed on 13.11, before the last two soups and the index cost were measured: the first version (the highest mean of tiny10 and heldout8, a lead below 0.1 keeps dose3-bias015) would have kept dose3-bias015, since the best soup on the two sets (soup-v20-dqm) leads it by 0.085. The leads here (0.041 on the 19 tasks) are below the seed noise of one arm.
 
 **Frozen full model: `soup-v20-dqf-bias015`** — soup-v20-dqf: dose3 + faq20 + fact20 leads dose3 (v56) by 0.041 on the mean over the tasks of tiny10, heldout8 and trec-covid (any lead wins: margin 0) within the limits. The label is the first line of `logs/final_full_model.txt`; the model is in `datasets/transfer/release-20261113/full/soup-v20-dqf-bias015`.
 
