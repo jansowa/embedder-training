@@ -1,0 +1,131 @@
+{
+  "source_model": "/home/jsowa/work/FlagEmbedding/models/soup-v20-dqf-bias015",
+  "args": {
+    "model": "models/soup-v20-dqf-bias015",
+    "out": "datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015",
+    "variants": "fp32,mixed",
+    "graph": "splade",
+    "opset": 17,
+    "max_length": null,
+    "threads": 6,
+    "overwrite": false,
+    "keep_work": false,
+    "per_tensor": false,
+    "reduce_range": false,
+    "weight_type": "u8",
+    "activation_type": "s8",
+    "quantize_embeddings": false,
+    "quantize_attention_matmuls": false,
+    "calib_texts": "datasets/kd/kd_v1.jsonl",
+    "text_field": "text",
+    "calib_n": "query=256,passage=256",
+    "check_n": "query=64,passage=64",
+    "calib_method": "minmax",
+    "calib_percentile": 99.999,
+    "calib_batch_size": 4,
+    "calib_chunk": 4,
+    "calib_max_length": 256,
+    "torch_check_n": 16,
+    "seed": 13,
+    "mixed_fp32": "head",
+    "mixed_method": "dynamic",
+    "mixed_auto_k": 0,
+    "sensitivity_method": "static",
+    "sensitivity_n": 64
+  },
+  "variants": {
+    "fp32": {
+      "dir": "datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015/fp32",
+      "bytes": 481610642,
+      "torch_check": {
+        "n": 16,
+        "max_abs_diff": 7.942318916320801e-05,
+        "cosine_min": 1.0,
+        "active_jaccard_mean": 1.0
+      }
+    },
+    "mixed": {
+      "dir": "datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015/mixed-int8",
+      "bytes": 354446346,
+      "quantization": {
+        "method": "mixed (dynamic int8 + fp32 blocks)",
+        "op_types": [
+          "MatMul",
+          "Gemm"
+        ],
+        "per_channel": true,
+        "reduce_range": false,
+        "weight_type": "u8",
+        "activations": "uint8, per batch (dynamic)",
+        "nodes_excluded": 2,
+        "fp32_blocks": [
+          "head"
+        ],
+        "fp32_blocks_forced": [
+          "head"
+        ],
+        "fp32_blocks_auto": [],
+        "fp32_nodes": [
+          "/inner/lm_head/dense/MatMul",
+          "/inner/lm_head/decoder/MatMul"
+        ]
+      },
+      "fp32_check": {
+        "n": 128,
+        "cosine": {
+          "mean": 0.9741289503872395,
+          "p10": 0.9630627512931824,
+          "p50": 0.9764004349708557,
+          "p90": 0.9830010056495666
+        },
+        "rel_l1": {
+          "mean": 0.24324101430829614,
+          "p10": 0.19309459179639818,
+          "p50": 0.2399107813835144,
+          "p90": 0.29833603799343106
+        },
+        "active_jaccard": {
+          "mean": 0.7140356979341955,
+          "p10": 0.6458706467661691,
+          "p50": 0.7188640510948905,
+          "p90": 0.7739846743295019
+        },
+        "top10_term_overlap": {
+          "mean": 0.9046875000000001,
+          "p10": 0.8,
+          "p50": 0.9,
+          "p90": 1.0
+        },
+        "dims_ref": {
+          "mean": 202.8671875,
+          "p10": 52.7,
+          "p50": 182.5,
+          "p90": 393.5
+        },
+        "dims": {
+          "mean": 170.7265625,
+          "p10": 43.0,
+          "p50": 151.0,
+          "p90": 339.2
+        },
+        "dims_ratio": 0.8415681441830015,
+        "seconds": 5.6
+      }
+    }
+  },
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "check": 128,
+    "calibration": 0
+  },
+  "blocks": {
+    "layer.0": 6,
+    "layer.1": 6,
+    "layer.2": 6,
+    "layer.3": 6,
+    "layer.4": 6,
+    "layer.5": 6,
+    "head": 2
+  },
+  "sensitivity": null
+}
