@@ -1,0 +1,123 @@
+{
+  "args": {
+    "pool": "cache/static_pools/kd-soup-v20-dqf-bias015",
+    "init": "models/static-soup-v20-dqf-bias015/credit-k8",
+    "out": "runs/static-soup-v20-dqf-bias015-credit-k8-kd",
+    "target": "rows",
+    "mix_weight": 0.5,
+    "in_batch": false,
+    "temperature": 1.0,
+    "teacher_scale": 1.0,
+    "query_l1": 0.0,
+    "query_flops": 0.0,
+    "learn_scale": true,
+    "scale_lr": 0.01,
+    "epochs": 2.0,
+    "max_steps": 0,
+    "batch_size": 64,
+    "lr": 0.005,
+    "warmup_steps": 200,
+    "schedule": "linear",
+    "max_grad_norm": 0.0,
+    "val_rows": 2000,
+    "eval_every": 500,
+    "save_every": 0,
+    "log_every": 100,
+    "seed": 42,
+    "device": "cuda",
+    "threads": 0
+  },
+  "pool": {
+    "kind": "mined",
+    "doc_model": "models/soup-v20-dqf-bias015",
+    "corpus": "datasets/kd/kd_v1.jsonl",
+    "students": [
+      "models/static-soup-v20-dqf-bias015/idf",
+      "models/static-soup-v20-dqf-bias015/credit-k32"
+    ],
+    "rows_with_scores": 120000,
+    "docs": 250000,
+    "dim": 50001,
+    "quantization_factor": 100,
+    "min_weight": 0.0,
+    "max_seq_length": 512,
+    "query_max_length": 128,
+    "teacher_queries": true,
+    "doc_dims_mean": 342.8,
+    "query_dims_mean": 82.6,
+    "dtype": "fp16",
+    "seed": 42,
+    "encode_docs_seconds": 369.6,
+    "encode_queries_seconds": 55.0,
+    "rows": 120000,
+    "teacher_top": 32,
+    "student_top": 16,
+    "max_candidates": 64,
+    "candidates_mean": 42.6,
+    "student_only_candidates_mean": 10.6,
+    "student_recall_of_teacher_top10": {
+      "idf": 0.4518,
+      "credit-k32": 0.7488
+    },
+    "search_seconds": 251.0,
+    "seconds": 688.5
+  },
+  "train_rows": 118000,
+  "val_rows": 2000,
+  "total_steps": 3686,
+  "table": {
+    "rows": 50001,
+    "k": 8,
+    "live_rows": 49998,
+    "active_slots": 371605,
+    "slots_per_live_row": 7.43,
+    "rows_with_self_slot": 29440,
+    "weight_mean": 0.6652,
+    "weight_max": 2.3234
+  },
+  "scale_init": 1.04272,
+  "val_splade_reference": {
+    "rows": 2000,
+    "kendall_tau": 1.0,
+    "top1_agreement": 1.0,
+    "positive_first": 1.0,
+    "mrr": 1.0,
+    "dims_per_query": 83.89,
+    "postings_fraction": 8.4348
+  },
+  "val_init": {
+    "rows": 2000,
+    "kendall_tau": 0.4327,
+    "top1_agreement": 0.6315,
+    "positive_first": 0.6315,
+    "mrr": 0.7347,
+    "dims_per_query": 100.31,
+    "postings_fraction": 13.4002
+  },
+  "val_final": {
+    "rows": 2000,
+    "kendall_tau": 0.4724,
+    "top1_agreement": 0.6595,
+    "positive_first": 0.6595,
+    "mrr": 0.7608,
+    "dims_per_query": 70.4,
+    "postings_fraction": 8.3773
+  },
+  "steps": 3686,
+  "best_val_mrr": [
+    0.7609,
+    2000
+  ],
+  "table_final": {
+    "rows": 50001,
+    "k": 8,
+    "live_rows": 49977,
+    "active_slots": 341796,
+    "slots_per_live_row": 6.84,
+    "rows_with_self_slot": 28874,
+    "weight_mean": 0.7301,
+    "weight_max": 2.7516
+  },
+  "seconds": 150.3,
+  "scale_final": 0.94637
+}
