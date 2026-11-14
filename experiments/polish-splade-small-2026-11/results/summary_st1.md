@@ -14,6 +14,17 @@ val columns: 2 000 held-out kd_v1 queries of the pool each table trained on (top
 
 Released table: `models/static-soup-v20-dqf-bias015/phr2-k8-kd-r2` (first line of `logs/final_static_table.txt`). Sentence Transformers package: `models/st/soup-v20-dqf-bias015-static-phr2-k8-kd-r2` (router: query = the table, document = the frozen model; load with `trust_remote_code=True`) and `models/st/soup-v20-dqf-bias015-static-phr2-k8-kd-r2-query` (the query side alone). Package check: loaded with trust_remote_code; active dims per query [28, 33, 21], per document [266], score of the first query 9.54
 
+## Query-side cost on the cost sample (added by hand on 14.11)
+
+`scripts/splade_index_cost_asym.py` on the sample of `scripts/splade_index_cost.py` (1 350 passages + 1 350 queries of the tiny tasks; `results/index_cost_st1_asym.json`), the index built by `soup-v20-dqf-bias015`:
+
+| query side | dims/query, mean | dims/query, median | postings/query, mean | median | p95 |
+|---|---:|---:|---:|---:|---:|
+| static phr2-k8-kd-r2 (st1) | 89.7 | 52 | 11 764 | 7 670 | 44 399 |
+| the full model itself | 123.0 | | 13 945 | | |
+
+The limit is 16 807 postings/query. The 61.0 dims/query of the table above is measured on the kd_v1 validation queries; the cost sample contains the long arguana-pl queries, hence the higher mean here.
+
 ## Queue state (st1)
 
 ```
