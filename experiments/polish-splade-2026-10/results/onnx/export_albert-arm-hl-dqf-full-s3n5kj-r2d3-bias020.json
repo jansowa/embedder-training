@@ -1,0 +1,127 @@
+{
+  "source_model": "/home/jsowa/work/FlagEmbedding/models/arm-hl-dqf-full-s3n5kj-r2d3-bias020",
+  "args": {
+    "model": "models/arm-hl-dqf-full-s3n5kj-r2d3-bias020",
+    "out": "datasets/transfer/release-20261113/onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020",
+    "variants": "fp32,mixed",
+    "graph": "splade",
+    "opset": 17,
+    "max_length": null,
+    "threads": 6,
+    "overwrite": false,
+    "keep_work": false,
+    "per_tensor": false,
+    "reduce_range": false,
+    "weight_type": "u8",
+    "activation_type": "s8",
+    "quantize_embeddings": false,
+    "quantize_attention_matmuls": false,
+    "calib_texts": "datasets/kd/kd_v1.jsonl",
+    "text_field": "text",
+    "calib_n": "query=256,passage=256",
+    "check_n": "query=64,passage=64",
+    "calib_method": "minmax",
+    "calib_percentile": 99.999,
+    "calib_batch_size": 4,
+    "calib_chunk": 4,
+    "calib_max_length": 256,
+    "torch_check_n": 16,
+    "seed": 13,
+    "mixed_fp32": "head",
+    "mixed_method": "dynamic",
+    "mixed_auto_k": 0,
+    "sensitivity_method": "static",
+    "sensitivity_n": 64
+  },
+  "variants": {
+    "fp32": {
+      "dir": "datasets/transfer/release-20261113/onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/fp32",
+      "bytes": 192313514,
+      "torch_check": {
+        "n": 16,
+        "max_abs_diff": 1.3232231140136719e-05,
+        "cosine_min": 0.9999998807907104,
+        "active_jaccard_mean": 1.0
+      }
+    },
+    "mixed": {
+      "dir": "datasets/transfer/release-20261113/onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/mixed-int8",
+      "bytes": 126405889,
+      "quantization": {
+        "method": "mixed (dynamic int8 + fp32 blocks)",
+        "op_types": [
+          "MatMul",
+          "Gemm"
+        ],
+        "per_channel": true,
+        "reduce_range": false,
+        "weight_type": "u8",
+        "activations": "uint8, per batch (dynamic)",
+        "nodes_excluded": 2,
+        "fp32_blocks": [
+          "head"
+        ],
+        "fp32_blocks_forced": [
+          "head"
+        ],
+        "fp32_blocks_auto": [],
+        "fp32_nodes": [
+          "/inner/predictions/dense/MatMul",
+          "/inner/predictions/decoder/MatMul"
+        ]
+      },
+      "fp32_check": {
+        "n": 128,
+        "cosine": {
+          "mean": 0.749883244279772,
+          "p10": 0.6708509802818299,
+          "p50": 0.7512357234954834,
+          "p90": 0.8227507591247558
+        },
+        "rel_l1": {
+          "mean": 2.7992880446836352,
+          "p10": 1.8671815395355225,
+          "p50": 2.7336888313293457,
+          "p90": 3.904900074005127
+        },
+        "active_jaccard": {
+          "mean": 0.21029806995657738,
+          "p10": 0.16750650231821781,
+          "p50": 0.20942789936996653,
+          "p90": 0.25903394850763267
+        },
+        "top10_term_overlap": {
+          "mean": 0.7945312500000001,
+          "p10": 0.6,
+          "p50": 0.8,
+          "p90": 0.9
+        },
+        "dims_ref": {
+          "mean": 188.5,
+          "p10": 54.0,
+          "p50": 169.0,
+          "p90": 353.09999999999997
+        },
+        "dims": {
+          "mean": 891.9296875,
+          "p10": 249.70000000000002,
+          "p50": 741.5,
+          "p90": 1698.6999999999998
+        },
+        "dims_ratio": 4.731722480106101,
+        "seconds": 3.4
+      }
+    }
+  },
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "check": 128,
+    "calibration": 0
+  },
+  "blocks": {
+    "embeddings": 1,
+    "layer.0": 28,
+    "head": 2
+  },
+  "sensitivity": null
+}
