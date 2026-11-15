@@ -228,8 +228,13 @@ def quantize_masked_lm(auto_model: Any, variant: Variant) -> dict[str, Any]:
     names = [n for n, m in auto_model.named_modules() if isinstance(m, nn.Linear)]
     chosen = [n for n, m in auto_model.named_modules() if keep(m, n)]
     quantize_(auto_model, _torchao_config(variant), filter_fn=keep)
-    return {"linear_quantized": len(chosen), "linear_kept": len(names) - len(chosen),
-            "kept": [n for n in names if n not in set(chosen)]}
+    # torchao may skip a chosen layer without an error (e.g. int8 dynamic on in_features <= 16), so count what
+    # actually holds a quantized tensor subclass now, not what the filter selected.
+    done = [n for n, m in auto_model.named_modules()
+            if isinstance(m, nn.Linear) and type(m.weight) is not nn.Parameter and type(m.weight).__name__ != "Tensor"]
+    skipped = [n for n in chosen if n not in set(done)]
+    return {"linear_selected": len(chosen), "linear_quantized": len(done), "linear_kept": len(names) - len(chosen),
+            "kept": [n for n in names if n not in set(chosen)], "skipped_by_torchao": skipped}
 
 
 def load_sparse_encoder(model_path: str, variant: Variant, device: str = "cuda", max_seq_length: int | None = None):

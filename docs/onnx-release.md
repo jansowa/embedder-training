@@ -143,18 +143,23 @@ A provider that onnxruntime cannot load is an error, not a silent CPU run.
 `[batch, seq, vocab]`. The decoder logits themselves still exist in the graph; whether TensorRT fuses the max into the
 GEMM is one of the things to measure.
 
-Environment: `onnxruntime-gpu` (it cannot share a venv with the CPU `onnxruntime`) plus TensorRT libraries of the
-version that onnxruntime release was built against (onnxruntime's CUDA/TensorRT requirements table), e.g. a separate
-`.venv-ort-gpu`. Keep the cache out of the release package (`--trt-cache runs/trt-cache`).
+Environment: `onnxruntime-gpu` (it cannot share a venv with the CPU `onnxruntime`) plus TensorRT 10 libraries. On the
+3060 box (15.11) it is `/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/FlagEmbedding-venvs/ort-gpu`: onnxruntime-gpu 1.23.2 and tensorrt-cu12 10.16.1.11 installed with `--no-deps`,
+everything else read from the main `.venv` through `zz_main_venv.pth`; start it with `ort-gpu/bin/python-gpu`, which
+puts `tensorrt_libs` and torch's CUDA / cuDNN libraries on `LD_LIBRARY_PATH`. Checked without the GPU: onnxruntime
+lists the TensorRT and CUDA providers and libnvinfer.so.10 / libcudnn.so.9 / libcublas.so.12 load. Not checked: the
+driver is 550 (CUDA 12.4) while TensorRT 10.16 and onnxruntime 1.23 are CUDA 12.8+ builds (minor-version compatibility
+should cover it; the first GPU run decides). Keep the cache out of the release package (`--trt-cache runs/trt-cache`).
 
 ```bash
-# max-first export of the frozen model (CPU, minutes)
-CUDA_VISIBLE_DEVICES= .venv/bin/python -m release.onnx_splade --model models/soup-v20-dqf-bias015 \
-    --out models/onnx/dqf-maxfirst --variants fp32 --graph splade-maxfirst --threads 4
+# max-first export of the frozen model (CPU; done 15.11 -> runs/onnx-gpu/dqf-maxfirst/fp32, bitwise equal to the
+# released splade graph on 16 kd_v1 texts). Call export_fp32 with a few check texts: the CLI's torch check runs all
+# check texts in one batch ([n, 512, 50001] fp32 logits).
+#   export_fp32("models/soup-v20-dqf-bias015", "runs/onnx-gpu/dqf-maxfirst/fp32", graph="splade-maxfirst", check_texts=texts[:6])
 
 # GPU: reference = the released fp32 export on the CPU, then the GPU forms (idle card only)
 P=datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015/fp32
-.venv-ort-gpu/bin/python -m release.onnx_bench --variants $P $P@cuda $P@tensorrt models/onnx/dqf-maxfirst/fp32@tensorrt \
+/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/FlagEmbedding-venvs/ort-gpu/bin/python-gpu -m release.onnx_bench --variants $P $P@cuda $P@tensorrt runs/onnx-gpu/dqf-maxfirst/fp32@tensorrt \
     --threads 1 --query-batch 1 --passage-batch 32 --max-rows 64 --trt-cache runs/trt-cache \
     --out experiments/polish-splade-2026-10/results/onnx/dqf_gpu_3060ti.json
 ```

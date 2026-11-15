@@ -59,6 +59,15 @@ query are as important as the cosine.
 
 ## Install (separate venv on the card that runs it)
 
+On the 3060 box (15.11): `/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/FlagEmbedding-venvs/gpuq`, torchao 0.15.0 (the last release whose notes list torch 2.7.1) installed with
+`--no-deps`, everything else from the main `.venv` via `zz_main_venv.pth`. torchao skips its C++ extensions on torch 2.7
+(a warning); the int8 / fp8 paths used here are Python over `torch._int_mm` / `torch._scaled_mm`. Checked on the CPU:
+int8-dyn replaces every selected Linear weight (`LinearActivationQuantizedTensor`), vectors within 1e-5 cosine of fp32
+on a toy model; torchao silently skips int8-dyn on layers with in_features <= 16, so the report counts the layers that
+were really quantized (`linear_quantized`, `skipped_by_torchao`).
+
+Generic recipe:
+
 torchao pins against a torch version; pick the release that matches the venv's torch from the torchao README
 compatibility table (`.venv` has torch 2.7.1+cu128). Keep it out of `requirements.lock`.
 
@@ -80,13 +89,13 @@ variant is a subprocess; one that fails is reported with its error and the run c
 
 ```bash
 # 5070 Ti: the full matrix
-.venv-gpuq/bin/python -m release.gpu_bench --model models/soup-v20-dqf-bias015 \
+/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/FlagEmbedding-venvs/gpuq/bin/python -m release.gpu_bench --model models/soup-v20-dqf-bias015 \
     --variants fp16:eager fp16 fp16:fasthead bf16 int8-dyn int8-dyn:nohead int8-dyn:nohead,fasthead fp8-dyn fp8-dyn:nohead fp8-dyn:nohead,fasthead fp8-dyn:tensor \
     --passage-batch 32,64 --compile-threads 8 \
     --out experiments/polish-splade-2026-10/results/gpu-quant/soup-v20-dqf-bias015_5070ti.json
 
 # 3060 Ti (no fp8): the default variant list = baselines, poolchunk, fast head, int8 (plan of 15.11)
-.venv-gpuq/bin/python -m release.gpu_bench --model models/soup-v20-dqf-bias015 \
+/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/FlagEmbedding-venvs/gpuq/bin/python -m release.gpu_bench --model models/soup-v20-dqf-bias015 \
     --out experiments/polish-splade-2026-10/results/gpu-quant/soup-v20-dqf-bias015_3060ti.json
 ```
 
