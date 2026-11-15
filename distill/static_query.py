@@ -63,6 +63,7 @@ from torch import nn
 
 CONFIG_NAME = "static_query.json"
 WEIGHTS_NAME = "static_query.safetensors"
+CONFIG_V2_NAME = "static_query_v2.json"  # the larger encoders of distill.static_v2 (a separate format, never read here)
 POOLINGS = ("max", "sum")
 INITS = ("idf", "ones", "credit", "isolated")
 
@@ -108,6 +109,7 @@ class StaticSparseQueryEncoder(nn.Module):
             raise ValueError(f"{indices.shape[0]} rows != {self.base_rows} token rows + {len(self.phrases)} phrase rows.")
         self._lookup = {key: self.base_rows + i for i, key in enumerate(self.phrases)}
         self._punct: tuple[int, np.ndarray] | None = None
+        self.sparse_grad = False  # training only: row-sparse gradients of ``values`` (SparseAdam)
 
     @property
     def rows(self) -> int:
@@ -117,10 +119,20 @@ class StaticSparseQueryEncoder(nn.Module):
     def k(self) -> int:
         return self.indices.shape[1]
 
+    def slot_values(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """``values[input_ids]``; with ``sparse_grad`` the gradient touches only the rows of the batch."""
+        if self.sparse_grad:
+            return torch.nn.functional.embedding(input_ids, self.values, sparse=True)
+        return self.values[input_ids]
+
+    def trainable_parameters(self) -> dict[str, list[nn.Parameter]]:
+        """Parameter groups of ``distill.train_static``: the table weights; this format has nothing else."""
+        return {"values": [self.values], "extra": []}
+
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         batch = input_ids.shape[0]
         idx = self.indices[input_ids]  # [B, L, k]
-        val = torch.relu(self.values[input_ids]) * self.slot_mask[input_ids].to(self.values.dtype)
+        val = torch.relu(self.slot_values(input_ids)) * self.slot_mask[input_ids].to(self.values.dtype)
         val = val * attention_mask.unsqueeze(-1).to(val.dtype)
         out = val.new_zeros(batch, self.output_dim)
         if self.pooling == "max":  # weights are >= 0, so the zero start is the empty max
@@ -230,6 +242,13 @@ class StaticSparseQueryEncoder(nn.Module):
         )
         return model.to(device)
 
+    def with_table(self, indices: torch.Tensor, values: torch.Tensor, slot_mask: torch.Tensor, meta: dict[str, Any] | None = None) -> "StaticSparseQueryEncoder":
+        """A copy with another table for the same rows (other slots, possibly another k); everything else is kept."""
+        return StaticSparseQueryEncoder(
+            indices, values, self.output_dim, slot_mask, self.pooling, self.add_special_tokens, self.max_length, dict(self.meta if meta is None else meta),
+            phrases=self.phrases, phrase_max_words=self.phrase_max_words, base_rows=self.base_rows,
+        )
+
     @torch.no_grad()
     def pruned(self, min_weight: float = 0.0, top_k: int = 0) -> "StaticSparseQueryEncoder":
         """A copy with slots below ``min_weight`` (after relu) dropped and at most ``top_k`` slots per row."""
@@ -271,9 +290,9 @@ def punct_token_mask(tokenizer) -> np.ndarray:
     return mask
 
 
-def phrase_keys(ids: list[int], word_ids: list[int | None], punct: np.ndarray, max_words: int) -> list[tuple[tuple[int, ...], list[int]]]:
-    """``(key, token positions)`` of the phrases of one tokenized text: every word of 2+ pieces (``max_words >= 1``)
-    and every pair of adjacent words (``max_words >= 2``); keys are piece-id tuples, word pairs joined by PHRASE_SEP."""
+def split_words(ids: list[int], word_ids: list[int | None], punct: np.ndarray) -> list[tuple[tuple[int, ...], list[int]]]:
+    """``(piece ids, token positions)`` of the whitespace words of one tokenized text, punctuation-only pieces at a
+    word's edges left out (a word of punctuation alone is dropped)."""
     words: list[tuple[tuple[int, ...], list[int]]] = []
     current, pieces, positions = None, [], []
 
@@ -297,6 +316,13 @@ def phrase_keys(ids: list[int], word_ids: list[int | None], punct: np.ndarray, m
         positions.append(pos)
     if current is not None:
         flush()
+    return words
+
+
+def phrase_keys(ids: list[int], word_ids: list[int | None], punct: np.ndarray, max_words: int) -> list[tuple[tuple[int, ...], list[int]]]:
+    """``(key, token positions)`` of the phrases of one tokenized text: every word of 2+ pieces (``max_words >= 1``)
+    and every pair of adjacent words (``max_words >= 2``); keys are piece-id tuples, word pairs joined by PHRASE_SEP."""
+    words = split_words(ids, word_ids, punct)
     out = []
     for j, (key, pos) in enumerate(words):
         if max_words >= 1 and len(key) > 1:
@@ -306,16 +332,18 @@ def phrase_keys(ids: list[int], word_ids: list[int | None], punct: np.ndarray, m
     return out
 
 
-def build_phrase_vocab(tokenizer, texts: list[str], max_words: int, min_count: int, max_phrases: int, max_length: int = 128, batch_size: int = 1024) -> list[tuple[int, ...]]:
-    """Phrase keys occurring in at least ``min_count`` texts, most frequent first, at most ``max_phrases``."""
+def build_phrase_vocab(tokenizer, texts: list[str], max_words: int, min_count: int, max_phrases: int, max_length: int = 128, batch_size: int = 1024, key_fn=None) -> list[tuple[int, ...]]:
+    """Phrase keys occurring in at least ``min_count`` texts, most frequent first, at most ``max_phrases``.
+    ``key_fn`` replaces ``phrase_keys`` (the key schemes of distill.static_v2); the default is this format's."""
     from collections import Counter
 
+    key_fn = key_fn or phrase_keys
     punct = punct_token_mask(tokenizer)
     counts: Counter = Counter()
     for start in range(0, len(texts), batch_size):
         enc = tokenizer(texts[start : start + batch_size], truncation=True, max_length=max_length)
         for i, ids in enumerate(enc["input_ids"]):
-            counts.update({key for key, _ in phrase_keys(ids, enc.word_ids(i), punct, max_words)})
+            counts.update({key for key, _ in key_fn(ids, enc.word_ids(i), punct, max_words)})
     keep = [(key, n) for key, n in counts.items() if n >= min_count]
     keep.sort(key=lambda kv: (-kv[1], kv[0]))
     return [key for key, _ in keep[:max_phrases]]
@@ -456,28 +484,25 @@ def credit_batch(acc: CreditAccumulator, teacher: nn.Module, input_ids: torch.Te
             acc.counts[uniq[uniq < acc.rows]] += 1
 
 
-def credit_table(
+def credit_accumulate(
     teacher: nn.Module,
     tokenizer,
     texts: list[str],
-    top_k: int,
     *,
     batch_size: int = 64,
     max_length: int = 128,
-    min_count: int = 3,
-    isolated_fallback: bool = True,
     device: str = "cpu",
     log_every: int = 0,
     phrases: list[tuple[int, ...]] | None = None,
     phrase_max_words: int = 0,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
-    """Expansion table from the teacher's pooled vectors on ``texts`` (queries); rare tokens from ``<s> t </s>``.
-    With ``phrases`` the table has ``len(tokenizer) + len(phrases)`` rows, the phrase rows credited as well."""
+    key_fn=None,
+) -> CreditAccumulator:
+    """The credits of ``credit_table`` before any row is cut to its top-k: per (row, dimension) the summed teacher
+    weight, per row the number of texts it occurs in. ``key_fn`` replaces ``phrase_keys`` (distill.static_v2)."""
     phrases = list(phrases or [])
+    key_fn = key_fn or phrase_keys
     base = len(tokenizer)
-    rows = base + len(phrases)
-    out_dim = output_dim_of(tokenizer, teacher)
-    acc = CreditAccumulator(rows, out_dim)
+    acc = CreditAccumulator(base + len(phrases), output_dim_of(tokenizer, teacher))
     lookup = {key: base + i for i, key in enumerate(phrases)}
     punct = punct_token_mask(tokenizer) if phrases else None
     order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
@@ -489,7 +514,7 @@ def credit_table(
             per_pos: list[dict[int, list[int]]] = []
             for i, ids in enumerate(enc["input_ids"].tolist()):
                 at: dict[int, list[int]] = {}
-                for key, pos in phrase_keys(ids, enc.word_ids(i), punct, phrase_max_words):
+                for key, pos in key_fn(ids, enc.word_ids(i), punct, phrase_max_words):
                     row = lookup.get(key)
                     if row is not None:
                         for q in pos:
@@ -505,6 +530,36 @@ def credit_table(
         credit_batch(acc, teacher, enc["input_ids"].to(device), enc["attention_mask"].to(device), phrase_cover=cover)
         if log_every and n_batch % log_every == 0:
             print(f"[credit] {start + batch_size}/{len(texts)} texts, {time.time() - started:.0f}s", flush=True)
+    return acc
+
+
+def credit_table(
+    teacher: nn.Module,
+    tokenizer,
+    texts: list[str],
+    top_k: int,
+    *,
+    batch_size: int = 64,
+    max_length: int = 128,
+    min_count: int = 3,
+    isolated_fallback: bool = True,
+    device: str = "cpu",
+    log_every: int = 0,
+    phrases: list[tuple[int, ...]] | None = None,
+    phrase_max_words: int = 0,
+    key_fn=None,
+    accumulator: CreditAccumulator | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
+    """Expansion table from the teacher's pooled vectors on ``texts`` (queries); rare tokens from ``<s> t </s>``.
+    With ``phrases`` the table has ``len(tokenizer) + len(phrases)`` rows, the phrase rows credited as well.
+    ``accumulator``: credits collected earlier by ``credit_accumulate`` with the same arguments (not run again)."""
+    phrases = list(phrases or [])
+    base = len(tokenizer)
+    started = time.time()
+    acc = accumulator or credit_accumulate(
+        teacher, tokenizer, texts, batch_size=batch_size, max_length=max_length, device=device, log_every=log_every,
+        phrases=phrases, phrase_max_words=phrase_max_words, key_fn=key_fn,
+    )
     indices, values, mask = acc.table(top_k)
     specials = set(special_token_ids(tokenizer))
     rare = [t for t in range(base) if acc.counts[t] < min_count and t not in specials] if isolated_fallback else []
@@ -535,6 +590,16 @@ def isolated_table(teacher: nn.Module, tokenizer, top_k: int, token_ids: list[in
         credit_batch(acc, teacher, input_ids, attention_mask, only_positions=positions)
     acc.counts[:] = 1
     return acc.table(top_k)
+
+
+def load_static_encoder(model_dir: Path, device: torch.device | str = "cpu"):
+    """A static query encoder folder: this module's table, or a larger encoder of ``distill.static_v2`` when the
+    folder carries ``static_query_v2.json``. Both answer ``tokenize`` / ``forward(**enc)`` / ``save`` alike."""
+    if (Path(model_dir) / CONFIG_V2_NAME).exists():
+        from distill.static_v2 import StaticQueryEncoderV2
+
+        return StaticQueryEncoderV2.load(model_dir, device)
+    return StaticSparseQueryEncoder.load(model_dir, device)
 
 
 def table_stats(model: StaticSparseQueryEncoder) -> dict[str, Any]:
@@ -652,6 +717,9 @@ def prune_main(args: argparse.Namespace) -> int:
     from transformers import AutoTokenizer
 
     model = StaticSparseQueryEncoder.load(args.model).pruned(args.min_weight, args.top_k)
+    if args.max_length:  # the rows do not depend on it: only how much of a long query is read
+        model.max_length = args.max_length
+        model.meta = dict(model.meta, max_length_changed_to=args.max_length)
     model.save(args.out, AutoTokenizer.from_pretrained(args.model))
     print(json.dumps({"out": str(args.out), **table_stats(model)}, indent=2))
     return 0
@@ -693,6 +761,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--min-weight", type=float, default=0.0)
     p.add_argument("--top-k", type=int, default=0)
+    p.add_argument("--max-length", type=int, default=0, help="also change the query length in tokens (0 = keep; the PIRB fork reads the document side at 512)")
     args = parser.parse_args(argv)
     return {"build": build_main, "stats": stats_main, "prune": prune_main}[args.command](args)
 

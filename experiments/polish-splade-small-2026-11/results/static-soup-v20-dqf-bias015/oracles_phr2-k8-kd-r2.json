@@ -1,0 +1,61 @@
+{
+  "pool": "cache/static_pools/kd-soup-v20-dqf-bias015-r2",
+  "model": "models/static-soup-v20-dqf-bias015/phr2-k8-kd-r2",
+  "rows": 2000,
+  "seed": 42,
+  "agreement_with": "rows",
+  "student": {
+    "rows": 2000,
+    "kendall_tau": 0.4233,
+    "top1_agreement": 0.685,
+    "positive_first": 0.685,
+    "mrr": 0.7879,
+    "dims_per_query": 61.04,
+    "postings_fraction": 7.2034
+  },
+  "teacher": {
+    "rows": 2000,
+    "kendall_tau": 1.0,
+    "top1_agreement": 1.0,
+    "positive_first": 1.0,
+    "mrr": 1.0,
+    "dims_per_query": 83.36,
+    "postings_fraction": 8.3901
+  },
+  "weights": {
+    "rows": 2000,
+    "kendall_tau": 0.6552,
+    "top1_agreement": 0.7905,
+    "positive_first": 0.7905,
+    "mrr": 0.8672,
+    "dims_per_query": 41.66,
+    "postings_fraction": 4.7389
+  },
+  "support": {
+    "rows": 2000,
+    "kendall_tau": 0.4799,
+    "top1_agreement": 0.714,
+    "positive_first": 0.714,
+    "mrr": 0.8086,
+    "dims_per_query": 41.66,
+    "postings_fraction": 4.7389
+  },
+  "own": {
+    "rows": 2000,
+    "kendall_tau": 0.2576,
+    "top1_agreement": 0.395,
+    "positive_first": 0.395,
+    "mrr": 0.5329,
+    "dims_per_query": 7.86,
+    "postings_fraction": 0.5032
+  },
+  "student-own": {
+    "rows": 2000,
+    "kendall_tau": 0.2257,
+    "top1_agreement": 0.3855,
+    "positive_first": 0.3855,
+    "mrr": 0.5231,
+    "dims_per_query": 10.1,
+    "postings_fraction": 0.7646
+  }
+}

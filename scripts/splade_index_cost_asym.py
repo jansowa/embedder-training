@@ -25,20 +25,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from splade_index_cost import POLEVAL, TINY, read_jsonl  # noqa: E402
 
 
-def sample(data_dir: Path, per_task: int, seed: int) -> tuple[list[str], list[str]]:
-    """The passages and queries of splade_index_cost.py (same order of the draws from one generator)."""
+def sample(data_dir: Path, per_task: int, seed: int, tasks: list[str] | None = None) -> tuple[list[str], list[str], list[str]]:
+    """The passages and queries of splade_index_cost.py (same order of the draws from one generator) and the task of
+    every query. With `tasks` (PIRB data directories; poleval-2022/NAME reads test-A and test-B) another task set is
+    sampled the same way; its postings are not comparable with the standard sample (another index)."""
     rng = random.Random(seed)
-    docs, queries = [], []
-    for t in TINY:
+    docs, queries, qtask = [], [], []
+
+    def plain(t: str) -> None:
+        nonlocal docs, queries, qtask
         d = data_dir / t
         docs += read_jsonl(d / "passages/passages.jsonl", per_task, rng)
-        queries += read_jsonl(d / "queries/queries.jsonl", per_task, rng)
-    for t in POLEVAL:
+        q = read_jsonl(d / "queries/queries.jsonl", per_task, rng)
+        queries += q
+        qtask += [t] * len(q)
+
+    def poleval(t: str) -> None:
+        nonlocal docs, queries, qtask
         d = data_dir / "poleval-2022" / t
         docs += read_jsonl(d / "passages/passages.jsonl", per_task, rng)
         for split in ("test-A", "test-B"):
-            queries += read_jsonl(d / split / "queries.jsonl", per_task // 2, rng)
-    return docs, queries
+            q = read_jsonl(d / split / "queries.jsonl", per_task // 2, rng)
+            queries += q
+            qtask += [f"poleval-2022-{split}-{t}"] * len(q)
+
+    if tasks is None:
+        for t in TINY:
+            plain(t)
+        for t in POLEVAL:
+            poleval(t)
+    else:
+        for t in tasks:
+            poleval(t.split("/", 1)[1]) if t.startswith("poleval-2022/") else plain(t)
+    return docs, queries, qtask
 
 
 def doc_stats(D: np.ndarray, qf: int) -> tuple[np.ndarray, float]:
@@ -47,18 +66,29 @@ def doc_stats(D: np.ndarray, qf: int) -> tuple[np.ndarray, float]:
     return Da.sum(axis=0), float(Da.sum(axis=1).mean())
 
 
-def profile(df: np.ndarray, doc_active: float, Q: np.ndarray, qf: int) -> dict[str, float]:
+def profile(df: np.ndarray, doc_active: float, Q: np.ndarray, qf: int, qtask: list[str] | None = None) -> dict:
     Qa = np.rint(Q * qf) > 0
     postings = np.array([int(df[row].sum()) for row in Qa])  # per query: sum over its active terms of df
-    return {
+    active = Qa.sum(axis=1)
+    rep = {
         "doc_active_mean": doc_active,
-        "query_active_mean": float(Qa.sum(axis=1).mean()),
-        "query_active_median": float(np.median(Qa.sum(axis=1))),
+        "query_active_mean": float(active.mean()),
+        "query_active_median": float(np.median(active)),
         "postings_per_query": float(postings.mean()),
         "postings_per_query_median": float(np.median(postings)),
         "postings_per_query_p95": float(np.percentile(postings, 95)),
         "query_weight_sum_mean": float(Q.sum(axis=1).mean()),
     }
+    if qtask:
+        tasks = np.array(qtask)
+        rep["per_task"] = {
+            t: {"n": int((tasks == t).sum()), "query_active_mean": float(active[tasks == t].mean()), "postings_per_query": float(postings[tasks == t].mean())}
+            for t in dict.fromkeys(qtask)
+        }
+        rest = tasks != "arguana-pl"
+        if rest.any() and not rest.all():
+            rep["without_arguana"] = {"n": int(rest.sum()), "query_active_mean": float(active[rest].mean()), "postings_per_query": float(postings[rest].mean())}
+    return rep
 
 
 def main() -> int:
@@ -73,13 +103,15 @@ def main() -> int:
     ap.add_argument("--batch-size", type=int, default=4)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--threads", type=int, default=0)
+    ap.add_argument("--tasks", default="", help="comma list of PIRB data directories instead of the standard cost sample (poleval-2022/NAME for a PolEval set)")
     ap.add_argument("--output-json", type=Path, required=True)
     args = ap.parse_args()
     if args.threads > 0:
         torch.set_num_threads(args.threads)
 
-    docs, queries = sample(args.data_dir, args.per_task, args.seed)
-    print(f"sample: {len(docs)} passages, {len(queries)} queries", flush=True)
+    tasks = [t for t in args.tasks.split(",") if t] or None
+    docs, queries, qtask = sample(args.data_dir, args.per_task, args.seed, tasks)
+    print(f"sample ({'standard cost sample' if tasks is None else ', '.join(tasks)}): {len(docs)} passages, {len(queries)} queries", flush=True)
     qf = args.quantization_factor
 
     from sentence_transformers.sparse_encoder import SparseEncoder
@@ -106,7 +138,8 @@ def main() -> int:
     df, doc_active = doc_stats(D, qf)
     dim = D.shape[1]
     del D
-    report = {"index": doc_label, "index_path": doc_path, "n_docs": len(docs), "n_queries": len(queries), "symmetric": profile(df, doc_active, Q_sym, qf), "pairs": {}}
+    report = {"index": doc_label, "index_path": doc_path, "n_docs": len(docs), "n_queries": len(queries), "tasks": tasks or "standard cost sample",
+              "symmetric": profile(df, doc_active, Q_sym, qf, qtask), "pairs": {}}
     s = report["symmetric"]
     print(f"{doc_label} (symmetric): dims/doc {s['doc_active_mean']:.1f}, dims/query {s['query_active_mean']:.1f}, postings/query {s['postings_per_query']:.0f}", flush=True)
     del Q_sym
@@ -127,11 +160,15 @@ def main() -> int:
             kind = "SPLADE model"
         if Q.shape[1] != dim:
             raise SystemExit(f"{label}: query dimension {Q.shape[1]} != index dimension {dim}")
-        rep = profile(df, doc_active, Q, qf)
+        rep = profile(df, doc_active, Q, qf, qtask)
         rep.update({"query_path": path, "query_kind": kind})
         report["pairs"][label] = rep
         print(f"{label} ({kind}) over {doc_label}: dims/query {rep['query_active_mean']:.1f} (median {rep['query_active_median']:.0f}), "
               f"postings/query {rep['postings_per_query']:.0f} (median {rep['postings_per_query_median']:.0f}, p95 {rep['postings_per_query_p95']:.0f})", flush=True)
+        if "without_arguana" in rep:
+            a, w = rep["per_task"]["arguana-pl"], rep["without_arguana"]
+            print(f"   arguana-pl: dims/query {a['query_active_mean']:.1f}, postings/query {a['postings_per_query']:.0f}; "
+                  f"the other tasks: dims/query {w['query_active_mean']:.1f}, postings/query {w['postings_per_query']:.0f}", flush=True)
         del Q
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

@@ -23,6 +23,19 @@ scale (an idf table scores ~8x higher than the SPLADE query it imitates). ``--sc
 Pools mined by ``distill.static_mine`` (teacher top + student top passages of an unlabelled corpus, teacher scores as
 row scores, ``n_pos = 1`` = the teacher's top passage) train with ``--target rows``.
 
+Options that change how the weights are fitted, never the format of the table (path A of docs/distillation.md):
+  --optimizer      ``adam`` (default) treats the zero gradient of an absent row as a gradient, so a rare row keeps
+                   moving on momentum after its one occurrence; ``sparse_adam`` updates only the rows of the batch,
+                   ``adagrad`` gives every row a step that shrinks with its own gradient history;
+  --value-floor    weights are clamped to this small positive value after every step, so no slot dies behind the
+                   relu; slots that stay below half a quantization step are written as zeros (the quantized regime
+                   would drop them anyway);
+  --dim-gain       one learned multiplier per vocabulary dimension, shared by every row that writes the dimension
+                   (rows too rare to be trained on their own still move); folded into the weights when saving;
+  --keep-best      the saved table is the best validation point, not the last step.
+A folder of ``distill.static_v2`` (a larger encoder, path B) trains with the same loop: ``--train`` picks the table
+weights, the encoder's other parameters (gates, threshold, length scales; ``--extra-lr``) or both.
+
 Validation (``--val-rows`` held out by seed, every ``--eval-every`` steps and at the end), on each row's own candidates,
 with the query weights quantized as PIRB's quantized regime does (round(w * qf) / qf): Kendall tau and top-1 agreement
 with the target, the share of rows whose top candidate is a positive, MRR of the first positive, active dims per query
@@ -50,10 +63,13 @@ import torch.nn.functional as F
 
 from distill.rank_agreement import kendall_tau
 from distill.static_pool import Pool, load_pool
-from distill.static_query import StaticSparseQueryEncoder, table_stats
+from distill.static_query import load_static_encoder, table_stats
 from distill.train_kd import lr_at
 
 TARGETS = ("rows", "splade", "mix")
+OPTIMIZERS = ("adam", "sparse_adam", "adagrad")
+TRAIN_GROUPS = ("all", "values", "extra")
+BEST_METRICS = ("mrr", "top1_agreement", "kendall_tau")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -76,7 +92,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=5e-3)
     parser.add_argument("--warmup-steps", type=int, default=100)
     parser.add_argument("--schedule", choices=("constant", "linear", "cosine"), default="linear")
-    parser.add_argument("--max-grad-norm", type=float, default=0.0, help="clip (0 = off)")
+    parser.add_argument("--max-grad-norm", type=float, default=0.0, help="clip (0 = off; not with --optimizer sparse_adam)")
+    parser.add_argument("--optimizer", choices=OPTIMIZERS, default="adam", help="optimizer of the table weights")
+    parser.add_argument("--train", choices=TRAIN_GROUPS, default="all", help="table weights, the other parameters of a static_v2 encoder, or both")
+    parser.add_argument("--extra-lr", type=float, default=0.0, help="learning rate of the non-table parameters (0 = --lr)")
+    parser.add_argument("--value-floor", type=float, default=0.0, help="clamp the weights to at least this after every step (0 = off)")
+    parser.add_argument("--dim-gain", action="store_true", help="learn one multiplier per vocabulary dimension, folded into the weights when saving")
+    parser.add_argument("--gain-lr", type=float, default=1e-2)
+    parser.add_argument("--keep-best", action="store_true", help="save the best validation point instead of the last step")
+    parser.add_argument("--best-metric", choices=BEST_METRICS, default="mrr")
     parser.add_argument("--val-rows", type=int, default=1000)
     parser.add_argument("--eval-every", type=int, default=500)
     parser.add_argument("--save-every", type=int, default=0)
@@ -88,7 +112,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 class StaticTrainer:
-    def __init__(self, pool: Pool, model: StaticSparseQueryEncoder, tokenizer, args: argparse.Namespace) -> None:
+    def __init__(self, pool: Pool, model, tokenizer, args: argparse.Namespace) -> None:
         self.pool = pool
         self.model = model
         self.tokenizer = tokenizer
@@ -103,6 +127,9 @@ class StaticTrainer:
         self.df_fraction = (pool.docs.document_frequency().float() / max(len(pool.docs), 1)).to(self.device)
         self.qf = float(pool.meta["quantization_factor"])
         self.log_scale = torch.nn.Parameter(torch.zeros((), device=self.device)) if args.learn_scale else None
+        self.log_gain = torch.nn.Parameter(torch.zeros(model.output_dim, device=self.device)) if getattr(args, "dim_gain", False) else None
+        if self.log_gain is not None and not getattr(model, "gain_foldable", True):
+            raise ValueError("--dim-gain cannot be folded into this encoder (a threshold or a top-m cut follows the pooling).")
 
     @torch.no_grad()
     def init_scale(self, batch: dict[str, Any]) -> float:
@@ -146,7 +173,26 @@ class StaticTrainer:
 
     def student_queries(self, rows: list[dict[str, Any]]) -> torch.Tensor:
         enc = self.model.tokenize(self.tokenizer, [r["query"] for r in rows], self.device)
-        return self.model(enc["input_ids"], enc["attention_mask"])
+        q = self.model(**enc)
+        return q if self.log_gain is None else q * self.log_gain.exp()
+
+    @torch.no_grad()
+    def exported_values(self) -> torch.Tensor:
+        """The weights as they are saved: the per-dimension gain folded in, floor-level slots written as zeros."""
+        values = self.model.values.detach().clone()
+        if self.log_gain is not None:
+            values = values * self.log_gain.exp()[self.model.indices]
+        floor = float(getattr(self.args, "value_floor", 0.0) or 0.0)
+        if floor > 0 and not getattr(self.model, "signed", False):
+            values = torch.where(values < 0.5 / self.qf, torch.zeros_like(values), values)
+        return values
+
+    @torch.no_grad()
+    def finalize(self) -> None:
+        """Make the model in memory the table that is saved (after this the gain is spent)."""
+        self.model.values.copy_(self.exported_values())
+        if self.log_gain is not None:
+            self.log_gain.zero_()
 
     @staticmethod
     def kl(student: torch.Tensor, teacher: torch.Tensor, mask: torch.Tensor, temperature: float) -> torch.Tensor:
@@ -186,12 +232,16 @@ class StaticTrainer:
         return total, logs
 
     @torch.no_grad()
-    def evaluate(self, row_ids: list[int], use_teacher_queries: bool = False, batch_size: int = 128) -> dict[str, Any]:
+    def evaluate(self, row_ids: list[int], use_teacher_queries: bool = False, batch_size: int = 128, query_fn=None) -> dict[str, Any]:
+        """``query_fn(batch) -> [B, V]`` replaces the student's query vectors (the oracles of distill.static_diag)."""
         taus, top1, pos_first, mrr, dims, postings = [], [], [], [], [], []
         for start in range(0, len(row_ids), batch_size):
             ids = row_ids[start : start + batch_size]
             batch = self.batch_tensors(ids)
-            q = batch["teacher_q"] if use_teacher_queries else self.student_queries(batch["rows"])
+            if query_fn is not None:
+                q = query_fn(batch)
+            else:
+                q = batch["teacher_q"] if use_teacher_queries else self.student_queries(batch["rows"])
             q = torch.round(q * self.qf) / self.qf
             scores = (q @ batch["docs"].T).cpu()
             # agreement is read against the stored row scores when the target uses them, else against the symmetric SPLADE
@@ -226,9 +276,80 @@ class StaticTrainer:
         }
 
 
-def save_checkpoint(model: StaticSparseQueryEncoder, tokenizer, path: Path, state: dict[str, Any]) -> None:
+def save_checkpoint(model, tokenizer, path: Path, state: dict[str, Any], trainer: "StaticTrainer | None" = None) -> None:
+    """Save the encoder; with ``trainer`` the table is written as ``trainer.exported_values()`` (gain folded, floor
+    slots zeroed) while the weights in memory stay as the optimizer left them."""
     model.meta["train_state"] = state
-    model.save(path, tokenizer)
+    if trainer is None:
+        model.save(path, tokenizer)
+        return
+    kept = model.values.detach().clone()
+    with torch.no_grad():
+        model.values.copy_(trainer.exported_values())
+    try:
+        model.save(path, tokenizer)
+    finally:
+        with torch.no_grad():
+            model.values.copy_(kept)
+
+
+def build_optimizers(model, trainer: StaticTrainer, args: argparse.Namespace) -> list[torch.optim.Optimizer]:
+    """One optimizer for the table weights (``--optimizer``) and one Adam for every dense parameter next to them
+    (the other parameters of a static_v2 encoder, the score scale, the per-dimension gain). Each group carries its
+    ``base_lr`` for the schedule."""
+    params = model.trainable_parameters()
+    optimizers: list[torch.optim.Optimizer] = []
+    if args.train in ("all", "values"):
+        group = [{"params": params["values"], "lr": args.lr, "base_lr": args.lr}]
+        if args.optimizer == "sparse_adam":
+            if args.max_grad_norm > 0:
+                raise ValueError("--max-grad-norm does not work on the sparse gradients of --optimizer sparse_adam.")
+            model.sparse_grad = True
+            optimizers.append(torch.optim.SparseAdam(group))
+        elif args.optimizer == "adagrad":
+            optimizers.append(torch.optim.Adagrad(group))
+        else:
+            optimizers.append(torch.optim.Adam(group))
+    else:
+        for p in params["values"]:
+            p.requires_grad_(False)
+    dense: list[dict[str, Any]] = []
+    extra_lr = args.extra_lr or args.lr
+    if args.train in ("all", "extra") and params["extra"]:
+        dense.append({"params": params["extra"], "lr": extra_lr, "base_lr": extra_lr})
+    else:
+        for p in params["extra"]:
+            p.requires_grad_(False)
+    if not optimizers and not dense:
+        raise ValueError(f"--train {args.train}: this encoder has no such parameters.")
+    if trainer.log_scale is not None:
+        dense.append({"params": [trainer.log_scale], "lr": args.scale_lr, "base_lr": args.scale_lr})
+    if trainer.log_gain is not None:
+        dense.append({"params": [trainer.log_gain], "lr": args.gain_lr, "base_lr": args.gain_lr})
+    if dense:
+        optimizers.append(torch.optim.Adam(dense))
+    return optimizers
+
+
+def snapshot(model, trainer: StaticTrainer) -> dict[str, Any]:
+    state = {"model": {k: v.detach().clone() for k, v in model.state_dict().items()}}
+    for name in ("log_scale", "log_gain"):
+        value = getattr(trainer, name)
+        if value is not None:
+            state[name] = value.detach().clone()
+    return state
+
+
+@torch.no_grad()
+def restore(model, trainer: StaticTrainer, state: dict[str, Any]) -> None:
+    model.load_state_dict(state["model"])
+    for name in ("log_scale", "log_gain"):
+        if name in state:
+            getattr(trainer, name).copy_(state[name])
+
+
+def encoder_stats(model) -> dict[str, Any]:
+    return model.stats() if hasattr(model, "stats") else table_stats(model)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -241,7 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     pool = load_pool(args.pool)
     tokenizer = AutoTokenizer.from_pretrained(args.init)
-    model = StaticSparseQueryEncoder.load(args.init, args.device)
+    model = load_static_encoder(args.init, args.device)
     model.meta = dict(model.meta, init_dir=str(args.init), pool=str(args.pool))
     trainer = StaticTrainer(pool, model, tokenizer, args)
 
@@ -254,11 +375,15 @@ def main(argv: list[str] | None = None) -> int:
     args.batch_size = min(args.batch_size, len(train_ids))  # otherwise an epoch has no full batch and the loop never ends
     steps_per_epoch = max(len(train_ids) // args.batch_size, 1)
     total_steps = args.max_steps or max(int(steps_per_epoch * args.epochs), 1)
-    groups = [{"params": [model.values], "lr": args.lr, "base_lr": args.lr}]
     if trainer.log_scale is not None:
         summary_scale_init = trainer.init_scale(trainer.batch_tensors(train_ids[: args.batch_size]))
-        groups.append({"params": [trainer.log_scale], "lr": args.scale_lr, "base_lr": args.scale_lr})
-    optimizer = torch.optim.Adam(groups)
+    try:
+        optimizers = build_optimizers(model, trainer, args)
+    except ValueError as error:
+        print(f"[ERROR] {error}", file=sys.stderr)
+        return 2
+    trained = [p for optimizer in optimizers for group in optimizer.param_groups for p in group["params"]]
+    floor = args.value_floor if args.value_floor > 0 and not getattr(model, "signed", False) and model.values.requires_grad else 0.0
     log_path = args.out / "log.jsonl"
     log_file = log_path.open("w", encoding="utf-8")
 
@@ -268,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(record), flush=True)
 
     summary: dict[str, Any] = {"args": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}, "pool": pool.meta,
-                               "train_rows": len(train_ids), "val_rows": len(val_ids), "total_steps": total_steps, "table": table_stats(model)}
+                               "train_rows": len(train_ids), "val_rows": len(val_ids), "total_steps": total_steps, "table": encoder_stats(model)}
     if trainer.log_scale is not None:
         summary["scale_init"] = round(summary_scale_init, 5)
         log({"step": 0, "kind": "scale_init", "scale": summary["scale_init"]})
@@ -282,42 +407,64 @@ def main(argv: list[str] | None = None) -> int:
     started = time.time()
     step, epoch = 0, 0
     best: tuple[float, int] | None = None
+    best_state: dict[str, Any] | None = None
     while step < total_steps:
         order = list(train_ids)
         random.Random(args.seed + epoch).shuffle(order)
         for start in range(0, len(order) - args.batch_size + 1, args.batch_size):
             if step >= total_steps:
                 break
-            for group in optimizer.param_groups:
-                group["lr"] = lr_at(step, total_steps, args.warmup_steps, args.schedule, group["base_lr"])
+            for optimizer in optimizers:
+                for group in optimizer.param_groups:
+                    group["lr"] = lr_at(step, total_steps, args.warmup_steps, args.schedule, group["base_lr"])
             loss, parts = trainer.loss(trainer.batch_tensors(order[start : start + args.batch_size]))
-            optimizer.zero_grad(set_to_none=True)
+            for optimizer in optimizers:
+                optimizer.zero_grad(set_to_none=True)
             loss.backward()
             if args.max_grad_norm > 0:
-                torch.nn.utils.clip_grad_norm_([model.values], args.max_grad_norm)
-            optimizer.step()
+                torch.nn.utils.clip_grad_norm_(trained, args.max_grad_norm)
+            for optimizer in optimizers:
+                optimizer.step()
+            if floor > 0:
+                with torch.no_grad():
+                    model.values.clamp_(min=floor)
             step += 1
             if step % args.log_every == 0 or step == 1:
                 scale = {"scale": round(float(trainer.log_scale.detach().exp()), 5)} if trainer.log_scale is not None else {}
-                log({"step": step, "kind": "train", "loss": round(float(loss.detach()), 5), "lr": optimizer.param_groups[0]["lr"],
+                log({"step": step, "kind": "train", "loss": round(float(loss.detach()), 5), "lr": optimizers[0].param_groups[0]["lr"],
                      **{k: round(v, 4) for k, v in parts.items()}, **scale, "seconds": round(time.time() - started, 1)})
             if val_ids and args.eval_every and step % args.eval_every == 0:
                 val = trainer.evaluate(val_ids)
                 log({"step": step, "kind": "val", **val})
-                if best is None or val["mrr"] > best[0]:
-                    best = (val["mrr"], step)
+                if best is None or val[args.best_metric] > best[0]:
+                    best = (val[args.best_metric], step)
+                    if args.keep_best:
+                        best_state = snapshot(model, trainer)
             if args.save_every and step % args.save_every == 0:
-                save_checkpoint(model, tokenizer, args.out / f"step-{step}", {"step": step})
+                save_checkpoint(model, tokenizer, args.out / f"step-{step}", {"step": step}, trainer)
         epoch += 1
 
+    saved_step = step
+    if args.keep_best and val_ids and best_state is not None:
+        last = trainer.evaluate(val_ids)
+        if best is not None and best[0] > last[args.best_metric]:
+            restore(model, trainer, best_state)
+            saved_step = best[1]
+            log({"step": step, "kind": "keep_best", "restored_step": saved_step, args.best_metric: best[0], "last": last[args.best_metric]})
+    trainer.finalize()
     final_dir = args.out / "final"
     if final_dir.exists():
         shutil.rmtree(final_dir)
-    save_checkpoint(model, tokenizer, final_dir, {"step": step, "epochs": round(step / steps_per_epoch, 2)})
+    save_checkpoint(model, tokenizer, final_dir, {"step": saved_step, "epochs": round(saved_step / steps_per_epoch, 2)})
     if val_ids:
         summary["val_final"] = trainer.evaluate(val_ids)
         log({"step": step, "kind": "val_final", **summary["val_final"]})
-    summary.update({"steps": step, "best_val_mrr": best, "table_final": table_stats(model), "seconds": round(time.time() - started, 1)})
+        # the same measurement on rows the table was fitted on: a gap to val_final is over-fitting, none is a table
+        # that cannot hold more (capacity), whatever the amount of data
+        summary["train_final"] = trainer.evaluate(train_ids[: len(val_ids)])
+        log({"step": step, "kind": "train_final", **summary["train_final"]})
+    summary.update({"steps": step, "saved_step": saved_step, "best_val": {"metric": args.best_metric, "value": best[0], "step": best[1]} if best else None,
+                    "best_val_mrr": best if args.best_metric == "mrr" else None, "table_final": encoder_stats(model), "seconds": round(time.time() - started, 1)})
     if trainer.log_scale is not None:
         summary["scale_final"] = round(float(trainer.log_scale.detach().exp()), 5)
     (args.out / "static_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

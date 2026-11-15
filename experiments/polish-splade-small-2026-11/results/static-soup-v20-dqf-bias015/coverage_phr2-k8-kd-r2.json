@@ -1,0 +1,1103 @@
+{
+ "table": "models/static-soup-v20-dqf-bias015/phr2-k8-kd-r2",
+ "sample": "up to 2000 queries per task, seed 0",
+ "tasks": {
+  "maupqa-gpt3-cc": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 6.59,
+   "pieces_per_word": 1.257,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1606,
+   "multi_piece_words_with_row": 0.2042,
+   "words_falling_back_to_pieces": 0.1278,
+   "fallback_pieces_with_live_row": 0.9941,
+   "fallback_pieces_with_self_slot": 0.8489,
+   "single_piece_words_with_live_row": 0.9512,
+   "single_piece_words_with_self_slot": 0.6081,
+   "adjacent_pairs_with_row": 0.2607,
+   "top_uncovered_words": [
+    [
+     "paragrafie",
+     8
+    ],
+    [
+     "RODO",
+     3
+    ],
+    [
+     "Walne",
+     2
+    ],
+    [
+     "przyrządzić",
+     2
+    ],
+    [
+     "Godności",
+     2
+    ],
+    [
+     "immunologicznego",
+     2
+    ],
+    [
+     "dziękczynnej",
+     2
+    ],
+    [
+     "obwieszczenie",
+     2
+    ]
+   ]
+  },
+  "maupqa-mkqa": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 7.69,
+   "pieces_per_word": 1.395,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.2547,
+   "multi_piece_words_with_row": 0.4849,
+   "words_falling_back_to_pieces": 0.1312,
+   "fallback_pieces_with_live_row": 0.989,
+   "fallback_pieces_with_self_slot": 0.9492,
+   "single_piece_words_with_live_row": 0.9274,
+   "single_piece_words_with_self_slot": 0.5711,
+   "adjacent_pairs_with_row": 0.4159,
+   "top_uncovered_words": [
+    [
+     "can<unk>t",
+     11
+    ],
+    [
+     "it<unk>s",
+     10
+    ],
+    [
+     "take",
+     9
+    ],
+    [
+     "i<unk>m",
+     9
+    ],
+    [
+     "gonna",
+     7
+    ],
+    [
+     "here",
+     6
+    ],
+    [
+     "meczy",
+     6
+    ],
+    [
+     "things",
+     6
+    ]
+   ]
+  },
+  "maupqa-poleval2021-pairs": {
+   "texts": 1347,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.07,
+   "pieces_per_word": 1.334,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.2191,
+   "multi_piece_words_with_row": 0.3171,
+   "words_falling_back_to_pieces": 0.1496,
+   "fallback_pieces_with_live_row": 0.9915,
+   "fallback_pieces_with_self_slot": 0.8839,
+   "single_piece_words_with_live_row": 0.9559,
+   "single_piece_words_with_self_slot": 0.6072,
+   "adjacent_pairs_with_row": 0.308,
+   "top_uncovered_words": [
+    [
+     "Dzielnicą",
+     5
+    ],
+    [
+     "sylaba",
+     3
+    ],
+    [
+     "Brzechwy",
+     3
+    ],
+    [
+     "greki",
+     3
+    ],
+    [
+     "Czyim",
+     3
+    ],
+    [
+     "Malcie",
+     3
+    ],
+    [
+     "Wyspiańskiego",
+     3
+    ],
+    [
+     "wrota",
+     3
+    ]
+   ]
+  },
+  "maupqa-templates": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 10.83,
+   "pieces_per_word": 1.372,
+   "texts_truncated": 0.001,
+   "multi_piece_words": 0.2101,
+   "multi_piece_words_with_row": 0.2164,
+   "words_falling_back_to_pieces": 0.1646,
+   "fallback_pieces_with_live_row": 0.994,
+   "fallback_pieces_with_self_slot": 0.8804,
+   "single_piece_words_with_live_row": 0.9469,
+   "single_piece_words_with_self_slot": 0.5538,
+   "adjacent_pairs_with_row": 0.343,
+   "top_uncovered_words": [
+    [
+     "Dzielnicą",
+     49
+    ],
+    [
+     "rozstrzelali",
+     8
+    ],
+    [
+     "<unk>odzi",
+     8
+    ],
+    [
+     "rosyjskimi",
+     7
+    ],
+    [
+     "<unk>Portret",
+     7
+    ],
+    [
+     "hetmana",
+     7
+    ],
+    [
+     "Pologne",
+     6
+    ],
+    [
+     "zginęły",
+     6
+    ]
+   ]
+  },
+  "allegro-faq-A": {
+   "texts": 400,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 7.78,
+   "pieces_per_word": 1.19,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1433,
+   "multi_piece_words_with_row": 0.1323,
+   "words_falling_back_to_pieces": 0.1244,
+   "fallback_pieces_with_live_row": 0.9923,
+   "fallback_pieces_with_self_slot": 0.7914,
+   "single_piece_words_with_live_row": 0.9662,
+   "single_piece_words_with_self_slot": 0.5889,
+   "adjacent_pairs_with_row": 0.2209,
+   "top_uncovered_words": [
+    [
+     "Finanse",
+     11
+    ],
+    [
+     "Smart<unk>",
+     11
+    ],
+    [
+     "ofertach",
+     10
+    ],
+    [
+     "Ads",
+     8
+    ],
+    [
+     "InPost",
+     7
+    ],
+    [
+     "Sprzedający",
+     7
+    ],
+    [
+     "Kupujących",
+     6
+    ],
+    [
+     "Sprzedającego",
+     5
+    ]
+   ]
+  },
+  "allegro-faq-B": {
+   "texts": 500,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 8.01,
+   "pieces_per_word": 1.179,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1394,
+   "multi_piece_words_with_row": 0.1685,
+   "words_falling_back_to_pieces": 0.1159,
+   "fallback_pieces_with_live_row": 0.9926,
+   "fallback_pieces_with_self_slot": 0.813,
+   "single_piece_words_with_live_row": 0.9617,
+   "single_piece_words_with_self_slot": 0.605,
+   "adjacent_pairs_with_row": 0.2275,
+   "top_uncovered_words": [
+    [
+     "Smart<unk>",
+     11
+    ],
+    [
+     "Finanse",
+     10
+    ],
+    [
+     "ofertach",
+     9
+    ],
+    [
+     "Ads",
+     9
+    ],
+    [
+     "Sprzedający",
+     8
+    ],
+    [
+     "InPost",
+     7
+    ],
+    [
+     "Sprzedawca",
+     6
+    ],
+    [
+     "statusy",
+     6
+    ]
+   ]
+  },
+  "arguana-pl": {
+   "texts": 1406,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 90.14,
+   "pieces_per_word": 1.218,
+   "texts_truncated": 0.9132,
+   "multi_piece_words": 0.1472,
+   "multi_piece_words_with_row": 0.2136,
+   "words_falling_back_to_pieces": 0.1157,
+   "fallback_pieces_with_live_row": 0.9919,
+   "fallback_pieces_with_self_slot": 0.8302,
+   "single_piece_words_with_live_row": 0.9655,
+   "single_piece_words_with_self_slot": 0.7472,
+   "adjacent_pairs_with_row": 0.198,
+   "top_uncovered_words": [
+    [
+     "<unk>1<unk>",
+     613
+    ],
+    [
+     "<unk>2<unk>",
+     147
+    ],
+    [
+     "MTK",
+     64
+    ],
+    [
+     "<unk>i<unk>",
+     50
+    ],
+    [
+     "Kraje",
+     31
+    ],
+    [
+     "<unk>3<unk>",
+     23
+    ],
+    [
+     "samostanowienia",
+     23
+    ],
+    [
+     "START",
+     20
+    ]
+   ]
+  },
+  "nfcorpus-pl": {
+   "texts": 323,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 3.35,
+   "pieces_per_word": 1.661,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.3965,
+   "multi_piece_words_with_row": 0.2797,
+   "words_falling_back_to_pieces": 0.2856,
+   "fallback_pieces_with_live_row": 0.9942,
+   "fallback_pieces_with_self_slot": 0.8997,
+   "single_piece_words_with_live_row": 0.9602,
+   "single_piece_words_with_self_slot": 0.7887,
+   "adjacent_pairs_with_row": 0.1397,
+   "top_uncovered_words": [
+    [
+     "Zapobieganie",
+     5
+    ],
+    [
+     "Przewlekłe",
+     2
+    ],
+    [
+     "ADHD",
+     2
+    ],
+    [
+     "roślinne",
+     2
+    ],
+    [
+     "fitosterolu",
+     2
+    ],
+    [
+     "zaburzające",
+     2
+    ],
+    [
+     "hormonalną",
+     2
+    ],
+    [
+     "tłuszczami",
+     2
+    ]
+   ]
+  },
+  "scifact-pl": {
+   "texts": 300,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 11.83,
+   "pieces_per_word": 1.765,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.3946,
+   "multi_piece_words_with_row": 0.1286,
+   "words_falling_back_to_pieces": 0.3439,
+   "fallback_pieces_with_live_row": 0.9944,
+   "fallback_pieces_with_self_slot": 0.8866,
+   "single_piece_words_with_live_row": 0.9385,
+   "single_piece_words_with_self_slot": 0.75,
+   "adjacent_pairs_with_row": 0.1296,
+   "top_uncovered_words": [
+    [
+     "aktywację",
+     6
+    ],
+    [
+     "Ekspresja",
+     5
+    ],
+    [
+     "ekspresja",
+     5
+    ],
+    [
+     "mezenchymalnych",
+     4
+    ],
+    [
+     "CX3CR1",
+     4
+    ],
+    [
+     "Th2",
+     4
+    ],
+    [
+     "warenikliną",
+     4
+    ],
+    [
+     "zapalnych",
+     4
+    ]
+   ]
+  },
+  "gpt-exams": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 8.44,
+   "pieces_per_word": 1.184,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1244,
+   "multi_piece_words_with_row": 0.2795,
+   "words_falling_back_to_pieces": 0.0896,
+   "fallback_pieces_with_live_row": 0.9946,
+   "fallback_pieces_with_self_slot": 0.8369,
+   "single_piece_words_with_live_row": 0.9503,
+   "single_piece_words_with_self_slot": 0.6885,
+   "adjacent_pairs_with_row": 0.3928,
+   "top_uncovered_words": [
+    [
+     "Opisz",
+     28
+    ],
+    [
+     "Omów",
+     22
+    ],
+    [
+     "kryminalistyce",
+     7
+    ],
+    [
+     "Dalekim",
+     6
+    ],
+    [
+     "przedsiębiorstwie",
+     6
+    ],
+    [
+     "obiektowym",
+     6
+    ],
+    [
+     "grafice",
+     6
+    ],
+    [
+     "laboratoryjnej",
+     6
+    ]
+   ]
+  },
+  "maupqa-gpt3.5-cc": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.32,
+   "pieces_per_word": 1.223,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1407,
+   "multi_piece_words_with_row": 0.1857,
+   "words_falling_back_to_pieces": 0.1146,
+   "fallback_pieces_with_live_row": 0.9942,
+   "fallback_pieces_with_self_slot": 0.8359,
+   "single_piece_words_with_live_row": 0.9416,
+   "single_piece_words_with_self_slot": 0.624,
+   "adjacent_pairs_with_row": 0.279,
+   "top_uncovered_words": [
+    [
+     "paragrafie",
+     25
+    ],
+    [
+     "paragrafu",
+     16
+    ],
+    [
+     "<unk>odzi",
+     3
+    ],
+    [
+     "opisanym",
+     3
+    ],
+    [
+     "Sępólnie",
+     3
+    ],
+    [
+     "Krajeńskim",
+     3
+    ],
+    [
+     "Sklepu",
+     3
+    ],
+    [
+     "przetwarzaniu",
+     3
+    ]
+   ]
+  },
+  "maupqa-multilingual-NLI": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 8.81,
+   "pieces_per_word": 1.259,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1723,
+   "multi_piece_words_with_row": 0.4735,
+   "words_falling_back_to_pieces": 0.0907,
+   "fallback_pieces_with_live_row": 0.9911,
+   "fallback_pieces_with_self_slot": 0.8959,
+   "single_piece_words_with_live_row": 0.9565,
+   "single_piece_words_with_self_slot": 0.6196,
+   "adjacent_pairs_with_row": 0.3189,
+   "top_uncovered_words": [
+    [
+     "adrin",
+     3
+    ],
+    [
+     "zabijani",
+     3
+    ],
+    [
+     "stanley",
+     3
+    ],
+    [
+     "neil",
+     3
+    ],
+    [
+     "rozmawiałem",
+     3
+    ],
+    [
+     "rozważani",
+     2
+    ],
+    [
+     "dwayne",
+     2
+    ],
+    [
+     "matt",
+     2
+    ]
+   ]
+  },
+  "mfaq": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.92,
+   "pieces_per_word": 1.337,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1957,
+   "multi_piece_words_with_row": 0.2285,
+   "words_falling_back_to_pieces": 0.151,
+   "fallback_pieces_with_live_row": 0.9879,
+   "fallback_pieces_with_self_slot": 0.9312,
+   "single_piece_words_with_live_row": 0.901,
+   "single_piece_words_with_self_slot": 0.6261,
+   "adjacent_pairs_with_row": 0.2257,
+   "top_uncovered_words": [
+    [
+     "rezerwując",
+     59
+    ],
+    [
+     "noclegowe",
+     44
+    ],
+    [
+     "eSky.pl",
+     37
+    ],
+    [
+     "siłownię",
+     27
+    ],
+    [
+     "rezerwować",
+     25
+    ],
+    [
+     "basenem",
+     23
+    ],
+    [
+     "umówić",
+     23
+    ],
+    [
+     "Moment.pl",
+     23
+    ]
+   ]
+  },
+  "legal-questions-A": {
+   "texts": 400,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.83,
+   "pieces_per_word": 1.116,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.0852,
+   "multi_piece_words_with_row": 0.203,
+   "words_falling_back_to_pieces": 0.0679,
+   "fallback_pieces_with_live_row": 0.9907,
+   "fallback_pieces_with_self_slot": 0.7543,
+   "single_piece_words_with_live_row": 0.9652,
+   "single_piece_words_with_self_slot": 0.6463,
+   "adjacent_pairs_with_row": 0.2107,
+   "top_uncovered_words": [
+    [
+     "korzystającego",
+     2
+    ],
+    [
+     "cudzą",
+     2
+    ],
+    [
+     "<unk>andarmerii",
+     2
+    ],
+    [
+     "kuratorowi",
+     2
+    ],
+    [
+     "zawodowemu",
+     2
+    ],
+    [
+     "nieumyślnie",
+     2
+    ],
+    [
+     "Pomnika",
+     2
+    ],
+    [
+     "ratujących",
+     2
+    ]
+   ]
+  },
+  "maupqa-wiki-def": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 12.64,
+   "pieces_per_word": 1.329,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.212,
+   "multi_piece_words_with_row": 0.23,
+   "words_falling_back_to_pieces": 0.1632,
+   "fallback_pieces_with_live_row": 0.9884,
+   "fallback_pieces_with_self_slot": 0.847,
+   "single_piece_words_with_live_row": 0.9531,
+   "single_piece_words_with_self_slot": 0.6383,
+   "adjacent_pairs_with_row": 0.3116,
+   "top_uncovered_words": [
+    [
+     "kabardyjskiego",
+     15
+    ],
+    [
+     "podrodzina",
+     12
+    ],
+    [
+     "minuskuła",
+     10
+    ],
+    [
+     "majuskuła",
+     10
+    ],
+    [
+     "kwiatach",
+     9
+    ],
+    [
+     "katalogowym",
+     8
+    ],
+    [
+     "owocach",
+     7
+    ],
+    [
+     "zamieszkującego",
+     7
+    ]
+   ]
+  },
+  "scidocs-pl": {
+   "texts": 1000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.69,
+   "pieces_per_word": 1.583,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.3489,
+   "multi_piece_words_with_row": 0.1582,
+   "words_falling_back_to_pieces": 0.2937,
+   "fallback_pieces_with_live_row": 0.9939,
+   "fallback_pieces_with_self_slot": 0.8475,
+   "single_piece_words_with_live_row": 0.949,
+   "single_piece_words_with_self_slot": 0.7952,
+   "adjacent_pairs_with_row": 0.113,
+   "top_uncovered_words": [
+    [
+     "neuronowych",
+     26
+    ],
+    [
+     "Wykrywanie",
+     25
+    ],
+    [
+     "Przewidywanie",
+     14
+    ],
+    [
+     "uczeniu",
+     14
+    ],
+    [
+     "Rozpoznawanie",
+     14
+    ],
+    [
+     "Modelowanie",
+     12
+    ],
+    [
+     "czujników",
+     11
+    ],
+    [
+     "antena",
+     11
+    ]
+   ]
+  },
+  "maupqa-1z10": {
+   "texts": 2000,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.49,
+   "pieces_per_word": 1.315,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.2154,
+   "multi_piece_words_with_row": 0.3246,
+   "words_falling_back_to_pieces": 0.1455,
+   "fallback_pieces_with_live_row": 0.9922,
+   "fallback_pieces_with_self_slot": 0.884,
+   "single_piece_words_with_live_row": 0.9594,
+   "single_piece_words_with_self_slot": 0.6121,
+   "adjacent_pairs_with_row": 0.2935,
+   "top_uncovered_words": [
+    [
+     "pokrewieństwo",
+     6
+    ],
+    [
+     "łączyło",
+     6
+    ],
+    [
+     "Literatura",
+     5
+    ],
+    [
+     "słuchamy",
+     5
+    ],
+    [
+     "Geografia",
+     4
+    ],
+    [
+     "<unk>eromskiego",
+     4
+    ],
+    [
+     "Othella",
+     3
+    ],
+    [
+     "neutronów",
+     3
+    ]
+   ]
+  },
+  "fiqa-pl": {
+   "texts": 648,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 9.86,
+   "pieces_per_word": 1.284,
+   "texts_truncated": 0.0,
+   "multi_piece_words": 0.1821,
+   "multi_piece_words_with_row": 0.3909,
+   "words_falling_back_to_pieces": 0.1109,
+   "fallback_pieces_with_live_row": 0.9907,
+   "fallback_pieces_with_self_slot": 0.845,
+   "single_piece_words_with_live_row": 0.9627,
+   "single_piece_words_with_self_slot": 0.7017,
+   "adjacent_pairs_with_row": 0.2687,
+   "top_uncovered_words": [
+    [
+     "walutowe",
+     3
+    ],
+    [
+     "kupna<unk>sprzedaży",
+     3
+    ],
+    [
+     "gotówka",
+     3
+    ],
+    [
+     "pożyczkodawcy",
+     3
+    ],
+    [
+     "Kupowanie",
+     3
+    ],
+    [
+     "opcyjnej",
+     2
+    ],
+    [
+     "finansowi",
+     2
+    ],
+    [
+     "spłacam",
+     2
+    ]
+   ]
+  },
+  "all": {
+   "texts": 24324,
+   "rows": 153343,
+   "word_rows": 29346,
+   "pair_rows": 73996,
+   "words_per_text": 13.9,
+   "pieces_per_word": 1.28,
+   "texts_truncated": 0.0529,
+   "multi_piece_words": 0.1795,
+   "multi_piece_words_with_row": 0.2573,
+   "words_falling_back_to_pieces": 0.1334,
+   "fallback_pieces_with_live_row": 0.9918,
+   "fallback_pieces_with_self_slot": 0.8603,
+   "single_piece_words_with_live_row": 0.9536,
+   "single_piece_words_with_self_slot": 0.6744,
+   "adjacent_pairs_with_row": 0.2559,
+   "top_uncovered_words": [
+    [
+     "<unk>1<unk>",
+     613
+    ],
+    [
+     "<unk>2<unk>",
+     147
+    ],
+    [
+     "MTK",
+     64
+    ],
+    [
+     "rezerwując",
+     59
+    ],
+    [
+     "Dzielnicą",
+     54
+    ],
+    [
+     "<unk>i<unk>",
+     50
+    ],
+    [
+     "noclegowe",
+     44
+    ],
+    [
+     "eSky.pl",
+     37
+    ],
+    [
+     "paragrafie",
+     33
+    ],
+    [
+     "Kraje",
+     31
+    ],
+    [
+     "neuronowych",
+     29
+    ],
+    [
+     "Opisz",
+     28
+    ],
+    [
+     "siłownię",
+     27
+    ],
+    [
+     "rezerwować",
+     25
+    ],
+    [
+     "Wykrywanie",
+     25
+    ],
+    [
+     "polecane",
+     24
+    ],
+    [
+     "Finanse",
+     23
+    ],
+    [
+     "Smart<unk>",
+     23
+    ],
+    [
+     "kuponu",
+     23
+    ],
+    [
+     "<unk>3<unk>",
+     23
+    ],
+    [
+     "samostanowienia",
+     23
+    ],
+    [
+     "basenem",
+     23
+    ],
+    [
+     "umówić",
+     23
+    ],
+    [
+     "Moment.pl",
+     23
+    ],
+    [
+     "ofertach",
+     22
+    ],
+    [
+     "Omów",
+     22
+    ],
+    [
+     "START",
+     20
+    ],
+    [
+     "igieł",
+     20
+    ],
+    [
+     "PMC",
+     20
+    ],
+    [
+     "Lesotho",
+     19
+    ],
+    [
+     "COVID-19",
+     18
+    ],
+    [
+     "Przejrzystość",
+     18
+    ],
+    [
+     "koki",
+     18
+    ],
+    [
+     "wymeldowania",
+     18
+    ],
+    [
+     "paragrafu",
+     17
+    ],
+    [
+     "Ads",
+     17
+    ],
+    [
+     "Artyści",
+     17
+    ],
+    [
+     "parkingowe",
+     17
+    ],
+    [
+     "Sprzedający",
+     16
+    ],
+    [
+     "<unk>uo",
+     16
+    ]
+   ]
+  }
+ }
+}

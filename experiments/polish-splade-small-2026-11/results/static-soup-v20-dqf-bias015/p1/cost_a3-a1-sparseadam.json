@@ -1,0 +1,279 @@
+{
+  "index": "full",
+  "index_path": "models/soup-v20-dqf-bias015",
+  "n_docs": 1350,
+  "n_queries": 1350,
+  "tasks": "standard cost sample",
+  "symmetric": {
+    "doc_active_mean": 378.5362962962963,
+    "query_active_mean": 122.98148148148148,
+    "query_active_median": 70.0,
+    "postings_per_query": 13945.037777777778,
+    "postings_per_query_median": 9138.5,
+    "postings_per_query_p95": 44971.549999999974,
+    "query_weight_sum_mean": 55.02982711791992,
+    "per_task": {
+      "maupqa-gpt3-cc": {
+        "n": 150,
+        "query_active_mean": 64.54666666666667,
+        "postings_per_query": 8356.66
+      },
+      "maupqa-mkqa": {
+        "n": 150,
+        "query_active_mean": 62.62,
+        "postings_per_query": 7447.886666666666
+      },
+      "maupqa-poleval2021-pairs": {
+        "n": 150,
+        "query_active_mean": 66.60666666666667,
+        "postings_per_query": 7700.793333333333
+      },
+      "maupqa-templates": {
+        "n": 150,
+        "query_active_mean": 66.17333333333333,
+        "postings_per_query": 7701.306666666666
+      },
+      "arguana-pl": {
+        "n": 150,
+        "query_active_mean": 465.06,
+        "postings_per_query": 44569.64
+      },
+      "nfcorpus-pl": {
+        "n": 150,
+        "query_active_mean": 57.653333333333336,
+        "postings_per_query": 7752.453333333333
+      },
+      "scifact-pl": {
+        "n": 150,
+        "query_active_mean": 177.26,
+        "postings_per_query": 21781.96
+      },
+      "gpt-exams": {
+        "n": 150,
+        "query_active_mean": 68.98666666666666,
+        "postings_per_query": 9744.793333333333
+      },
+      "poleval-2022-test-A-allegro-faq": {
+        "n": 75,
+        "query_active_mean": 78.6,
+        "postings_per_query": 10440.893333333333
+      },
+      "poleval-2022-test-B-allegro-faq": {
+        "n": 75,
+        "query_active_mean": 77.25333333333333,
+        "postings_per_query": 10458.8
+      }
+    },
+    "without_arguana": {
+      "n": 1200,
+      "query_active_mean": 80.22166666666666,
+      "postings_per_query": 10116.9625
+    }
+  },
+  "pairs": {
+    "a1-sparseadam-mw005": {
+      "doc_active_mean": 378.5362962962963,
+      "query_active_mean": 92.38148148148149,
+      "query_active_median": 52.0,
+      "postings_per_query": 12091.302962962964,
+      "postings_per_query_median": 7839.0,
+      "postings_per_query_p95": 45739.799999999996,
+      "query_weight_sum_mean": 56.281063079833984,
+      "per_task": {
+        "maupqa-gpt3-cc": {
+          "n": 150,
+          "query_active_mean": 41.026666666666664,
+          "postings_per_query": 6517.013333333333
+        },
+        "maupqa-mkqa": {
+          "n": 150,
+          "query_active_mean": 52.50666666666667,
+          "postings_per_query": 7717.68
+        },
+        "maupqa-poleval2021-pairs": {
+          "n": 150,
+          "query_active_mean": 59.18,
+          "postings_per_query": 8342.746666666666
+        },
+        "maupqa-templates": {
+          "n": 150,
+          "query_active_mean": 63.46,
+          "postings_per_query": 8668.946666666667
+        },
+        "arguana-pl": {
+          "n": 150,
+          "query_active_mean": 387.47333333333336,
+          "postings_per_query": 44991.02
+        },
+        "nfcorpus-pl": {
+          "n": 150,
+          "query_active_mean": 30.12,
+          "postings_per_query": 3947.62
+        },
+        "scifact-pl": {
+          "n": 150,
+          "query_active_mean": 102.79333333333334,
+          "postings_per_query": 13535.246666666666
+        },
+        "gpt-exams": {
+          "n": 150,
+          "query_active_mean": 47.57333333333333,
+          "postings_per_query": 7627.52
+        },
+        "poleval-2022-test-A-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 47.38666666666666,
+          "postings_per_query": 7476.36
+        },
+        "poleval-2022-test-B-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 47.21333333333333,
+          "postings_per_query": 7471.506666666667
+        }
+      },
+      "without_arguana": {
+        "n": 1200,
+        "query_active_mean": 55.495,
+        "postings_per_query": 7978.838333333333
+      },
+      "query_path": "models/static-soup-v20-dqf-bias015/a1-sparseadam-mw005",
+      "query_kind": "static table"
+    },
+    "a1-sparseadam-mw010": {
+      "doc_active_mean": 378.5362962962963,
+      "query_active_mean": 88.44666666666667,
+      "query_active_median": 50.0,
+      "postings_per_query": 11270.968148148148,
+      "postings_per_query_median": 7091.5,
+      "postings_per_query_p95": 44039.549999999996,
+      "query_weight_sum_mean": 55.97330856323242,
+      "per_task": {
+        "maupqa-gpt3-cc": {
+          "n": 150,
+          "query_active_mean": 38.873333333333335,
+          "postings_per_query": 5784.993333333333
+        },
+        "maupqa-mkqa": {
+          "n": 150,
+          "query_active_mean": 50.0,
+          "postings_per_query": 6866.193333333334
+        },
+        "maupqa-poleval2021-pairs": {
+          "n": 150,
+          "query_active_mean": 56.29333333333334,
+          "postings_per_query": 7417.346666666666
+        },
+        "maupqa-templates": {
+          "n": 150,
+          "query_active_mean": 60.446666666666665,
+          "postings_per_query": 7774.613333333334
+        },
+        "arguana-pl": {
+          "n": 150,
+          "query_active_mean": 372.54,
+          "postings_per_query": 43202.16
+        },
+        "nfcorpus-pl": {
+          "n": 150,
+          "query_active_mean": 28.966666666666665,
+          "postings_per_query": 3761.88
+        },
+        "scifact-pl": {
+          "n": 150,
+          "query_active_mean": 98.23333333333333,
+          "postings_per_query": 12809.393333333333
+        },
+        "gpt-exams": {
+          "n": 150,
+          "query_active_mean": 45.48,
+          "postings_per_query": 7035.82
+        },
+        "poleval-2022-test-A-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 45.45333333333333,
+          "postings_per_query": 6854.8
+        },
+        "poleval-2022-test-B-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 44.92,
+          "postings_per_query": 6717.826666666667
+        }
+      },
+      "without_arguana": {
+        "n": 1200,
+        "query_active_mean": 52.935,
+        "postings_per_query": 7279.569166666667
+      },
+      "query_path": "models/static-soup-v20-dqf-bias015/a1-sparseadam-mw010",
+      "query_kind": "static table"
+    },
+    "a1-sparseadam-mw020": {
+      "doc_active_mean": 378.5362962962963,
+      "query_active_mean": 77.50444444444445,
+      "query_active_median": 43.0,
+      "postings_per_query": 9881.051851851851,
+      "postings_per_query_median": 6185.5,
+      "postings_per_query_p95": 38797.8,
+      "query_weight_sum_mean": 54.27039337158203,
+      "per_task": {
+        "maupqa-gpt3-cc": {
+          "n": 150,
+          "query_active_mean": 33.666666666666664,
+          "postings_per_query": 4991.44
+        },
+        "maupqa-mkqa": {
+          "n": 150,
+          "query_active_mean": 43.513333333333335,
+          "postings_per_query": 6008.893333333333
+        },
+        "maupqa-poleval2021-pairs": {
+          "n": 150,
+          "query_active_mean": 49.36666666666667,
+          "postings_per_query": 6463.746666666667
+        },
+        "maupqa-templates": {
+          "n": 150,
+          "query_active_mean": 52.94,
+          "postings_per_query": 6770.766666666666
+        },
+        "arguana-pl": {
+          "n": 150,
+          "query_active_mean": 328.20666666666665,
+          "postings_per_query": 38325.12
+        },
+        "nfcorpus-pl": {
+          "n": 150,
+          "query_active_mean": 24.8,
+          "postings_per_query": 3188.98
+        },
+        "scifact-pl": {
+          "n": 150,
+          "query_active_mean": 86.94666666666667,
+          "postings_per_query": 11394.58
+        },
+        "gpt-exams": {
+          "n": 150,
+          "query_active_mean": 38.89333333333333,
+          "postings_per_query": 5947.213333333333
+        },
+        "poleval-2022-test-A-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 39.586666666666666,
+          "postings_per_query": 5944.093333333333
+        },
+        "poleval-2022-test-B-allegro-faq": {
+          "n": 75,
+          "query_active_mean": 38.82666666666667,
+          "postings_per_query": 5733.36
+        }
+      },
+      "without_arguana": {
+        "n": 1200,
+        "query_active_mean": 46.166666666666664,
+        "postings_per_query": 6325.543333333333
+      },
+      "query_path": "models/static-soup-v20-dqf-bias015/a1-sparseadam-mw020",
+      "query_kind": "static table"
+    }
+  }
+}

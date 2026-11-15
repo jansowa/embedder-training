@@ -132,7 +132,7 @@ def mine(
             cols = [teacher_queries.dense_rows(ids, device)]
             for _, model in students:
                 enc = model.tokenize(tokenizer, texts, device)
-                q = model(enc["input_ids"], enc["attention_mask"])
+                q = model(**enc)
                 cols.append(torch.round(q * qf) / qf)  # the quantized regime quantizes the query side too
             # a contiguous [dim, C] right-hand side: the transposed view costs cuSPARSE ~20x (4.7 s vs 0.21 s for
             # 300 k passages x 384 columns on the 3060 Ti)
@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-    from distill.static_query import StaticSparseQueryEncoder
+    from distill.static_query import load_static_encoder
 
     started = time.time()
     passages, queries = sample_corpus(args.corpus, args.n_docs, args.n_queries, args.seed, args.min_chars)
@@ -232,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     release_host_memory()
     students = []
     for path in args.student:
-        table = StaticSparseQueryEncoder.load(path, args.device)
+        table = load_static_encoder(path, args.device)  # a table, or a larger encoder of distill.static_v2
         if table.output_dim != doc_mat.dim:
             print(f"[ERROR] {path} writes {table.output_dim} dims, the documents have {doc_mat.dim}", file=sys.stderr)
             return 2

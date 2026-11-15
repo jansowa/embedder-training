@@ -1,0 +1,689 @@
+{
+  "created": "2026-11-15T17:01:32",
+  "model": "models/soup-v20-dqf-bias015",
+  "reference": "fp16:eager",
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "seed": 7,
+    "query": 1024,
+    "passage": 4096,
+    "check": {
+      "query": 512,
+      "passage": 1024
+    }
+  },
+  "batches": {
+    "query": 64,
+    "passage": [
+      16,
+      32
+    ]
+  },
+  "save_to_cpu": true,
+  "environment": {
+    "gpu_compute_processes_start": 0,
+    "mem_available_gb_start": 8.643989562988281,
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "capability": "8.6",
+    "torch": "2.7.1+cu128",
+    "torchao": "0.15.0"
+  },
+  "results": [
+    {
+      "label": "fp16:eager",
+      "load_seconds": 3.84,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "capability": "8.6",
+      "torch": "2.7.1+cu128",
+      "torchao": "0.15.0",
+      "head_bias_mean": -0.161865234375,
+      "linear_quantized": 0,
+      "linear_kept": 0,
+      "variant": "fp16:eager",
+      "dtype": "fp16",
+      "max_seq_length": 512,
+      "warmup_seconds": 16.52,
+      "mean_tokens": {
+        "query": 16.068359375,
+        "passage": 107.7333984375
+      },
+      "compile_after_warmup": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "timings": {
+        "query_ms_p50": 3.849246000754647,
+        "query_ms_p90": 4.1401170048629865,
+        "query_ms_p99": 5.860430197499223,
+        "queries_per_s": 2685.373221436779,
+        "passage": {
+          "16": {
+            "passages_per_s": 561.4067300889186,
+            "tokens_per_s": 60482.25493816348,
+            "seconds_median": 7.295958136004629,
+            "seconds_all": [
+              7.270565851009451,
+              7.295958136004629,
+              7.302584293996915
+            ]
+          },
+          "32": {
+            "passages_per_s": 552.652148455667,
+            "tokens_per_s": 59539.09410691477,
+            "seconds_median": 7.411533659003908,
+            "seconds_all": [
+              7.57547930299188,
+              7.394088145985734,
+              7.411533659003908
+            ]
+          }
+        }
+      },
+      "cuda_peak_mb": 3313.333984375,
+      "compile_after_timing": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "dims": {
+        "query": 84.361328125,
+        "passage": 334.0966796875
+      },
+      "postings": {
+        "per_query": {
+          "mean": 8371.201171875,
+          "p10": 4644.5,
+          "p50": 7616.5,
+          "p90": 13089.500000000002
+        },
+        "per_query_per_1k_passages": 8175.00114440918,
+        "n_passages": 1024
+      },
+      "reference": true
+    },
+    {
+      "label": "fp16:compile",
+      "load_seconds": 4.56,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "capability": "8.6",
+      "torch": "2.7.1+cu128",
+      "torchao": "0.15.0",
+      "head_bias_mean": -0.161865234375,
+      "linear_quantized": 0,
+      "linear_kept": 0,
+      "variant": "fp16:compile",
+      "dtype": "fp16",
+      "max_seq_length": 512,
+      "warmup_seconds": 47.91,
+      "mean_tokens": {
+        "query": 16.068359375,
+        "passage": 107.7333984375
+      },
+      "compile_after_warmup": {
+        "unique_graphs": 8,
+        "calls_captured": 1264,
+        "graph_breaks": 0
+      },
+      "timings": {
+        "query_ms_p50": 2.8667259903158993,
+        "query_ms_p90": 3.0459148925729096,
+        "query_ms_p99": 4.973980899376327,
+        "queries_per_s": 3039.621107857304,
+        "passage": {
+          "16": {
+            "passages_per_s": 626.6484163681978,
+            "tokens_per_s": 67510.96352082345,
+            "seconds_median": 6.536360569996759,
+            "seconds_all": [
+              6.537796624004841,
+              6.536360569996759,
+              6.532824655994773
+            ]
+          },
+          "32": {
+            "passages_per_s": 618.9797133563077,
+            "tokens_per_s": 66684.78808374463,
+            "seconds_median": 6.617341265984578,
+            "seconds_all": [
+              6.603928646974964,
+              6.631159553973703,
+              6.617341265984578
+            ]
+          }
+        }
+      },
+      "cuda_peak_mb": 3312.72998046875,
+      "compile_after_timing": {
+        "unique_graphs": 8,
+        "calls_captured": 1264,
+        "graph_breaks": 0
+      },
+      "dims": {
+        "query": 84.3515625,
+        "passage": 334.06640625
+      },
+      "postings": {
+        "per_query": {
+          "mean": 8369.451171875,
+          "p10": 4637.900000000001,
+          "p50": 7631.0,
+          "p90": 13059.800000000001
+        },
+        "per_query_per_1k_passages": 8173.29216003418,
+        "n_passages": 1024
+      },
+      "fidelity": {
+        "query": {
+          "n": 512,
+          "cosine": {
+            "mean": 0.9999975557439029,
+            "p10": 0.9999963104724884,
+            "p50": 0.9999976754188538,
+            "p90": 0.9999986886978149
+          },
+          "rel_l1": {
+            "mean": 0.0021619622139041894,
+            "p10": 0.0015109944622963666,
+            "p50": 0.0021224188385531306,
+            "p90": 0.0028267744695767765
+          },
+          "active_jaccard": {
+            "mean": 0.9965116280455673,
+            "p10": 0.9859154929577465,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 0.99921875,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 84.361328125,
+            "p10": 45.1,
+            "p50": 71.0,
+            "p90": 133.80000000000007
+          },
+          "dims": {
+            "mean": 84.3515625,
+            "p10": 45.0,
+            "p50": 71.0,
+            "p90": 133.80000000000007
+          },
+          "dims_ratio": 0.9998842405019331
+        },
+        "passage": {
+          "n": 1024,
+          "cosine": {
+            "mean": 0.9999968824558891,
+            "p10": 0.9999951720237732,
+            "p50": 0.9999964833259583,
+            "p90": 1.0
+          },
+          "rel_l1": {
+            "mean": 0.0022858077695673273,
+            "p10": 0.0,
+            "p50": 0.002690426306799054,
+            "p90": 0.0032170487334951758
+          },
+          "active_jaccard": {
+            "mean": 0.9970634629091155,
+            "p10": 0.9921114794861169,
+            "p50": 0.9976931918561956,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 0.99912109375,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 334.0966796875,
+            "p10": 187.3,
+            "p50": 320.0,
+            "p90": 501.0
+          },
+          "dims": {
+            "mean": 334.06640625,
+            "p10": 188.0,
+            "p50": 319.5,
+            "p90": 500.70000000000005
+          },
+          "dims_ratio": 0.9999093871943645
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 0.99765625,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 0.9986328124999999,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 512,
+          "n_passages": 1024
+        },
+        "postings": {
+          "symmetric": {
+            "per_query": {
+              "mean": 8369.451171875,
+              "p10": 4637.900000000001,
+              "p50": 7631.0,
+              "p90": 13059.800000000001
+            },
+            "per_query_per_1k_passages": 8173.29216003418,
+            "n_passages": 1024
+          },
+          "query_only": {
+            "per_query": {
+              "mean": 8370.1796875,
+              "p10": 4641.8,
+              "p50": 7630.5,
+              "p90": 13059.900000000001
+            },
+            "per_query_per_1k_passages": 8174.003601074219,
+            "n_passages": 1024
+          }
+        }
+      }
+    },
+    {
+      "label": "fp16:fasthead,eager",
+      "load_seconds": 3.92,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "capability": "8.6",
+      "torch": "2.7.1+cu128",
+      "torchao": "0.15.0",
+      "head_bias_mean": -0.161865234375,
+      "linear_quantized": 0,
+      "linear_kept": 0,
+      "variant": "fp16:fasthead,eager",
+      "dtype": "fp16",
+      "max_seq_length": 512,
+      "warmup_seconds": 15.51,
+      "mean_tokens": {
+        "query": 16.068359375,
+        "passage": 107.7333984375
+      },
+      "compile_after_warmup": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "timings": {
+        "query_ms_p50": 3.813036484643817,
+        "query_ms_p90": 4.065795900532976,
+        "query_ms_p99": 5.978803513280581,
+        "queries_per_s": 2908.8457479097638,
+        "passage": {
+          "16": {
+            "passages_per_s": 603.6892548381237,
+            "tokens_per_s": 65037.49502391305,
+            "seconds_median": 6.7849476650008,
+            "seconds_all": [
+              6.797830630996032,
+              6.7849476650008,
+              6.782669631007593
+            ]
+          },
+          "32": {
+            "passages_per_s": 594.8971799428923,
+            "tokens_per_s": 64090.29491613275,
+            "seconds_median": 6.88522342700162,
+            "seconds_all": [
+              7.007652863016119,
+              6.865986343007535,
+              6.88522342700162
+            ]
+          }
+        }
+      },
+      "cuda_peak_mb": 1783.51171875,
+      "compile_after_timing": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "dims": {
+        "query": 84.361328125,
+        "passage": 334.0966796875
+      },
+      "postings": {
+        "per_query": {
+          "mean": 8371.201171875,
+          "p10": 4644.5,
+          "p50": 7616.5,
+          "p90": 13089.500000000002
+        },
+        "per_query_per_1k_passages": 8175.00114440918,
+        "n_passages": 1024
+      },
+      "fidelity": {
+        "query": {
+          "n": 512,
+          "cosine": {
+            "mean": 1.000000013038516,
+            "p10": 0.9999999403953552,
+            "p50": 1.0,
+            "p90": 1.0000001192092896
+          },
+          "rel_l1": {
+            "mean": 0.0,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.0
+          },
+          "active_jaccard": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 84.361328125,
+            "p10": 45.1,
+            "p50": 71.0,
+            "p90": 133.80000000000007
+          },
+          "dims": {
+            "mean": 84.361328125,
+            "p10": 45.1,
+            "p50": 71.0,
+            "p90": 133.80000000000007
+          },
+          "dims_ratio": 1.0
+        },
+        "passage": {
+          "n": 1024,
+          "cosine": {
+            "mean": 1.0000000098370947,
+            "p10": 0.9999999403953552,
+            "p50": 1.0,
+            "p90": 1.0000001192092896
+          },
+          "rel_l1": {
+            "mean": 0.0,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.0
+          },
+          "active_jaccard": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 334.0966796875,
+            "p10": 187.3,
+            "p50": 320.0,
+            "p90": 501.0
+          },
+          "dims": {
+            "mean": 334.0966796875,
+            "p10": 187.3,
+            "p50": 320.0,
+            "p90": 501.0
+          },
+          "dims_ratio": 1.0
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 1.0,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 512,
+          "n_passages": 1024
+        },
+        "postings": {
+          "symmetric": {
+            "per_query": {
+              "mean": 8371.201171875,
+              "p10": 4644.5,
+              "p50": 7616.5,
+              "p90": 13089.500000000002
+            },
+            "per_query_per_1k_passages": 8175.00114440918,
+            "n_passages": 1024
+          },
+          "query_only": {
+            "per_query": {
+              "mean": 8371.201171875,
+              "p10": 4644.5,
+              "p50": 7616.5,
+              "p90": 13089.500000000002
+            },
+            "per_query_per_1k_passages": 8175.00114440918,
+            "n_passages": 1024
+          }
+        }
+      }
+    },
+    {
+      "label": "fp16:fasthead,body,compile",
+      "load_seconds": 4.51,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "capability": "8.6",
+      "torch": "2.7.1+cu128",
+      "torchao": "0.15.0",
+      "head_bias_mean": -0.161865234375,
+      "linear_quantized": 0,
+      "linear_kept": 0,
+      "variant": "fp16:fasthead,body,compile",
+      "dtype": "fp16",
+      "max_seq_length": 512,
+      "warmup_seconds": 33.19,
+      "mean_tokens": {
+        "query": 16.068359375,
+        "passage": 107.7333984375
+      },
+      "compile_after_warmup": {
+        "unique_graphs": 8,
+        "calls_captured": 1232,
+        "graph_breaks": 0
+      },
+      "timings": {
+        "query_ms_p50": 2.9628965130541474,
+        "query_ms_p90": 3.1524869002169,
+        "query_ms_p99": 4.865422997681889,
+        "queries_per_s": 2976.4320672006475,
+        "passage": {
+          "16": {
+            "passages_per_s": 615.9111991956474,
+            "tokens_per_s": 66354.20662506312,
+            "seconds_median": 6.650309338991065,
+            "seconds_all": [
+              6.650309338991065,
+              6.6742263049818575,
+              6.650222365016816
+            ]
+          },
+          "32": {
+            "passages_per_s": 603.1687735128037,
+            "tokens_per_s": 64981.42180191308,
+            "seconds_median": 6.790802474977681,
+            "seconds_all": [
+              6.7813968359841965,
+              6.797457478009164,
+              6.790802474977681
+            ]
+          }
+        }
+      },
+      "cuda_peak_mb": 1782.71826171875,
+      "compile_after_timing": {
+        "unique_graphs": 8,
+        "calls_captured": 1232,
+        "graph_breaks": 0
+      },
+      "dims": {
+        "query": 84.3671875,
+        "passage": 334.0869140625
+      },
+      "postings": {
+        "per_query": {
+          "mean": 8370.193359375,
+          "p10": 4639.7,
+          "p50": 7589.0,
+          "p90": 13100.400000000001
+        },
+        "per_query_per_1k_passages": 8174.016952514648,
+        "n_passages": 1024
+      },
+      "fidelity": {
+        "query": {
+          "n": 512,
+          "cosine": {
+            "mean": 0.999998262966983,
+            "p10": 0.9999973177909851,
+            "p50": 0.9999983906745911,
+            "p90": 0.9999991059303284
+          },
+          "rel_l1": {
+            "mean": 0.0018100202262303355,
+            "p10": 0.001249114447273314,
+            "p50": 0.0017926502623595297,
+            "p90": 0.0024170386139303448
+          },
+          "active_jaccard": {
+            "mean": 0.9976726942301384,
+            "p10": 0.9881229235880399,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 0.99921875,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 84.361328125,
+            "p10": 45.1,
+            "p50": 71.0,
+            "p90": 133.80000000000007
+          },
+          "dims": {
+            "mean": 84.3671875,
+            "p10": 45.1,
+            "p50": 71.0,
+            "p90": 133.90000000000003
+          },
+          "dims_ratio": 1.00006945569884
+        },
+        "passage": {
+          "n": 1024,
+          "cosine": {
+            "mean": 0.9999979278654791,
+            "p10": 0.9999967813491821,
+            "p50": 0.9999976754188538,
+            "p90": 1.0
+          },
+          "rel_l1": {
+            "mean": 0.0018492300484922453,
+            "p10": 0.0,
+            "p50": 0.002182119293138385,
+            "p90": 0.00261247749440372
+          },
+          "active_jaccard": {
+            "mean": 0.997636393449143,
+            "p10": 0.9929551014356668,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "top10_term_overlap": {
+            "mean": 0.99892578125,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "dims_ref": {
+            "mean": 334.0966796875,
+            "p10": 187.3,
+            "p50": 320.0,
+            "p90": 501.0
+          },
+          "dims": {
+            "mean": 334.0869140625,
+            "p10": 188.0,
+            "p50": 319.0,
+            "p90": 500.4000000000001
+          },
+          "dims_ratio": 0.9999707700626982
+        },
+        "retrieval": {
+          "symmetric": {
+            "mean": 0.998828125,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "query_only": {
+            "mean": 0.998828125,
+            "p10": 1.0,
+            "p50": 1.0,
+            "p90": 1.0
+          },
+          "k": 10,
+          "n_queries": 512,
+          "n_passages": 1024
+        },
+        "postings": {
+          "symmetric": {
+            "per_query": {
+              "mean": 8370.193359375,
+              "p10": 4639.7,
+              "p50": 7589.0,
+              "p90": 13100.400000000001
+            },
+            "per_query_per_1k_passages": 8174.016952514648,
+            "n_passages": 1024
+          },
+          "query_only": {
+            "per_query": {
+              "mean": 8369.42578125,
+              "p10": 4641.8,
+              "p50": 7588.5,
+              "p90": 13092.4
+            },
+            "per_query_per_1k_passages": 8173.267364501953,
+            "n_passages": 1024
+          }
+        }
+      }
+    },
+    {
+      "error": "exit 1: RuntimeError: mat2.size(1) needs to be greater than 0 and a multiple of 8, but got 50001",
+      "label": "int8-dyn:compile"
+    }
+  ]
+}

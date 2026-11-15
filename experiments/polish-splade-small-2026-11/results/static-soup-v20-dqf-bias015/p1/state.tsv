@@ -1,0 +1,68 @@
+t0	1794749179
+pq:phr2-k8-kd-r2	11764
+pqa:phr2-k8-kd-r2	43673
+pqr:phr2-k8-kd-r2	7775
+dqa:phr2-k8-kd-r2	375.9
+dq:phr2-k8-kd-r2	89.7
+pq:phr2-k8-kd-r2-len512	14253
+pqa:phr2-k8-kd-r2-len512	66078
+pqr:phr2-k8-kd-r2-len512	7775
+dqa:phr2-k8-kd-r2-len512	632.2
+dq:phr2-k8-kd-r2-len512	118.2
+cand	phr2-k8-kd-r2
+note:phr2-k8-kd-r2	the released table (128 query tokens)
+best	phr2-k8-kd-r2
+cand	phr2-k8-kd-r2-len512
+note:phr2-k8-kd-r2-len512	reads 512 query tokens, rows unchanged
+len512	0
+pq:a1-sparseadam	12258
+pqa:a1-sparseadam	45727
+pqr:a1-sparseadam	8074
+dqa:a1-sparseadam	394.8
+dq:a1-sparseadam	94.0
+pq:a1-adagrad	12780
+pqa:a1-adagrad	47632
+pqr:a1-adagrad	8424
+dqa:a1-adagrad	410.7
+dq:a1-adagrad	98.0
+pq:a1-floor	17682
+pqa:a1-floor	60613
+pqr:a1-floor	12316
+dqa:a1-floor	521.1
+dq:a1-floor	133.8
+cand	a1-sparseadam
+note:a1-sparseadam	A1 arm sparseadam from phr2-k8-kd (--optimizer sparse_adam)
+best	a1-sparseadam
+cand	a1-adagrad
+note:a1-adagrad	A1 arm adagrad from phr2-k8-kd (--optimizer adagrad --lr 5e-2)
+cand	a1-floor
+note:a1-floor	A1 arm floor from phr2-k8-kd (--value-floor 1e-4)
+pq:a1-sparseadam-mw005	12091
+pqa:a1-sparseadam-mw005	44991
+pqr:a1-sparseadam-mw005	7979
+dqa:a1-sparseadam-mw005	387.5
+dq:a1-sparseadam-mw005	92.4
+pq:a1-sparseadam-mw010	11271
+pqa:a1-sparseadam-mw010	43202
+pqr:a1-sparseadam-mw010	7280
+dqa:a1-sparseadam-mw010	372.5
+dq:a1-sparseadam-mw010	88.4
+pq:a1-sparseadam-mw020	9881
+pqa:a1-sparseadam-mw020	38325
+pqr:a1-sparseadam-mw020	6326
+dqa:a1-sparseadam-mw020	328.2
+dq:a1-sparseadam-mw020	77.5
+cand	a1-sparseadam-mw005
+note:a1-sparseadam-mw005	a1-sparseadam with table weights below 0.05 dropped
+best	a1-sparseadam-mw005
+cand	a1-sparseadam-mw010
+note:a1-sparseadam-mw010	a1-sparseadam with table weights below 0.10 dropped
+cand	a1-sparseadam-mw020
+note:a1-sparseadam-mw020	a1-sparseadam with table weights below 0.20 dropped
+pq:a1-sparseadam-mw005-g1-kd	12050
+pqa:a1-sparseadam-mw005-g1-kd	46282
+pqr:a1-sparseadam-mw005-g1-kd	7771
+dqa:a1-sparseadam-mw005-g1-kd	410.5
+dq:a1-sparseadam-mw005-g1-kd	97.6
+cand	a1-sparseadam-mw005-g1-kd
+note:a1-sparseadam-mw005-g1-kd	A2 round 1: up to 2 new slots per row of a1-sparseadam-mw005, 3 epochs on pool r2

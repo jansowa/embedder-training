@@ -148,8 +148,111 @@ scores several times higher than the SPLADE query it imitates); the lr has to fo
 ```
 
 `python -m distill.static_query stats --model DIR --show pies,psa` prints a few rows; `prune --min-weight
---top-k` cuts the table. The PIRB fork detects a static folder by its `static_query.json`
+--top-k` cuts the table and `prune --max-length N` changes how many tokens of a query are read (the tables were
+built with 128, which cuts 91 % of the arguana-pl queries; the rows themselves do not depend on it). The PIRB fork detects a static folder by its `static_query.json`
 (`StaticSpladeQueryEncoder` in `third_party/pirb/search/splade.py`).
+
+## Improving the static query encoder: two paths
+
+The released table leaves about 4.3 points to the full query side (60.74 / 39.24 against 65.06 / 43.64 on tiny10 /
+heldout8, st1), while a small contextual student over the same index leaves 0.3: what the table lacks is the context
+of the query, not expansion as such. Training its weights barely moves the agreement with the teacher (top-1 0.676 →
+0.685) and 2.5 times more queries brought +0.09, so the limit is what the table can hold, not the data. Work on it
+is split into two paths that share neither a format nor a name, so a result of one cannot be taken for the other.
+
+| | path A: the released architecture, stronger | path B: a larger static encoder |
+|---|---|---|
+| format | `static-sparse-query/1` (`static_query.json`) | `static-sparse-query/2` (`static_query_v2.json`) |
+| shape | the rows and the k of the released table | free: more rows, more slots, more parameters |
+| arithmetic | maximum over rows of non-negative slots | sum, signed weights, threshold, context gates, length multipliers |
+| loaders | unchanged: `StaticSpladeQueryEncoder` in the PIRB fork, `release/st_static.py`; the result replaces the table file of the package | `search/splade_static_ext.py` in the PIRB fork; no Sentence Transformers module until a variant is chosen |
+| code | `distill.train_static` (options), `distill.static_slots`, `distill.static_diag` | `distill.static_v2`, `distill.train_static_vec`; the trainer and the pool miner are shared |
+| names | `models/static-<tag>/…`, labels `asym-<tag>-q-static-…` | `models/static2-<tag>/…`, labels `asym-<tag>-q-static2-…` |
+
+`distill.static_query.load_static_encoder` reads either folder; a folder never carries both formats. A path-B
+encoder that ends up using nothing beyond format 1 (more rows or slots, the same arithmetic) goes back with
+`python -m distill.static_v2 export-v1`.
+
+### Diagnostics first (`distill/static_diag.py`)
+
+Oracles are upper bounds measured without training anything. Each mixes the teacher's query vector `t` with the
+table's `s`: `weights` = `t` on the dimensions the table activates (the ceiling of re-weighting the table's slots in
+context: path B's gates; what is still missing to the teacher is the ceiling of new slots and rows), `support` = `s`
+on the dimensions the teacher activates (the ceiling of noise suppression: residual rows, a threshold, replace mode),
+`own` / `student-own` = either vector on the query's own tokens (what query-side expansion is worth).
+
+```bash
+# on the held-out rows of a mined pool (seconds on the GPU): agreement with the teacher's ranking
+.venv/bin/python -m distill.static_diag oracles --pool cache/static_pools/kd-X-r2 --model models/static-X/phr2-k8-kd-r2 \
+    --out experiments/polish-splade-small-2026-11/results/static-X/oracles_phr2-k8-kd-r2.json
+# as nDCG@10 on a task set: an oracle folder is a query model of the PIRB fork
+.venv/bin/python -m distill.static_diag oracle-model --table models/static-X/phr2-k8-kd-r2 --teacher models/X \
+    --mode weights --out models/static-X/oracle-weights
+PIRB_QUERY_MODEL=models/static-X/oracle-weights scripts/pirb_regime_eval.sh quantized asym-X-q-oracle-weights models/X tiny10
+# which words fall back to subword pieces, which pairs own a row (CPU, tokenizer and table only)
+.venv/bin/python -m distill.static_diag coverage --model models/static-X/phr2-k8-kd-r2 --texts queries.jsonl --field text
+```
+
+### Path A: the same table, fitted better
+
+* `distill.train_static` gained options that change how the weights are fitted and never the format:
+  `--optimizer sparse_adam | adagrad` (the default Adam treats the zero gradient of an absent row as a gradient, so a
+  rare row keeps moving on momentum after its single occurrence), `--value-floor` (no slot dies behind the relu; slots
+  under half a quantization step are written as zeros), `--dim-gain` (one multiplier per vocabulary dimension, shared
+  by all rows and folded into the weights on saving, so rows too rare to be trained on their own still move),
+  `--keep-best` / `--best-metric`, `--temperature`. The summary now also carries `train_final`, the validation
+  measurement on rows the table was fitted on: no gap to `val_final` means capacity, a gap means over-fitting.
+* `distill.static_slots` learns the slots, which were frozen at the credit init. For every pool query it takes the
+  direction in which the query vector should move to lower the KL, `scale * (p_teacher - p_student) @ D`, keeps the
+  dimensions the query does not write yet, credits them to every row of the query and, over the pool, picks per row
+  the dimensions wanted consistently in its presence. They are written into empty or dead slots (the table keeps its
+  shape) with a small weight; `distill.train_static` then decides their worth. Rounds can alternate.
+* A query-side `min_weight` sweep needs no code: under max pooling `python -m distill.static_query prune
+  --min-weight w` is exactly the pooled-vector threshold (`PIRB_MIN_WEIGHT` would also cut the index).
+
+```bash
+.venv/bin/python -m distill.static_slots --pool cache/static_pools/kd-X-r2 --model models/static-X/phr2-k8-kd-r2 \
+    --out models/static-X/phr2-k8-kd-r2-g1 --new-slots 2 --device cuda
+.venv/bin/python -m distill.train_static --pool cache/static_pools/kd-X-r2 --init models/static-X/phr2-k8-kd-r2-g1 \
+    --out runs/static-X-phr2-k8-kd-r2-g1 --target rows --learn-scale --lr 5e-3 --epochs 3 --value-floor 1e-4 --keep-best
+```
+
+### Path B: a larger static encoder (`distill/static_v2.py`)
+
+Still no transformer: lookups, one scatter and, with a gate, a dot product per row. Every switch is off by default
+(a converted table computes exactly what format 1 computes, gates start at 1), so each is measured on its own:
+
+| switch | what it adds | size |
+|---|---|---|
+| `--pooling sum --signed`, `--threshold` | `relu(sum of rows - threshold)`: rows vote, phrase rows can take back what their pieces write; `build --rows residual` initialises phrase rows as the phrase's credit minus what its parts already write | unchanged |
+| `--phrase-mode replace` | a word that owns a row is encoded by that row alone | unchanged |
+| `--pair-key first`, `--pair-window n` | pair rows keyed by the first piece of each word (one row for the inflected forms of a pair), matched up to n words apart | more rows |
+| `--ctx-dim d` | context gate: a row's weights times `2 * sigmoid(g_row . c + b_row)`, `c` = mean of d-dimensional token embeddings of the query | + (tokens + rows) x d floats |
+| `--slot-ctx-dim s` | a gate per slot on a projection of `c` (which expansions fit this query) | + rows x k x s floats |
+| `--length-edges` | one learned multiplier of the expansion slots per query-length bucket | a few scalars |
+| `--top-m` | only the m heaviest dimensions of the pooled vector are kept | unchanged |
+
+More rows or more slots alone (`--top-k`, `--max-phrases`, `--kinds query,passage` at build time,
+`static_slots --new-k`) are also path B: the arithmetic is the released one, the table is larger.
+
+```bash
+# the released table + a context gate; first fitted to the teacher's query vectors on plain text, then to the ranking
+.venv/bin/python -m distill.static_v2 convert --model models/static-X/phr2-k8-kd-r2 --ctx-dim 32 --out models/static2-X/gate32
+.venv/bin/python -m distill.train_static_vec --teacher models/X --init models/static2-X/gate32 --texts datasets/kd/kd_v1.jsonl \
+    --kinds query --n 400000 --train extra --extra-lr 1e-2 --epochs 2 --out runs/static2-X-gate32-vec
+.venv/bin/python -m distill.train_static --pool cache/static_pools/kd-X-r2 --init runs/static2-X-gate32-vec/final \
+    --out runs/static2-X-gate32-kd --target rows --learn-scale --lr 5e-3 --extra-lr 5e-3 --epochs 3
+# signed sum with residual phrase rows
+.venv/bin/python -m distill.static_v2 build --rows residual --teacher models/X --texts datasets/kd/kd_v1.jsonl --kinds query \
+    --top-k 8 --phrases 2 --out models/static2-X/res2-k8
+PIRB_QUERY_MODEL=models/static2-X/res2-k8 scripts/pirb_regime_eval.sh quantized asym-X-q-static2-res2-k8 models/X tiny10
+```
+
+`distill.train_static_vec` minimises the squared distance to the teacher's query vector over the whole vocabulary,
+on any text and without a pool: every dimension of every query is supervised, which is what parameters that depend
+on the context need. It knows nothing about ranking, so `distill.train_static` on a mined pool follows it
+(`--train values | extra | all` picks the table weights, the encoder's other parameters or both; `distill.static_mine`
+accepts encoders of either format as students).
 
 ## Tests
 
