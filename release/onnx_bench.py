@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""CPU benchmark of ONNX SPLADE exports: inference speed and agreement with the fp32 reference.
+"""Benchmark of ONNX SPLADE exports (CPU by default; CUDA / TensorRT providers per variant): speed and agreement with the reference.
 
 Every variant (and optionally the PyTorch fp32 model) is measured in its own subprocess, one after another,
 so the peak RSS is that variant's alone and nothing stays resident between them. Per variant and per
@@ -114,12 +114,15 @@ class _TorchSplade:
         self.torch.set_num_threads(threads)
 
 
-def _load(kind: str, path: str, threads: int, max_length: int | None, arena: bool):
+def _load(kind: str, path: str, threads: int, max_length: int | None, arena: bool, gpu: dict[str, Any] | None = None):
     if kind == "torch":
         return _TorchSplade(path, threads, max_length or 512)
     from release.onnx_encoder import OnnxSplade
 
-    return OnnxSplade(path, threads=threads, max_length=max_length, arena=arena, max_batch_tokens=1 << 30)
+    gpu = gpu or {}
+    return OnnxSplade(path, threads=threads, max_length=max_length, arena=arena, max_batch_tokens=1 << 30,
+                      provider=gpu.get("provider", "cpu"), max_rows=gpu.get("max_rows", 64),
+                      trt_cache_dir=gpu.get("trt_cache"), trt_fp16=gpu.get("trt_fp16", True))
 
 
 def worker(spec: dict[str, Any]) -> dict[str, Any]:
@@ -129,13 +132,14 @@ def worker(spec: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {"label": spec["label"], "kind": spec["kind"], "path": spec["path"], "rss_start_mb": rss_mb()}
     threads_list = spec["threads"]
     t0 = time.time()
-    enc = _load(spec["kind"], spec["path"], max(threads_list), spec.get("max_length"), spec["arena"])
+    enc = _load(spec["kind"], spec["path"], max(threads_list), spec.get("max_length"), spec["arena"], spec.get("gpu"))
     result["load_seconds"] = round(time.time() - t0, 2)
     result["rss_loaded_mb"] = rss_mb()
     if spec["kind"] != "torch":
         result["file_mb"] = Path(enc.model_path).stat().st_size / 2**20
         result["variant"] = enc.meta.get("variant")
         result["quantization"] = enc.meta.get("quantization")
+        result["providers"] = enc.active_providers
 
     # Vectors for the agreement statistics, at the max thread count (sparse on disk: rows, cols, values).
     rows, cols, vals = [], [], []
@@ -172,7 +176,7 @@ def worker(spec: dict[str, Any]) -> dict[str, Any]:
     for threads in threads_list:
         if threads != loaded_threads:  # reload on every change (the old check left 1-thread sessions timing the max)
             del enc
-            enc = _load(spec["kind"], spec["path"], threads, spec.get("max_length"), spec["arena"])
+            enc = _load(spec["kind"], spec["path"], threads, spec.get("max_length"), spec["arena"], spec.get("gpu"))
             loaded_threads = threads
         for feeds in q_feeds[:warm] + p_feeds[:max(1, warm // 4)]:
             enc.run(feeds)
@@ -213,16 +217,20 @@ def load_vectors(path: Path) -> np.ndarray:
     return out
 
 
-def _worker_env() -> dict[str, str]:
+def _worker_env(gpu: bool = False) -> dict[str, str]:
     repo = str(Path(__file__).resolve().parents[1])
     path = os.environ.get("PYTHONPATH", "")
-    return dict(os.environ, CUDA_VISIBLE_DEVICES="", PYTHONPATH=f"{repo}{os.pathsep}{path}" if path else repo)
+    env = dict(os.environ, PYTHONPATH=f"{repo}{os.pathsep}{path}" if path else repo)
+    if not gpu:
+        env["CUDA_VISIBLE_DEVICES"] = ""  # the CPU benchmark must never touch the card a queue holds
+    return env
 
 
 def run_worker(spec: dict[str, Any], spec_path: Path) -> dict[str, Any]:
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    gpu = (spec.get("gpu") or {}).get("provider", "cpu") != "cpu" and spec["kind"] != "torch"
     proc = subprocess.run([sys.executable, "-m", "release.onnx_bench", "--worker", str(spec_path)],
-                          stdout=subprocess.PIPE, text=True, env=_worker_env())
+                          stdout=subprocess.PIPE, text=True, env=_worker_env(gpu))
     if proc.returncode != 0:
         raise RuntimeError(f"worker for {spec['label']} failed with exit code {proc.returncode}")
     return json.loads(proc.stdout.strip().splitlines()[-1])
@@ -255,7 +263,8 @@ def markdown(report: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--worker", help=argparse.SUPPRESS)
-    p.add_argument("--variants", nargs="+", help="export directories (onnx_splade.json inside)")
+    p.add_argument("--variants", nargs="+",
+                   help="export directories (onnx_splade.json inside), each optionally <dir>@cpu|cuda|tensorrt (default --provider)")
     p.add_argument("--reference", default=None, help="reference export (default: the first --variants entry)")
     p.add_argument("--torch-model", default=None, help="also time the PyTorch fp32 checkpoint on the CPU")
     p.add_argument("--texts", default="datasets/kd/kd_v1.jsonl")
@@ -269,6 +278,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-length", type=int, default=None, help="tokenizer cap (default: the export's max_length)")
     p.add_argument("--no-arena", action="store_true", help="onnxruntime without the CPU memory arena")
     p.add_argument("--min-free-gb", type=float, default=4.0, help="refuse to start a worker with less RAM available")
+    p.add_argument("--provider", choices=["cpu", "cuda", "tensorrt"], default="cpu",
+                   help="onnxruntime execution provider for the exports (cuda / tensorrt need onnxruntime-gpu; see docs/onnx-release.md)")
+    p.add_argument("--max-rows", type=int, default=64, help="tensorrt: largest batch of the engine profile")
+    p.add_argument("--trt-cache", default=None, help="tensorrt: engine cache directory (default <export>/trt-cache)")
+    p.add_argument("--trt-fp32", action="store_true", help="tensorrt: fp32 engine instead of fp16")
+    p.add_argument("--allow-busy-gpu", action="store_true", help="GPU providers: start while other processes use the GPU")
     p.add_argument("--out", required=False)
     args = p.parse_args(argv)
 
@@ -280,6 +295,15 @@ def main(argv: list[str] | None = None) -> int:
         p.error("--variants is required")
 
     threads = [int(t) for t in args.threads.split(",")]
+    def split_provider(entry: str) -> tuple[str, str]:
+        path, sep, prov = entry.rpartition("@")
+        if not sep or prov not in ("cpu", "cuda", "tensorrt"):
+            return entry, args.provider
+        return path, prov
+
+    variant_entries = [split_provider(v) for v in args.variants]
+    if any(prov == "tensorrt" for _, prov in variant_entries) and args.passage_batch > args.max_rows:
+        p.error("--passage-batch exceeds --max-rows (the TensorRT profile)")
     quotas = parse_quotas(args.n)
     if not {"query", "passage"} <= set(quotas):
         p.error("--n needs query=... and passage=...")
@@ -293,10 +317,10 @@ def main(argv: list[str] | None = None) -> int:
         log(f"WARNING: machine not idle (load {environment['loadavg_start'][0]:.1f}, GPU processes "
             f"{environment['gpu_compute_processes']}); speed numbers will be noisy")
 
-    reference = args.reference or args.variants[0]
-    specs = [("onnx", v) for v in dict.fromkeys([reference] + list(args.variants))]
+    reference = split_provider(args.reference) if args.reference else variant_entries[0]
+    specs = [("onnx", path, prov) for path, prov in dict.fromkeys([reference] + variant_entries)]
     if args.torch_model:
-        specs.append(("torch", args.torch_model))
+        specs.append(("torch", args.torch_model, "cpu"))
 
     results = []
     with tempfile.TemporaryDirectory(prefix="onnx_bench.", dir=os.environ.get("ONNX_BENCH_TMP")) as tmp:
@@ -305,16 +329,19 @@ def main(argv: list[str] | None = None) -> int:
         texts_path.write_text(json.dumps({"query": texts["query"], "passage": texts["passage"]}, ensure_ascii=False), encoding="utf-8")
         nq = len(texts["query"])
         ref_vec = None
-        for i, (kind, path) in enumerate(specs):
+        for i, (kind, path, prov) in enumerate(specs):
+            gpu_opts = {"provider": prov, "max_rows": args.max_rows, "trt_cache": args.trt_cache, "trt_fp16": not args.trt_fp32}
             avail = mem_available_gb()
             if avail < args.min_free_gb:
                 raise SystemExit(f"only {avail:.1f} GB RAM available (< --min-free-gb {args.min_free_gb}); not starting {path}")
-            label = "torch-fp32" if kind == "torch" else Path(path).name
+            if prov != "cpu" and not args.allow_busy_gpu and gpu_compute_processes():
+                raise SystemExit(f"processes on the GPU; not starting {path} with {prov} (--allow-busy-gpu to override)")
+            label = "torch-fp32" if kind == "torch" else Path(path).name + ("" if prov == "cpu" else f"@{prov}")
             spec = {
                 "label": label, "kind": kind, "path": str(path), "texts": str(texts_path), "threads": threads,
                 "query_batch": args.query_batch, "passage_batch": args.passage_batch, "latency_n": args.latency_n,
                 "warmup": args.warmup, "max_length": args.max_length, "arena": not args.no_arena,
-                "vectors": str(tmp_dir / f"vectors_{i}.npz"),
+                "vectors": str(tmp_dir / f"vectors_{i}.npz"), "gpu": gpu_opts,
             }
             log(f"worker {label} ({path})")
             result = run_worker(spec, tmp_dir / f"spec_{i}.json")
@@ -337,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
             results.append(result)
 
     report = {
-        "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "reference": str(reference), "threads": threads,
+        "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "reference": "@".join(reference), "threads": threads,
         "texts": {"source": args.texts, "seed": args.seed, "query": len(texts["query"]), "passage": len(texts["passage"])},
         "batches": {"query": args.query_batch, "passage": args.passage_batch},
         "environment": dict(environment, loadavg_end=os.getloadavg()), "results": results,

@@ -204,3 +204,52 @@ def test_encoder_import_does_not_pull_torch():
     code = "import sys, release.onnx_encoder, release.fidelity, release.texts; print('torch' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], cwd=REPO, capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+def test_maxfirst_graph_gives_the_splade_vectors(exported, tmp_path):
+    from release.onnx_encoder import OnnxSplade
+    from release.onnx_splade import export_fp32
+
+    meta = export_fp32(exported / "teacher", tmp_path / "mf", graph="splade-maxfirst", check_texts=["ala ma kota", "pies"])
+    assert meta["output"] == "sparse_vector" and meta["pooling"].startswith("log1p(relu(max_t")
+    texts = ["ala ma kota i psy, a dom stoi", "dom", "pies i kot"]
+    a = OnnxSplade(exported / "onnx" / "fp32", threads=1).encode(texts)
+    b = OnnxSplade(tmp_path / "mf", threads=1).encode(texts)
+    assert (a > 0).sum() > 0
+    np.testing.assert_array_equal(a, b)  # monotone activations: the same floats, padding rows included
+
+
+def test_execution_providers():
+    from release.onnx_encoder import execution_providers, trt_profile
+
+    assert execution_providers("cpu") == ["CPUExecutionProvider"]
+    assert execution_providers("cuda", device_id=1) == [("CUDAExecutionProvider", {"device_id": 1}), "CPUExecutionProvider"]
+    trt = execution_providers("tensorrt", inputs=["input_ids", "attention_mask"], max_rows=48, max_length=256,
+                              cache_dir=None, fp16=True)
+    name, opts = trt[0]
+    assert name == "TensorrtExecutionProvider" and [p if isinstance(p, str) else p[0] for p in trt[1:]] == [
+        "CUDAExecutionProvider", "CPUExecutionProvider"]
+    assert opts["trt_fp16_enable"] is True and "trt_engine_cache_enable" not in opts
+    assert opts["trt_profile_max_shapes"] == "input_ids:48x256,attention_mask:48x256"
+    assert opts["trt_profile_opt_shapes"] == "input_ids:32x128,attention_mask:32x128"
+    assert trt_profile(["x"], (1, 2, 3), (4, 5, 6))["trt_profile_min_shapes"] == "x:1x4"
+    with pytest.raises(ValueError):
+        execution_providers("rocm")
+
+
+def test_tensorrt_cache_dir_is_created(tmp_path):
+    from release.onnx_encoder import execution_providers
+
+    _, opts = execution_providers("tensorrt", cache_dir=tmp_path / "c")[0]
+    assert (tmp_path / "c").is_dir() and opts["trt_engine_cache_path"] == str(tmp_path / "c")
+
+
+def test_missing_provider_is_an_error_not_a_silent_cpu_run(exported):
+    import onnxruntime as ort
+
+    from release.onnx_encoder import OnnxSplade
+
+    if "TensorrtExecutionProvider" in ort.get_available_providers():
+        pytest.skip("TensorRT is available here")
+    with pytest.raises(RuntimeError, match="TensorrtExecutionProvider"):
+        OnnxSplade(exported / "onnx" / "fp32", threads=1, provider="tensorrt", trt_cache_dir=None)

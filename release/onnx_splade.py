@@ -64,6 +64,9 @@ _EMB = re.compile(r"(?:^|/)(?:embeddings|embedding_hidden_mapping_in)(?:/|$)")
 # --------------------------------------------------------------------------------------------- blocks
 
 
+POOLED_GRAPHS = ("splade", "splade-maxfirst")  # output sparse_vector [batch, vocab]
+
+
 def node_block(name: str) -> str:
     """Coarse block of an exported node from its scope path: ``head``, ``layer.N``, ``embeddings`` or ``other``.
 
@@ -151,7 +154,12 @@ def export_fp32(
     max_length: int | None = None,
     check_texts: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Export ``AutoModelForMaskedLM`` (+ SPLADE pooling for ``graph="splade"``) to ``out_dir/model.onnx`` in fp32."""
+    """Export ``AutoModelForMaskedLM`` (+ SPLADE pooling for the pooled graphs) to ``out_dir/model.onnx`` in fp32.
+
+    ``splade``: ``max_t log1p(relu(logits)) * mask`` (the PIRB order). ``splade-maxfirst``: ``log1p(relu(max_t logits *
+    mask))``, the same values (both activations are monotone, padding goes to 0 before relu either way) with the
+    activations on ``[batch, vocab]`` instead of ``[batch, seq, vocab]``: fewer full-size intermediates for runtimes
+    that do not fuse them (TensorRT / CUDA providers). ``mlm``: the raw logits."""
     import torch
     from transformers import AutoModelForMaskedLM, AutoTokenizer
 
@@ -165,12 +173,13 @@ def export_fp32(
     mlm.eval()
     logits_dim = int(mlm.get_output_embeddings().weight.shape[0])
     vocab_dim = len(tokenizer.get_vocab())
-    output_dim = min(logits_dim, vocab_dim) if graph == "splade" else logits_dim
+    pooled = graph in POOLED_GRAPHS
+    output_dim = min(logits_dim, vocab_dim) if pooled else logits_dim
 
     class SpladeGraph(torch.nn.Module):
-        def __init__(self, inner: torch.nn.Module, dim: int, pooled: bool):
+        def __init__(self, inner: torch.nn.Module, dim: int, pooled: bool, max_first: bool):
             super().__init__()
-            self.inner, self.dim, self.pooled = inner, dim, pooled
+            self.inner, self.dim, self.pooled, self.max_first = inner, dim, pooled, max_first
             self.trim = dim < logits_dim  # padded MLM heads (pl-ModernBERT: 50 008 logits, 50 002 tokens)
 
         def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -179,11 +188,13 @@ def export_fp32(
                 return logits
             if self.trim:
                 logits = logits[..., : self.dim]
+            if self.max_first:
+                best = (logits * attention_mask.unsqueeze(-1).to(logits.dtype)).amax(dim=1)
+                return torch.log1p(torch.relu(best))
             weights = torch.log1p(torch.relu(logits)) * attention_mask.unsqueeze(-1).to(logits.dtype)
             return weights.amax(dim=1)
 
-    pooled = graph == "splade"
-    wrapper = SpladeGraph(mlm, output_dim, pooled).eval()
+    wrapper = SpladeGraph(mlm, output_dim, pooled, graph == "splade-maxfirst").eval()
     output_name = "sparse_vector" if pooled else "logits"
     dummy = tokenizer(
         ["Ala ma kota.", "Dłuższy przykładowy tekst, żeby wejście miało dopełnienie do najdłuższego wiersza."],
@@ -223,7 +234,8 @@ def export_fp32(
         "output_dim": output_dim,
         "logits_dim": logits_dim,
         "max_length": int(max_length or default_max_length(model_dir)),
-        "pooling": "max_t log1p(relu(logits)) * attention_mask",
+        "pooling": "log1p(relu(max_t logits * attention_mask))" if graph == "splade-maxfirst"
+        else "max_t log1p(relu(logits)) * attention_mask",
         "source_model": str(model_dir.resolve()),
         "opset": opset,
         "created": _dt.datetime.now().isoformat(timespec="seconds"),
@@ -681,7 +693,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--model", required=True, help="checkpoint directory (AutoModelForMaskedLM + tokenizer)")
     p.add_argument("--out", required=True, help="output root; one subdirectory per variant")
     p.add_argument("--variants", default="fp32,dynamic,static,mixed", help="comma list of fp32, dynamic, static, mixed")
-    p.add_argument("--graph", choices=["splade", "mlm"], default="splade",
+    p.add_argument("--graph", choices=[*POOLED_GRAPHS, "mlm"], default="splade",
                    help="splade: pooled sparse vector out of the graph (default); mlm: logits, the sentence-transformers/optimum layout")
     p.add_argument("--opset", type=int, default=17)
     p.add_argument("--max-length", type=int, default=None, help="recorded in the metadata (default: the checkpoint's max_seq_length)")

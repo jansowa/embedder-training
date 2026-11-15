@@ -10,6 +10,7 @@ trains and does not import from `training/` or `distill/`.
 | `release/onnx_encoder.py` | `OnnxSplade`: onnxruntime + `tokenizers` encoder, no torch (what a release user needs) |
 | `release/onnx_bench.py` | CPU benchmark: latency, throughput, RSS, agreement with fp32 |
 | `release/fidelity.py`, `release/texts.py` | numpy agreement statistics, seeded text samples |
+| `release/gpu_quant.py`, `release/gpu_bench.py` | GPU, not ONNX: torchao int8 / fp8 on a `SparseEncoder` in memory and its benchmark ([gpu-quant.md](gpu-quant.md)) |
 | `third_party/pirb/search/splade.py` | `OnnxSpladeEncoder`: PIRB picks it for any directory with `onnx_splade.json` |
 | `experiments/polish-splade-2026-10/queues/queue_onnx.sh` | the whole check for one model (export, CPU bench, PIRB) |
 
@@ -128,6 +129,35 @@ Per model (the publication candidates; first n5kj, then the ALBERT query encoder
 Knobs worth one extra run each if a variant falls short: `--calib-method percentile` (MinMax ranges are set by
 outliers), `--reduce-range` (the 5600X has AVX2 without VNNI, where u8 × s8 products can saturate int16;
 7-bit weights avoid it; matters for dynamic), `--activation-type u8`, `--mixed-auto-k 2`.
+
+## GPU providers: CUDA and TensorRT (written 15.11, never run on a GPU)
+
+`OnnxSplade(..., provider="cuda" | "tensorrt")` and `onnx_bench --variants <dir>@tensorrt` run an export on the GPU.
+TensorRT gets fp16 kernels (the fp32 graph is converted inside the engine; `--trt-fp32` for an fp32 engine), one
+optimization profile from 1 × 1 to `--max-rows` × max length, and engine + timing caches on disk. Engines are tied to
+the GPU and the TensorRT version: they are built at the first run on the machine that uses them and never shipped.
+A provider that onnxruntime cannot load is an error, not a silent CPU run.
+
+`--graph splade-maxfirst` exports the same vectors as `splade` (bitwise on the CPU, `tests/test_onnx_release.py`) with
+`relu`/`log1p` applied after the max over tokens, so the activations run on `[batch, vocab]` instead of
+`[batch, seq, vocab]`. The decoder logits themselves still exist in the graph; whether TensorRT fuses the max into the
+GEMM is one of the things to measure.
+
+Environment: `onnxruntime-gpu` (it cannot share a venv with the CPU `onnxruntime`) plus TensorRT libraries of the
+version that onnxruntime release was built against (onnxruntime's CUDA/TensorRT requirements table), e.g. a separate
+`.venv-ort-gpu`. Keep the cache out of the release package (`--trt-cache runs/trt-cache`).
+
+```bash
+# max-first export of the frozen model (CPU, minutes)
+CUDA_VISIBLE_DEVICES= .venv/bin/python -m release.onnx_splade --model models/soup-v20-dqf-bias015 \
+    --out models/onnx/dqf-maxfirst --variants fp32 --graph splade-maxfirst --threads 4
+
+# GPU: reference = the released fp32 export on the CPU, then the GPU forms (idle card only)
+P=datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015/fp32
+.venv-ort-gpu/bin/python -m release.onnx_bench --variants $P $P@cuda $P@tensorrt models/onnx/dqf-maxfirst/fp32@tensorrt \
+    --threads 1 --query-batch 1 --passage-batch 32 --max-rows 64 --trt-cache runs/trt-cache \
+    --out experiments/polish-splade-2026-10/results/onnx/dqf_gpu_3060ti.json
+```
 
 ## onnxruntime 1.23 quirks handled in the code
 

@@ -5,8 +5,13 @@ Two graph kinds exist:
 
 * ``splade``: inputs ``input_ids`` / ``attention_mask``, output ``sparse_vector`` [batch, output_dim], the
   pooled ``max_t log(1 + relu(logits)) * mask`` exactly as PIRB's SpladeEncoder computes it;
+* ``splade-maxfirst``: the same output computed as ``log(1 + relu(max_t logits * mask))``;
 * ``mlm``: output ``logits`` [batch, seq, vocab] (the layout sentence-transformers / optimum load as
   ``onnx/model.onnx``); the pooling is then done here in numpy.
+
+Execution providers (``provider=``): ``cpu`` (default), ``cuda`` and ``tensorrt`` (fp16 engines built on the
+target GPU at the first run and cached on disk; needs ``onnxruntime-gpu`` with the TensorRT libraries, which
+cannot share a venv with the CPU ``onnxruntime``). See ``execution_providers`` and docs/onnx-release.md.
 
 No torch import: the tokenizer is the ``tokenizers`` backend read from ``tokenizer.json`` (what
 ``AutoTokenizer`` wraps for a fast tokenizer; ``transformers`` would pull in torch, ~0.7 GB of RSS), with
@@ -34,6 +39,58 @@ def read_meta(model_dir: str | Path) -> dict[str, Any]:
 
 def is_onnx_splade_dir(path: str | Path | None) -> bool:
     return path is not None and (Path(path) / META_FILE).is_file()
+
+
+PROVIDERS = ("cpu", "cuda", "tensorrt")
+_ORT_NAMES = {"cpu": "CPUExecutionProvider", "cuda": "CUDAExecutionProvider", "tensorrt": "TensorrtExecutionProvider"}
+
+
+def trt_profile(inputs: Sequence[str], rows: tuple[int, int, int], lengths: tuple[int, int, int]) -> dict[str, str]:
+    """TensorRT optimization profile options: min / opt / max shapes of every 2-d input, ``name:rowsxlen``."""
+    out = {}
+    for key, r, n in zip(("min", "opt", "max"), rows, lengths):
+        out[f"trt_profile_{key}_shapes"] = ",".join(f"{name}:{int(r)}x{int(n)}" for name in inputs)
+    return out
+
+
+def execution_providers(
+    provider: str = "cpu",
+    *,
+    inputs: Sequence[str] = ("input_ids", "attention_mask"),
+    max_rows: int = 64,
+    max_length: int = 512,
+    opt_rows: int = 32,
+    opt_length: int = 128,
+    cache_dir: str | Path | None = None,
+    fp16: bool = True,
+    device_id: int = 0,
+    workspace_gb: float = 2.0,
+) -> list[Any]:
+    """The ``providers=`` list for ``onnxruntime.InferenceSession``, each GPU provider with the CPU behind it.
+
+    TensorRT: fp16 kernels (``fp16``; the fp32 graph is converted inside the engine), one optimization profile
+    from 1 x 1 to ``max_rows`` x ``max_length`` (a larger batch or length fails instead of rebuilding), engine and
+    timing caches in ``cache_dir`` (engines are tied to the GPU and the TensorRT version: build them where they run,
+    never ship them).
+    """
+    if provider not in PROVIDERS:
+        raise ValueError(f"provider must be one of {', '.join(PROVIDERS)}, got {provider!r}")
+    if provider == "cpu":
+        return ["CPUExecutionProvider"]
+    cuda = ("CUDAExecutionProvider", {"device_id": int(device_id)})
+    if provider == "cuda":
+        return [cuda, "CPUExecutionProvider"]
+    opts: dict[str, Any] = {
+        "device_id": int(device_id),
+        "trt_fp16_enable": bool(fp16),
+        "trt_max_workspace_size": int(workspace_gb * 2**30),
+        **trt_profile(inputs, (1, min(opt_rows, max_rows), max_rows), (1, min(opt_length, max_length), max_length)),
+    }
+    if cache_dir is not None:
+        Path(cache_dir).mkdir(parents=True, exist_ok=True)
+        opts.update(trt_engine_cache_enable=True, trt_engine_cache_path=str(cache_dir),
+                    trt_timing_cache_enable=True, trt_timing_cache_path=str(cache_dir))
+    return [("TensorrtExecutionProvider", opts), cuda, "CPUExecutionProvider"]
 
 
 def pool_logits(logits: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
@@ -143,18 +200,33 @@ class OnnxSplade:
         optimization: str = "all",
         model_file: str | None = None,
         tokenizer_backend: str = "auto",
+        provider: str = "cpu",
+        max_rows: int = 64,
+        trt_cache_dir: str | Path | None = None,
+        trt_fp16: bool = True,
+        allow_fallback: bool = False,
     ):
         import onnxruntime as ort
 
         self.model_dir = Path(model_dir)
         self.meta = read_meta(self.model_dir)
         self.model_path = self.model_dir / (model_file or self.meta.get("model_file", MODEL_FILE))
-        self.session = ort.InferenceSession(
-            str(self.model_path), session_options(threads, arena, optimization), providers=["CPUExecutionProvider"]
+        self.max_length = int(max_length or self.meta.get("max_length") or 512)
+        self.provider = provider
+        self.max_rows = int(max_rows)
+        if provider == "tensorrt" and trt_cache_dir is None:
+            trt_cache_dir = self.model_dir / "trt-cache"
+        providers = execution_providers(
+            provider, inputs=self.meta.get("inputs", ["input_ids", "attention_mask"]), max_rows=self.max_rows,
+            max_length=self.max_length, cache_dir=trt_cache_dir, fp16=trt_fp16,
         )
+        self.session = ort.InferenceSession(str(self.model_path), session_options(threads, arena, optimization), providers=providers)
+        self.active_providers = self.session.get_providers()
+        if self.active_providers[0] != _ORT_NAMES[provider] and not allow_fallback:
+            raise RuntimeError(f"requested {_ORT_NAMES[provider]}, onnxruntime runs {self.active_providers} "
+                               f"(available: {ort.get_available_providers()}); pass allow_fallback=True to accept")
         self.input_names = [i.name for i in self.session.get_inputs()]
         self.graph = self.meta.get("graph", "splade")
-        self.max_length = int(max_length or self.meta.get("max_length") or 512)
         self.tokenizer = load_tokenizer(self.model_dir, self.max_length, tokenizer_backend)
         self.output_dim = int(self.meta["output_dim"])
         self.max_batch_tokens = max(1, int(max_batch_tokens))
@@ -177,6 +249,8 @@ class OnnxSplade:
     def run_sliced(self, feeds: dict[str, np.ndarray]) -> np.ndarray:
         n, seq = feeds["input_ids"].shape
         rows = max(1, self.max_batch_tokens // max(1, seq))
+        if self.provider == "tensorrt":
+            rows = min(rows, self.max_rows)  # the engine's profile ends at max_rows
         if rows >= n:
             return self.run(feeds)
         parts = []

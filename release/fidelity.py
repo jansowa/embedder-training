@@ -54,6 +54,18 @@ def compare_vectors(ref: np.ndarray, cand: np.ndarray, quantization_factor: int 
     }
 
 
+def postings_per_query(queries: np.ndarray, passages: np.ndarray, quantization_factor: int = 100) -> dict[str, Any]:
+    """In-sample index cost of the queries: per query, the postings its indexed dimensions touch in the sample's
+    passages (sum over the query's active dims of the number of passages active in that dim), plus the same per
+    1000 passages so samples of different sizes compare. A proxy for the PIRB postings per query, not a substitute."""
+    q = active_mask(np.asarray(queries, dtype=np.float32), quantization_factor)
+    df = active_mask(np.asarray(passages, dtype=np.float32), quantization_factor).sum(axis=0)
+    postings = q.astype(np.int64) @ df.astype(np.int64)
+    n = max(1, passages.shape[0])
+    return {"per_query": summary(postings), "per_query_per_1k_passages": float(postings.mean() * 1000 / n),
+            "n_passages": int(passages.shape[0])}
+
+
 def retrieval_agreement(
     ref_q: np.ndarray, ref_p: np.ndarray, cand_q: np.ndarray, cand_p: np.ndarray, top_k: int = 10
 ) -> dict[str, Any]:
