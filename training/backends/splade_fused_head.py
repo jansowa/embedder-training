@@ -39,6 +39,10 @@ FUSED_HEAD_MODES = ("exact", "chunked")
 DEFAULT_CHUNK_SIZE = 64
 
 
+# active (sequence, dimension) entries handled at once in the backward of SparseMaxDecoder (x hidden floats of memory)
+BACKWARD_ROWS = 32768
+
+
 class SpladeFusedHeadError(ValueError):
     """Raised when the fused head cannot be installed on a model."""
 
@@ -84,13 +88,20 @@ class SparseMaxDecoder(torch.autograd.Function):
         li = idx[bi, vi]
         coef = grad[bi, vi].to(acc) * mask[bi, li].to(acc)  # padding never receives a gradient
         grad_h = grad_w = grad_b = None
+        # The active entries go in slices of BACKWARD_ROWS: a model that is not sparse yet (an MLM model at the start of
+        # a distillation activates most of the vocabulary) would otherwise ask for entries x hidden floats at once.
+        rows = max(int(BACKWARD_ROWS), 1)
         if need_h:
             grad_h = torch.zeros(h.shape, dtype=acc, device=h.device)
-            grad_h.index_put_((bi, li), coef.unsqueeze(1) * weight[vi].to(acc), accumulate=True)
+            for s in range(0, bi.numel(), rows):
+                e = s + rows
+                grad_h.index_put_((bi[s:e], li[s:e]), coef[s:e].unsqueeze(1) * weight[vi[s:e]].to(acc), accumulate=True)
             grad_h = grad_h.to(h.dtype)
         if need_w:
             grad_w = torch.zeros(weight.shape, dtype=acc, device=weight.device)
-            grad_w.index_add_(0, vi, coef.unsqueeze(1) * h[bi, li].to(acc))
+            for s in range(0, bi.numel(), rows):
+                e = s + rows
+                grad_w.index_add_(0, vi[s:e], coef[s:e].unsqueeze(1) * h[bi[s:e], li[s:e]].to(acc))
             grad_w = grad_w.to(weight.dtype)
         if need_b and ctx.has_bias:
             grad_b = torch.zeros(weight.shape[0], dtype=acc, device=weight.device)

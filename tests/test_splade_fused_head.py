@@ -80,6 +80,18 @@ def test_fused_head_passes_gradcheck():
     assert torch.autograd.gradcheck(lambda a, w, b: sparse_max_decoder(a, w, b, mask, 2), (h, weight, bias))
 
 
+def test_fused_head_backward_in_slices_gives_the_same_gradients(monkeypatch):
+    import training.backends.splade_fused_head as module
+
+    h, weight, bias, mask = make_inputs(seed=4)
+    whole = torch.autograd.grad(loss_of(sparse_max_decoder(h, weight, bias, mask, 0)), (h, weight, bias))
+    monkeypatch.setattr(module, "BACKWARD_ROWS", 4)  # B * V = 33 entries -> nine slices
+    sliced = torch.autograd.grad(loss_of(sparse_max_decoder(h, weight, bias, mask, 0)), (h, weight, bias))
+    for a, b in zip(whole, sliced):
+        assert torch.allclose(a, b, rtol=1e-10, atol=1e-12)
+    assert torch.autograd.gradcheck(lambda a, w, b: sparse_max_decoder(a, w, b, mask, 2), (h, weight, bias))
+
+
 def test_fused_head_with_no_active_dimension_gives_zero_gradients():
     h, weight, bias, mask = make_inputs(seed=2)
     bias = (bias.detach() - 50.0).requires_grad_(True)  # every logit negative -> relu kills everything
