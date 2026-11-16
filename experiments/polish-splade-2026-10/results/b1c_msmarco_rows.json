@@ -1,0 +1,93 @@
+{
+  "source_rows": "cache/filtered_datasets/splade_positive_score_gt_23_50_no_metricx-d80474a3a8f41216/dataset.jsonl",
+  "rows_before_filter": 388699,
+  "pairs_before_filter": 500732,
+  "filter_profile": "splade_positive_score_gt_23_50_no_metricx",
+  "rows_after_filter": 317668,
+  "pairs_after_filter": 418661,
+  "extra_positives_left_out": 95256,
+  "chosen_positive_synthetic": 39088,
+  "dropped_benchmark_query": 686,
+  "dropped_duplicate_query": 5900,
+  "dropped_query_of_training_rows": 2,
+  "eligible_rows": 311080,
+  "benchmark_queries": 533941,
+  "queries_of_training_rows": 60282,
+  "exclude_rows": [
+    "datasets/arms/n5-plus-kj-mined-dose3.jsonl"
+  ],
+  "unit_rows": 25000,
+  "units": [
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-01.jsonl",
+      "rows": 25000,
+      "unique_positives": 24898
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-02.jsonl",
+      "rows": 25000,
+      "unique_positives": 24931
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-03.jsonl",
+      "rows": 25000,
+      "unique_positives": 24923
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-04.jsonl",
+      "rows": 25000,
+      "unique_positives": 24921
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-05.jsonl",
+      "rows": 25000,
+      "unique_positives": 24920
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-06.jsonl",
+      "rows": 25000,
+      "unique_positives": 24909
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-07.jsonl",
+      "rows": 25000,
+      "unique_positives": 24910
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-08.jsonl",
+      "rows": 25000,
+      "unique_positives": 24914
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-09.jsonl",
+      "rows": 25000,
+      "unique_positives": 24911
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-10.jsonl",
+      "rows": 25000,
+      "unique_positives": 24915
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-11.jsonl",
+      "rows": 25000,
+      "unique_positives": 24923
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-12.jsonl",
+      "rows": 25000,
+      "unique_positives": 24911
+    },
+    {
+      "file": "/media/jsowa/6aaaf1ac-2d6f-44c6-9a39-a59761abdadf/work/kitchen-data/msmarco-rc/units/unit-13.jsonl",
+      "rows": 11080,
+      "unique_positives": 11056
+    }
+  ],
+  "seed": 42,
+  "dataset": "msmarco-pl",
+  "limit": 0,
+  "query_chars_median": 33.0,
+  "positive_chars_median": 327.0,
+  "gate_score_median": 26.625
+}

@@ -77,6 +77,18 @@ Unbiased dims/doc: KD model 552.8, R-a 592.7, R-c' after stage 1 , R-c' after th
 
 R-a against dose3: 0.38 on tiny10, 0.13 on heldout8 (neither >= +0.2 on both nor <= -0.3 on both).
 
+## MS MARCO-pl rows of R-c'
+
+Source: the MS MARCO-pl train rows (`speakleash/msmarco_pl`; the pairs of `datasets/msmarco-full-judged-qwen/pairs_msmarco_full.unique.jsonl` are the positives of the same rows) through the trainer's filter `splade_positive_score_gt_23_50_no_metricx.yaml`. Rows before the filter: 388699 (500732 query-positive pairs); after the filter: 317668 (418661 pairs); after the exclusions: **311080** (benchmark queries of pirb-queries, by normalised text or sorted tokens: 686; queries of the dose3 rows: 2; repeated query texts: 5900). One positive per query (the highest gate score; 95256 further positives left out, 39088 of the kept ones are positives added by the two-stage mining of the source). Shuffled once (seed 42) and cut into units of 25000 rows; stage 1 uses the first 8 units, the others are for the 5070.
+
+Negatives and scores as in dose3 (`queue_v56.sh`): miner `arm-dense-kl-n5kj-ens400-r2v12`, 5 best + 5 random of its top-60 inside a length window of 0.5-2.0 of the positive; the pool of a unit is the positives of its own rows (about 25000 passages; dose3: 19 008 passages of its own rows); ensemble teacher soup-v9b + PolDense-400M (bf16) with the fixed dense scale 84.19441654567078, computed by `bridge/splade_mine_and_score.py` in one pass over the closed pool (the tool of dose3; the same mean of the two teachers as `scripts/reranker_rows.py ensemble`).
+
+| rows | n | teacher P(pos) at T = 2, median | share above 0.95 | rows with a negative above the positive | negative / positive length, median | p90 | query chars, median | positive chars, median | student ranks the positive first |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| dose3 rows (60 385, the rows of R-a) | 60385 | 0.855 | 0.298 | 6826 (11.3 %) | 1.02 | 1.66 | 63 | 734 | 0.867 |
+| MS MARCO-pl, stage 1 (units 1-8) | 200000 | 0.963 | 0.555 | 11513 (5.8 %) | 0.99 | 1.66 | 33 | 327 | 0.868 |
+| MS MARCO-pl, the other units (for the 5070) | 111080 | 0.964 | 0.563 | 6206 (5.6 %) | 0.99 | 1.66 | 33 | 327 | 0.871 |
+
 ## Dose curve of stage 1 (MS MARCO-pl rows alone)
 
 Every segment is one epoch over its own 50 000 rows from the model of the segment before, with its own warm-up (10 %) and linear decay to zero (lr 2e-5), so each point is an annealed model and the points are comparable; in one run with a single schedule the intermediate points would be read at a high learning rate. tiny10 of the first form within both limits.
@@ -195,4 +207,18 @@ sparsity:arm-b1-ra-bias015	ok	361.8	27s
 regime:quantized:arm-b1-ra-bias015:tiny10	ok	65.34 10	699s
 regime:quantized:arm-b1-ra-bias015:heldout8	ok	43.76 8	2544s
 regime:quantized:arm-b1-ra-bias015:heldout2_treccovid	ok	67.39 1	1585s
+chain:rc_smoke	ok	-	16s
+chain:rc_unit-01	ok	-	256s
+chain:rc_unit-02	ok	-	257s
+chain:rc_unit-03	ok	-	256s
+chain:rc_unit-04	ok	-	258s
+chain:rc_unit-05	ok	-	256s
+chain:rc_unit-06	ok	-	255s
+chain:rc_unit-07	ok	-	257s
+chain:rc_unit-08	ok	-	257s
+chain:rc_unit-09	ok	-	257s
+chain:rc_unit-10	ok	-	258s
+chain:rc_unit-11	ok	-	257s
+chain:rc_unit-12	ok	-	256s
+chain:rc_unit-13	ok	-	117s
 ```

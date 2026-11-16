@@ -1,0 +1,38 @@
+{
+  "sets": {
+    "dose3 rows (60 385, the rows of R-a)": {
+      "rows": 60385,
+      "p_pos_median": 0.8546588808757881,
+      "p_pos_above_095": 0.2981038337335431,
+      "negative_above_positive": 6826,
+      "len_ratio_median": 1.0199714693295292,
+      "len_ratio_p90": 1.661764705882353,
+      "query_chars_median": 63,
+      "positive_chars_median": 734,
+      "student_first": 0.8666600154640461
+    },
+    "MS MARCO-pl, stage 1 (units 1-8)": {
+      "rows": 200000,
+      "p_pos_median": 0.9626753306842976,
+      "p_pos_above_095": 0.55471,
+      "negative_above_positive": 11513,
+      "len_ratio_median": 0.9933333333333333,
+      "len_ratio_p90": 1.6551724137931034,
+      "query_chars_median": 33.0,
+      "positive_chars_median": 327.0,
+      "student_first": 0.868015
+    },
+    "MS MARCO-pl, the other units (for the 5070)": {
+      "rows": 111080,
+      "p_pos_median": 0.9643343592717484,
+      "p_pos_above_095": 0.5634227583723442,
+      "negative_above_positive": 6206,
+      "len_ratio_median": 0.9942528735632183,
+      "len_ratio_p90": 1.6573208722741433,
+      "query_chars_median": 33.0,
+      "positive_chars_median": 327.0,
+      "student_first": 0.8708048253510983
+    }
+  },
+  "units": 13
+}
