@@ -66,3 +66,12 @@ dqa:a1-sparseadam-mw005-g1-kd	410.5
 dq:a1-sparseadam-mw005-g1-kd	97.6
 cand	a1-sparseadam-mw005-g1-kd
 note:a1-sparseadam-mw005-g1-kd	A2 round 1: up to 2 new slots per row of a1-sparseadam-mw005, 3 epochs on pool r2
+onnx_update	onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/mixed-int8
+pq:phr2-k8-kd-r2-mw020	9651
+pqa:phr2-k8-kd-r2-mw020	37628
+pqr:phr2-k8-kd-r2-mw020	6154
+dqa:phr2-k8-kd-r2-mw020	322.3
+dq:phr2-k8-kd-r2-mw020	75.9
+cand	phr2-k8-kd-r2-mw020
+note:phr2-k8-kd-r2-mw020	the released table with weights below 0.20 dropped (no training)
+cheaper	phr2-k8-kd-r2-mw020

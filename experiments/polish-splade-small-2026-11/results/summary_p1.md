@@ -71,7 +71,10 @@ What this says about the next step: the released format is at its ceiling at thi
 
 - The fast head halves the memory on the card (1 784 against 3 313 MiB) with identical vectors and 8 % more passages per second; compiling adds about 12 % and a warm-up of 33-48 s.
 - torchao `int8-dyn` failed on the MLM decoder (`mat2.size(1) needs to be ... a multiple of 8, but got 50001`: the vocabulary size). The variants that leave the head in fp16 (`int8-dyn:nohead`) were not on the short list.
-- ONNX fp32 with the CUDA provider failed at passage batch 32: the graph of the release builds the logits tensor (rows x tokens x 50 001) before the maximum and asked for 4.06 GB in one piece. It is a memory limit of the 8 GB card, not a driver problem; the TensorRT steps were skipped by the queue's rule. A second pass (passage batch 8, TensorRT, the max-first graph, int8 without the head) is set for the next pause point of queue b1c; its numbers will be added here.
+- ONNX fp32 with the CUDA provider failed at passage batch 32: the graph of the release builds the logits tensor (rows x tokens x 50 001) before the maximum and asked for 4.06 GB in one piece. It is a memory limit of the 8 GB card, not a driver problem; the TensorRT steps were skipped by the queue's rule.
+- Second pass (16.11 01:42-01:48, in the pause of queue b1c after the R-a training): it added no number, both faults are in the benchmark code.
+  - torchao `int8-dyn:nohead` (with and without the fast head): `RuntimeError: _apply(): Couldn't swap Linear.weight` ("Cannot swap t1 because it has weakref associated with it"). `SparseEncoder.encode` calls `self.to(device)` on every call, and after the body is quantized and compiled the weights can no longer be swapped. The benchmark has to stop that call for a quantized model; not fixed yet. fp16 eager repeated its numbers (3.8 ms, 2 805 queries/s, 581 passages/s).
+  - ONNX with the CUDA provider asked for the same 4 057 681 152 bytes at passage batch 8 and with the max-first graph. The request comes from the agreement pass of `release.onnx_bench`, which encodes in chunks of 16 texts whatever `--passage-batch` says: 16 rows x 317 tokens x 50 001 floats are 1.01 GB and `ReduceMax` of the CUDA provider asks for four times its input. The chunk has to follow the passage batch (4 rows would ask for about 1 GB); not fixed yet. TensorRT was not reached.
 - Nothing here is a model-card number yet: variants faster than fp16 eager need PIRB (tiny10) first.
 
 ## ONNX int8 of the released ALBERT (`arm-hl-dqf-full-s3n5kj-r2d3-bias020`)
@@ -90,6 +93,41 @@ What this says about the next step: the released format is at its ceiling at thi
 - tiny10 with the repaired int8 queries over the torch index: **64.30** (torch 64.34; the released int8 62.10).
 - The repaired variant is in `runs/onnx-int8-diag/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/mixed-int8-repaired` (139 MB against 126 MB). The package was not touched; replacing its int8 files is the user's decision.
 
+## p2 (16.11 01:48-03:24, 96 minutes, in the pause of queue b1c after the R-a training)
+
+Queue `queues/queue_p2.sh`, run by `logs/p2_chain.sh`. Everything it produced for the release lies next to the package, in `datasets/transfer/release-20261113-update1` (497 MB, 42 files in `SHA256SUMS`, a README with the differences); the package itself was not touched and applying a path is the user's decision.
+
+### The repaired int8 export of the ALBERT
+
+`onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/mixed-int8` of the update directory is the repaired variant of the table above (24 int8 nodes, cosine 0.9980, 136 MB against 124 MB, tiny10 with int8 queries 64.30 against 62.10), with `int8_sensitivity.json` next to it. heldout8 with int8 queries was not measured for either version.
+
+### A cheaper static table of the same quality
+
+Rule: tiny10 and heldout8 each at most 0.10 below the released table (60.74 / 39.24) and at least 500 postings/query cheaper. Both candidates pass; the cheaper one is the released table itself with weights below 0.20 dropped, no training.
+
+| table | tiny10 | heldout8 | dims/query | postings/query | arguana-pl: dims / postings | other tasks: postings | postings/query on the heldout8 tasks |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `phr2-k8-kd-r2` (released) | 60.74 | 39.24 | 89.7 | 11 764 | 375.9 / 43 673 | 7 775 | 7 558 |
+| `phr2-k8-kd-r2-mw020` (**chosen**) | 60.67 | 39.20 | 75.9 | 9 651 | 322.3 / 37 628 | 6 154 | 6 115 |
+| `a1-sparseadam-mw020` | 60.74 | 39.17 | 77.5 | 9 881 | 328.2 / 38 325 | 6 326 | 6 206 |
+
+- 18 % fewer postings per query on the cost sample (19 % on the heldout8 tasks) at -0.07 / -0.04, inside the seed noise. No task moves by more than 0.20 (poleval allegro-faq B 71.84 -> 71.64, legal questions 76.47 -> 76.67).
+- Query encoding time does not change (a table lookup); the gain is the number of postings the index has to read.
+- The table, its Sentence Transformers model (`release.st_export`, loaded with `trust_remote_code=True` as a check) and the query side alone are in `static/` of the update directory. If the table is swapped, the static-table benchmark on the 5070 has to be run again for it.
+
+### One probe of the context gate (path B3, format 2, d = 32)
+
+On the released table: `distill.static_v2 convert --ctx-dim 32`, a fit of the gate to the teacher's query vectors (400 000 kd_v1 queries, 2 epochs: cosine 0.8929, recall of the teacher's dimensions 0.537), then 3 epochs of ranking training on pool r2.
+
+| query side | val top-1 | tiny10 | dims/query (median) | postings/query (median, p95) | folder |
+|---|---:|---:|---:|---:|---:|
+| `phr2-k8-kd-r2` (released) | 0.6850 | 60.74 | 89.7 | 11 764 | 16 MB |
+| `gate32-kd` | 0.7105 | 60.85 | 84.9 (49) | 11 222 (7 303, 42 333) | 42 MB |
+| oracle `weights` | 0.7905 | 62.98 | | | |
+
+- The gate moves the agreement with the teacher on the validation queries (+0.0255 top-1, a quarter of the way to the oracle) but tiny10 only by +0.11, inside the seed noise; of the oracle's +2.24 it recovers nothing measurable. Per task: allegro-faq A +0.66, scifact-pl +0.72, allegro-faq B -0.39, the rest within 0.25.
+- One probe with one size; it says that d = 32 with this training does not reach the oracle, not that context weighting cannot. The format-2 encoder has no Sentence Transformers module, so it could not enter the 26.11 package in any case.
+
 ## Files
 
-State and cost files: `results/static-soup-v20-dqf-bias015/p1/`; training summaries `results/static-soup-v20-dqf-bias015/a1-*.json`; oracles `oracles_phr2-k8-kd-r2.json`; GPU table `experiments/polish-splade-2026-10/results/gpu-quant/soup-v20-dqf-bias015_3060ti.json`. Queue: `queues/queue_p1{a,b,c}.sh` with `p1_common.sh`, run by `logs/p1_chain.sh`.
+State and cost files (p2: `cost_p2.json`, `cost_h8.json`, `cost_b3.json`, `static2-gate32-kd.json`): `results/static-soup-v20-dqf-bias015/p1/`; training summaries `results/static-soup-v20-dqf-bias015/a1-*.json`; oracles `oracles_phr2-k8-kd-r2.json`; GPU table `experiments/polish-splade-2026-10/results/gpu-quant/soup-v20-dqf-bias015_3060ti.json`. Queue: `queues/queue_p1{a,b,c}.sh` with `p1_common.sh`, run by `logs/p1_chain.sh`.

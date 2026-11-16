@@ -146,14 +146,15 @@ def main() -> int:
 
     for spec in args.query:
         label, path = spec.split("=", 1)
-        if (Path(path) / "static_query.json").exists():
+        if (Path(path) / "static_query.json").exists() or (Path(path) / "static_query_v2.json").exists():
             from transformers import AutoTokenizer
 
-            from distill.static_query import StaticSparseQueryEncoder
+            from distill.static_query import load_static_encoder
 
-            table = StaticSparseQueryEncoder.load(Path(path))
-            Q = table.encode(AutoTokenizer.from_pretrained(path), queries).float().numpy()
-            kind = "static table"
+            table = load_static_encoder(Path(path))  # format 1 (a table) or format 2 (distill.static_v2)
+            with torch.no_grad():
+                Q = table.encode(AutoTokenizer.from_pretrained(path), queries).float().numpy()
+            kind = "static table" if (Path(path) / "static_query.json").exists() else "static encoder, format 2"
             del table
         else:
             Q = encode_splade(path, queries, args.batch_size * 4)

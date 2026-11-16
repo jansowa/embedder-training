@@ -1,0 +1,114 @@
+{
+  "created": "2026-11-16T01:48:09",
+  "model": "models/soup-v20-dqf-bias015",
+  "reference": "fp16:eager",
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "seed": 7,
+    "query": 1024,
+    "passage": 4096,
+    "check": {
+      "query": 512,
+      "passage": 1024
+    }
+  },
+  "batches": {
+    "query": 64,
+    "passage": [
+      16,
+      32
+    ]
+  },
+  "save_to_cpu": true,
+  "environment": {
+    "gpu_compute_processes_start": 0,
+    "mem_available_gb_start": 7.726573944091797,
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "capability": "8.6",
+    "torch": "2.7.1+cu128",
+    "torchao": "0.15.0"
+  },
+  "results": [
+    {
+      "label": "fp16:eager",
+      "load_seconds": 4.65,
+      "gpu": "NVIDIA GeForce RTX 3060 Ti",
+      "capability": "8.6",
+      "torch": "2.7.1+cu128",
+      "torchao": "0.15.0",
+      "head_bias_mean": -0.161865234375,
+      "linear_quantized": 0,
+      "linear_kept": 0,
+      "variant": "fp16:eager",
+      "dtype": "fp16",
+      "max_seq_length": 512,
+      "warmup_seconds": 15.91,
+      "mean_tokens": {
+        "query": 16.068359375,
+        "passage": 107.7333984375
+      },
+      "compile_after_warmup": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "timings": {
+        "query_ms_p50": 3.786147994105704,
+        "query_ms_p90": 4.034859998500906,
+        "query_ms_p99": 4.300407294940668,
+        "queries_per_s": 2804.7572154938493,
+        "passage": {
+          "16": {
+            "passages_per_s": 580.523810965438,
+            "tokens_per_s": 62541.80302919546,
+            "seconds_median": 7.05569680800545,
+            "seconds_all": [
+              7.085470541991526,
+              7.05569680800545,
+              7.045986659999471
+            ]
+          },
+          "32": {
+            "passages_per_s": 577.1941656394442,
+            "tokens_per_s": 62183.08902263462,
+            "seconds_median": 7.09639882700867,
+            "seconds_all": [
+              7.22230217399192,
+              7.09639882700867,
+              7.071505177998915
+            ]
+          }
+        }
+      },
+      "cuda_peak_mb": 3313.333984375,
+      "compile_after_timing": {
+        "unique_graphs": 0,
+        "calls_captured": 0,
+        "graph_breaks": 0
+      },
+      "dims": {
+        "query": 84.361328125,
+        "passage": 334.0966796875
+      },
+      "postings": {
+        "per_query": {
+          "mean": 8371.201171875,
+          "p10": 4644.5,
+          "p50": 7616.5,
+          "p90": 13089.500000000002
+        },
+        "per_query_per_1k_passages": 8175.00114440918,
+        "n_passages": 1024
+      },
+      "reference": true
+    },
+    {
+      "error": "exit 1: RuntimeError: _apply(): Couldn't swap Linear.weight",
+      "label": "int8-dyn:nohead,compile"
+    },
+    {
+      "error": "exit 1: RuntimeError: _apply(): Couldn't swap Linear.weight",
+      "label": "int8-dyn:fasthead,body,nohead,compile"
+    }
+  ]
+}
