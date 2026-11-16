@@ -131,7 +131,7 @@ table
     echo "## Contents"; echo; echo "| path | size |"; echo "|---|---:|"
     ( cd "$UPD" && for d in onnx/*/* static/*; do [ -e "$d" ] && echo "| \`$d\` | $(du -sh "$d" | cut -f1) |"; done )
 } > "$UPD/README.md"
-( cd "$UPD" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS )
+( cd "$UPD" && find . -type f ! -name 'SHA256SUMS*' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS )
 log "  $UPD: $(du -sh "$UPD" | cut -f1), $(grep -c . "$UPD/SHA256SUMS") files in SHA256SUMS, README.md written"
 
 # ---------------------------------------------------------------- 3. the context gate (B3), one probe

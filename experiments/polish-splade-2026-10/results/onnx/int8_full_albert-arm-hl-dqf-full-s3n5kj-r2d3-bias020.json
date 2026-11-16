@@ -1,0 +1,81 @@
+{
+  "dir": "runs/onnx-int8-full/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/mixed-int8-int8head",
+  "fp32_dir": "datasets/transfer/release-20261113/onnx/albert-arm-hl-dqf-full-s3n5kj-r2d3-bias020/fp32",
+  "bytes": 100026636,
+  "int8_nodes": 26,
+  "fp32_nodes": [
+    "/inner/albert/encoder/albert_layer_groups.2/albert_layers.0/ffn_output/MatMul",
+    "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/attention/key/MatMul",
+    "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/attention/dense/MatMul",
+    "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/ffn/MatMul",
+    "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/ffn_output/MatMul"
+  ],
+  "quantization": {
+    "method": "mixed (dynamic int8 + fp32 nodes given to release.int8_sensitivity --build)",
+    "op_types": [
+      "MatMul",
+      "Gemm"
+    ],
+    "per_channel": true,
+    "reduce_range": false,
+    "weight_type": "u8",
+    "activations": "uint8, per batch (dynamic)",
+    "nodes_excluded": 5,
+    "fp32_nodes": [
+      "/inner/albert/encoder/albert_layer_groups.2/albert_layers.0/ffn_output/MatMul",
+      "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/attention/key/MatMul",
+      "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/attention/dense/MatMul",
+      "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/ffn/MatMul",
+      "/inner/albert/encoder/albert_layer_groups.4/albert_layers.0/ffn_output/MatMul"
+    ],
+    "fp32_groups": [
+      "group.2",
+      "group.4"
+    ]
+  },
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "check": 128,
+    "seed": 13
+  },
+  "fp32_check": {
+    "n": 128,
+    "cosine": {
+      "mean": 0.9947564881294966,
+      "p10": 0.9922879636287689,
+      "p50": 0.9949783682823181,
+      "p90": 0.9973282396793366
+    },
+    "rel_l1": {
+      "mean": 0.10993508918909356,
+      "p10": 0.07977050915360451,
+      "p50": 0.10786787047982216,
+      "p90": 0.13818394094705583
+    },
+    "active_jaccard": {
+      "mean": 0.8636585602427522,
+      "p10": 0.8194917177218062,
+      "p50": 0.8627884782231476,
+      "p90": 0.910985289086555
+    },
+    "top10_term_overlap": {
+      "mean": 0.9539062500000001,
+      "p10": 0.9,
+      "p50": 1.0,
+      "p90": 1.0
+    },
+    "dims_ref": {
+      "mean": 188.5,
+      "p10": 54.0,
+      "p50": 169.0,
+      "p90": 353.09999999999997
+    },
+    "dims": {
+      "mean": 191.6328125,
+      "p10": 57.400000000000006,
+      "p50": 169.0,
+      "p90": 357.79999999999995
+    },
+    "dims_ratio": 1.0166196949602122
+  }
+}

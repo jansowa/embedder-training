@@ -48,6 +48,15 @@ saturates, which took r2v12b's first dynamic export to cosine 0.03 against fp32 
 it is 0.967. Fixed static ranges stay weak on such a model (cosine ≤ 0.77, outlier activations before the head
 and in one encoder layer), see `experiments/polish-splade-2026-10/results/onnx/fix_r2v12b.md`.
 
+`python -m release.int8_sensitivity` looks for the nodes whose dynamic int8 breaks an export: it quantizes groups
+of nodes one at a time, repairs a variant by returning the worst nodes to fp32 until a target cosine, and writes
+`int8_sensitivity.json`. With `--build NAME` it runs no trials and writes one variant `OUT/NAME` (plus
+`OUT/NAME.json`) from a given set of fp32 nodes: `--fp32-groups` plus the repaired nodes of an earlier report
+(`--fp32-nodes-from`), minus `--int8-groups`. `--fp32-groups "" --build dynamic-int8` is the full dynamic int8
+with the MLM head quantized as well; `--fp32-nodes-from REPORT --int8-groups head` is a repaired export with the
+head in int8. With u8 weights the head in int8 cost 0.03 tiny10 on both release models
+(`experiments/polish-splade-2026-10/results/summary_x2.md`).
+
 Graph kinds (`--graph`):
 
 * `splade` (default): output `sparse_vector` [batch, vocab], the pooled `max_t log1p(relu(logits)) * mask`,

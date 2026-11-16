@@ -1,0 +1,66 @@
+{
+  "dir": "runs/onnx-int8-full/full-soup-v20-dqf-bias015/dynamic-int8",
+  "fp32_dir": "datasets/transfer/release-20261113/onnx/full-soup-v20-dqf-bias015/fp32",
+  "bytes": 237776933,
+  "int8_nodes": 38,
+  "fp32_nodes": [],
+  "quantization": {
+    "method": "dynamic",
+    "op_types": [
+      "MatMul",
+      "Gemm"
+    ],
+    "per_channel": true,
+    "reduce_range": false,
+    "weight_type": "u8",
+    "activations": "uint8, per batch (dynamic)",
+    "nodes_excluded": 0,
+    "fp32_nodes": [],
+    "fp32_groups": []
+  },
+  "texts": {
+    "source": "datasets/kd/kd_v1.jsonl",
+    "check": 128,
+    "seed": 13
+  },
+  "fp32_check": {
+    "n": 128,
+    "cosine": {
+      "mean": 0.9699612054973841,
+      "p10": 0.9586019933223724,
+      "p50": 0.9724490642547607,
+      "p90": 0.9808737695217132
+    },
+    "rel_l1": {
+      "mean": 0.263981144875288,
+      "p10": 0.20295534729957582,
+      "p50": 0.26398836076259613,
+      "p90": 0.31705390512943266
+    },
+    "active_jaccard": {
+      "mean": 0.6931899971356698,
+      "p10": 0.6194638694638694,
+      "p50": 0.6971715710533328,
+      "p90": 0.7583778286295448
+    },
+    "top10_term_overlap": {
+      "mean": 0.8992187500000002,
+      "p10": 0.8,
+      "p50": 0.9,
+      "p90": 1.0
+    },
+    "dims_ref": {
+      "mean": 202.8671875,
+      "p10": 52.7,
+      "p50": 182.5,
+      "p90": 393.5
+    },
+    "dims": {
+      "mean": 178.59375,
+      "p10": 44.0,
+      "p50": 163.0,
+      "p90": 352.2
+    },
+    "dims_ratio": 0.8803481341702931
+  }
+}

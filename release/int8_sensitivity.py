@@ -138,6 +138,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--target-cosine", type=float, default=0.97, help="stop the repair at this mean cosine against fp32")
     ap.add_argument("--max-repair-nodes", type=int, default=16)
     ap.add_argument("--threads", type=int, default=6)
+    ap.add_argument("--build", default=None, metavar="NAME",
+                    help="no trials: write the single variant OUT/NAME (fp32 nodes = --fp32-groups plus --fp32-nodes-from, minus --int8-groups), "
+                         "check it against fp32 and write OUT/NAME.json")
+    ap.add_argument("--fp32-nodes-from", type=Path, default=None, help="with --build: an int8_sensitivity.json whose repaired fp32 nodes stay fp32")
+    ap.add_argument("--int8-groups", default="", help="with --build: groups quantized even if the report kept them fp32 (e.g. head)")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S", stream=sys.stdout)
 
@@ -163,6 +168,38 @@ def main(argv: list[str] | None = None) -> int:
     base_fp32 = [n["name"] for n in nodes if n["group"] in kept]
     probed = [n for n in nodes if n["group"] not in kept]
     LOG.info("quantizable nodes: %s; always fp32: %s", {g: sum(1 for n in nodes if n["group"] == g) for g in groups}, kept)
+
+    if args.build:
+        # One variant with a given set of fp32 nodes, e.g. the repaired export with the MLM head in int8 as well.
+        listed = json.loads(args.fp32_nodes_from.read_text(encoding="utf-8"))["repair"]["fp32_nodes"] if args.fp32_nodes_from else []
+        names = {n["name"] for n in nodes}
+        unknown = [n for n in listed if n not in names]
+        if unknown:
+            raise SystemExit(f"{args.fp32_nodes_from}: {len(unknown)} fp32 nodes are not in this graph, e.g. {unknown[0]}")
+        int8_groups = {g.strip() for g in args.int8_groups.split(",") if g.strip()}
+        exclude = [n["name"] for n in nodes if (n["group"] in kept or n["name"] in set(listed)) and n["group"] not in int8_groups]
+        vdir = out / args.build
+        if (vdir / MODEL_FILE).exists():
+            raise SystemExit(f"{vdir} already holds a graph; nothing is overwritten")
+        copy_variant_files(fp32_dir, vdir)
+        quant = quantize_dynamic_int8(pre, vdir / MODEL_FILE, nodes_to_exclude=exclude, per_channel=not args.per_tensor, weight_type=args.weight_type)
+        quant.update(method="dynamic" if not exclude else "mixed (dynamic int8 + fp32 nodes given to release.int8_sensitivity --build)",
+                     fp32_nodes=exclude, fp32_groups=sorted({n["group"] for n in nodes if n["name"] in set(exclude)}))
+        meta = read_meta(fp32_dir)
+        meta.pop("torch_check", None)
+        vmeta = dict(meta, variant="mixed-int8" if exclude else "dynamic-int8", quantization=quant, created=_dt.datetime.now().isoformat(timespec="seconds"))
+        write_meta(vdir, vmeta)
+        vmeta["fp32_check"] = compare_vectors(ref, OnnxSplade(vdir, threads=args.threads).encode(texts, batch_size=8))
+        write_meta(vdir, vmeta)
+        check = vmeta["fp32_check"]
+        result = {"dir": str(vdir), "fp32_dir": str(fp32_dir), "bytes": (vdir / MODEL_FILE).stat().st_size, "int8_nodes": len(nodes) - len(exclude),
+                  "fp32_nodes": exclude, "quantization": quant, "texts": {"source": args.texts, "check": len(texts), "seed": args.seed}, "fp32_check": check}
+        (out / f"{args.build}.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        LOG.info("built %s: int8 nodes %d, fp32 nodes %d (%s)  cosine %.4f  jaccard %.4f  top-10 %.4f  dims ratio %.3f  %.0f MB", vdir, result["int8_nodes"],
+                 len(exclude), ",".join(quant["fp32_groups"]) or "none", check["cosine"]["mean"], check["active_jaccard"]["mean"],
+                 check["top10_term_overlap"]["mean"], check["dims_ratio"], result["bytes"] / 1e6)
+        shutil.rmtree(work, ignore_errors=True)
+        return 0
 
     try:
         ranges = input_ranges(pre, probed, range_feeds, work, args.threads)
