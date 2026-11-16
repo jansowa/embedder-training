@@ -1,1 +1,5 @@
 0	kd-rbase-v2-dqf-full	kd-rbase-v2-dqf-full-bias015	64.69	372.7	120.9	14064	552.8	KD alone
+50000	arm-b1-rc-s1p1	arm-b1-rc-s1p1-bias015	64.6	333.7	111.9	13384	793.5	9961 s
+100000	arm-b1-rc-s1p2	arm-b1-rc-s1p2-bias015	64.5	319.3	109.0	12374	736.0	9986 s
+150000	arm-b1-rc-s1p3	arm-b1-rc-s1p3-bias015	64.65	326.6	109.2	11793	747.7	10012 s
+200000	arm-b1-rc-s1p4	arm-b1-rc-s1p4-bias015	64.62	315.6	105.2	11314	704.9	9992 s

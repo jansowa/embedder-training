@@ -1,42 +1,48 @@
 {
-  "pick": "arm-b1-ra-bias015",
+  "pick": "arm-b1-rc-s1p4-bias015",
   "ref": "arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015",
   "threshold": 0.2,
-  "verdict": "noise",
-  "tiny10": 65.33851291357276,
-  "heldout8": 43.756109844816486,
-  "dims_per_doc": 361.8362962962963,
+  "verdict": "loss",
+  "tiny10": 64.62205428852803,
+  "heldout8": 42.99904739289426,
+  "dims_per_doc": 315.6451851851852,
   "ref_tiny10": 64.95931851396324,
   "ref_heldout8": 43.6338181871955,
   "ref_dims_per_doc": 374.73814814814807,
-  "delta_tiny10": 0.37919439960951706,
-  "delta_heldout8": 0.12229165762098404,
-  "trec_covid": 67.38815893148421,
+  "delta_tiny10": -0.33726422543520584,
+  "delta_heldout8": -0.6347707943012395,
+  "trec_covid": 67.33187827957221,
   "ref_trec_covid": 72.82043671726952,
   "groups_vs_first_column": {
     "FAQ tasks (Allegro FAQ A, B, mfaq)": {
       "frozen full model": 0.37574010008504405,
-      "R-a": 0.6703497677884821
+      "R-a": 0.6703497677884821,
+      "R-c' stage 1": 0.4553699093210473
     },
     "tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions)": {
       "frozen full model": -0.1529806713562909,
-      "R-a": 0.26864475264794585
+      "R-a": 0.26864475264794585,
+      "R-c' stage 1": -2.0259062472030696
     },
     "scifact-pl": {
       "frozen full model": 0.02231487626283979,
-      "R-a": 0.34365301528784187
+      "R-a": 0.34365301528784187,
+      "R-c' stage 1": -1.7000086899053315
     },
     "maupqa-mkqa": {
       "frozen full model": 0.10531849687144756,
-      "R-a": 0.05202465752580565
+      "R-a": 0.05202465752580565,
+      "R-c' stage 1": 0.7462158974164481
     },
     "MAUPQA tasks": {
       "frozen full model": 0.09086564924618612,
-      "R-a": 0.1493054993164291
+      "R-a": 0.1493054993164291,
+      "R-c' stage 1": -0.2202008127929571
     },
     "all tasks": {
       "frozen full model": 0.062074096367421755,
-      "R-a": 0.2650154031701569
+      "R-a": 0.2650154031701569,
+      "R-c' stage 1": -0.46948936715343653
     }
   },
   "m23": {

@@ -1,0 +1,52 @@
+backend: sentence-transformers
+# derived by the b1 queues from b1_rc_s1p4.yaml: gradient checkpointing on
+training_type: splade
+
+# Queue b1c, version R-c', stage 1, segment 4 of 4: the larger backbone after KD on MS MARCO-pl rows alone (no dose3 rows in this stage).
+# Segment k trains one epoch on its own 50 000 rows (datasets/arms/msmarco-rc/seg-k.jsonl: queries that pass the positive gate 23.5, are not
+# benchmark or dose3 queries, one positive each; negatives mined by r2v12 under the rules of dose3 and scored by the same ensemble teacher
+# with the fixed dense scale) and starts from the model of the segment before it (segment 1: models/kd-rbase-v2-dqf-full). The recipe of R-a
+# (b1_ra_dose3.yaml) with one epoch; every segment has its own warm-up (10 %) and linear decay to zero, so each point of the dose curve
+# (50, 100, 150, 200 thousand examples) is an annealed model. The queue derives a _gc copy when the recipe does not fit the 8 GB card.
+runs_dir: runs/arm-b1-rc-s1p4
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/msmarco-rc/seg-4.jsonl
+
+architectures:
+  - models/arm-b1-rc-s1p3
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 1
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final
