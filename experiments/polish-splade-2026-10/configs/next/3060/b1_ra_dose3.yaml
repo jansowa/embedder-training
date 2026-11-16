@@ -1,0 +1,48 @@
+backend: sentence-transformers
+training_type: splade
+
+# Queue b1, version R-a: the larger backbone (sdadas/polish-roberta-base-v2, 12 layers, 124 M) after representation KD from the frozen full
+# model (models/kd-rbase-v2-dqf-full), trained on the rows and with the recipe of the dose arm (distil_dense_kl_n5kj_mined_dose3_ens400_r2v12.yaml)
+# unchanged: only the start model differs from dose3. The queue derives a _gc / _b1gc copy when the recipe does not fit the 8 GB card.
+runs_dir: runs/arm-b1-ra
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-mined-dose3.jsonl
+
+architectures:
+  - models/kd-rbase-v2-dqf-full
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

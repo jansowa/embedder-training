@@ -1,0 +1,9 @@
+kd_plain	exit 0, peak 5170 MiB, 82.31 examples/s, OOM lines 0
+kd_mode	plain
+kd_eps	82.31
+kd_peak	5170
+rank_plain	exit 1, checkpoint , peak 7878 MiB, OOM lines 2, 35 s for 40 steps
+rank_gc	exit 0, checkpoint yes, peak 3745 MiB, OOM lines 0, 377 s for 40 steps
+rank_mode	gc
+rank_peak	3745
+rank_s40	377
