@@ -20,7 +20,7 @@ rank_s40	377
 ```
 
 - The first profile attempt (15.11 01:11) ran out of memory in both KD modes: the student before KD activates about 46 800 dimensions per text, so the backward of the sparse decoder asked for entries x hidden floats in one piece (2.3 GiB). It now goes in slices of 32 768 entries (the same sums, `training/backends/splade_fused_head.py`); the logs of that attempt are in `logs/b1-aside/`.
-- KD mode: plain. Ranking mode: gc (the dose3 recipe with gradient checkpointing; batch 2 x 16 and 512 tokens unchanged). Training time: kd:rbase-v2-dqf-full 25986s; train:arm-b1-ra 29012s; train:arm-b1-rc-s1p1 9961s; train:arm-b1-rc-s1p2 9986s; train:arm-b1-rc-s1p3 10012s; train:arm-b1-rc-s1p4 9992s; 
+- KD mode: plain. Ranking mode: gc (the dose3 recipe with gradient checkpointing; batch 2 x 16 and 512 tokens unchanged). Training time: kd:rbase-v2-dqf-full 25986s; train:arm-b1-ra 29012s; train:arm-b1-rc-s1p1 9961s; train:arm-b1-rc-s1p2 9986s; train:arm-b1-rc-s1p3 10012s; train:arm-b1-rc-s1p4 9992s; train:arm-b1-rc-d3 29386s; 
 
 ## Fidelity to the teacher (`soup-v20-dqf`)
 
@@ -72,13 +72,14 @@ After KD alone: `kd-rbase-v2-dqf-full-bias015` tiny10 64.69 at 372.7 dims/doc, 1
 | frozen full model (82 M) | `soup-v20-dqf-bias015` | 65.06 | 43.64 | 72.48 | 0.1 | 0.01 | 371.4 | 123.0 | 13945 |
 | R-a: roberta-base-v2 after KD, dose3 recipe (124 M) | `arm-b1-ra-bias015` | 65.34 | 43.76 | 67.39 | 0.38 | 0.13 | 361.8 | 130.8 | 15462 |
 | R-c' after stage 1: 200 000 MS MARCO-pl rows (124 M) | `arm-b1-rc-s1p4-bias015` | 64.62 | 43.0 | 67.33 | -0.34 | -0.63 | 315.6 | 105.2 | 11314 |
+| R-c' after the dose3 round (124 M) | `arm-b1-rc-d3-bias010` | 65.59 | 44.01 | 68.42 | 0.63 | 0.38 | 389.3 | 132.7 | 16355 |
 | ALBERT (50 M, a1) | `arm-hl-dqf-full-s3n5kj-r2d3-bias020` | 64.34 | 42.89 | 64.8 | -0.62 | -0.74 | 339.8 | 120.7 | 12725 |
 
-Unbiased dims/doc: KD model 552.8, R-a 592.7, R-c' after stage 1 704.9, R-c' after the dose3 round . One seed each; the seed noise of the ranking recipe is 0.13-0.2.
+Unbiased dims/doc: KD model 552.8, R-a 592.7, R-c' after stage 1 704.9, R-c' after the dose3 round 515.7. One seed each; the seed noise of the ranking recipe is 0.13-0.2.
 
 R-a against dose3: 0.38 on tiny10, 0.13 on heldout8 (neither >= +0.2 on both nor <= -0.3 on both).
 
-R-c' after stage 1 (arm-b1-rc-s1p4) against dose3: -0.34 on tiny10, -0.63 on heldout8.
+R-c' after stage 1 (arm-b1-rc-s1p4) against dose3: -0.34 on tiny10, -0.63 on heldout8. **R-c' after the dose3 round leads dose3 by 0.63 on tiny10 and 0.38 on heldout8 (>= +0.2 on both): the 23 tasks were measured.**
 
 ## MS MARCO-pl rows of R-c'
 
@@ -113,52 +114,53 @@ Reading of the curve (steps of tiny10: -0.10 up to 100 thousand, +0.15 up to 150
 | arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015 | dose3 (v56) | 64.96 | 43.63 | 72.82 | 374.7 | 381.5 | 121.9 | 14079 |
 | soup-v20-dqf-bias015 | frozen full model | 65.06 | 43.64 | 72.48 | 371.4 | 378.5 | 123.0 | 13945 |
 | arm-b1-ra-bias015 | R-a | 65.34 | 43.76 | 67.39 | 361.8 | 367.4 | 130.8 | 15462 |
-| **arm-b1-rc-s1p4-bias015** | R-c' stage 1 | 64.62 | 43.00 | 67.33 | 315.6 | 320.7 | 105.2 | 11314 |
+| arm-b1-rc-s1p4-bias015 | R-c' stage 1 | 64.62 | 43.00 | 67.33 | 315.6 | 320.7 | 105.2 | 11314 |
+| **arm-b1-rc-d3-bias010** | R-c' + dose3 round | 65.59 | 44.01 | 68.42 | 389.3 | 394.5 | 132.7 | 16355 |
 
 ## Reading
 
-arm-b1-rc-s1p4-bias015 64.62 / 43.00 at 315.6 dims/doc against dose3 (v56) arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015 64.96 / 43.63 at 374.7: delta -0.34 / -0.63, trec-covid 67.33 against 72.82 -> arm-b1-rc-s1p4-bias015 is a LOSS on both sets against dose3.
+arm-b1-rc-d3-bias010 65.59 / 44.01 at 389.3 dims/doc against dose3 (v56) arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015 64.96 / 43.63 at 374.7: delta +0.63 / +0.38, trec-covid 68.42 against 72.82 -> THE LARGER MODEL WINS (arm-b1-rc-d3-bias010 >= +0.2 on both sets over dose3 within the limits).
 
 Seed noise of this recipe is 0.13-0.2 (one seed here).
 
 ## Task groups (mean delta against dose3 (v56); tasks both models have)
 
-| group | tasks | frozen full model | R-a | R-c' stage 1 |
-|---|---:|---:|---:|---:|
-| FAQ tasks (Allegro FAQ A, B, mfaq) | 3 | +0.38 | +0.67 | +0.46 |
-| tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions) | 4 | -0.15 | +0.27 | -2.03 |
-| scifact-pl | 1 | +0.02 | +0.34 | -1.70 |
-| maupqa-mkqa | 1 | +0.11 | +0.05 | +0.75 |
-| MAUPQA tasks | 8 | +0.09 | +0.15 | -0.22 |
-| all tasks | 18 | +0.06 | +0.27 | -0.47 |
+| group | tasks | frozen full model | R-a | R-c' stage 1 | R-c' + dose3 round |
+|---|---:|---:|---:|---:|---:|
+| FAQ tasks (Allegro FAQ A, B, mfaq) | 3 | +0.38 | +0.67 | +0.46 | +1.14 |
+| tasks of the SQuAD-v2 gain (arguana, scifact, fiqa, legal questions) | 4 | -0.15 | +0.27 | -2.03 | +0.32 |
+| scifact-pl | 1 | +0.02 | +0.34 | -1.70 | +0.34 |
+| maupqa-mkqa | 1 | +0.11 | +0.05 | +0.75 | +1.27 |
+| MAUPQA tasks | 8 | +0.09 | +0.15 | -0.22 | +0.47 |
+| all tasks | 18 | +0.06 | +0.27 | -0.47 | +0.52 |
 
 ### tiny10 per task
 
-| task | dose3 (v56) | frozen full model | R-a | R-c' stage 1 | R-c' stage 1 - dose3 (v56) |
-|---|---:|---:|---:|---:|---:|
-| maupqa-gpt3-cc | 18.88 | 18.89 | 18.84 | 18.72 | -0.17 |
-| maupqa-mkqa | 65.60 | 65.71 | 65.66 | 66.35 | +0.75 |
-| maupqa-poleval2021-pairs | 83.95 | 84.07 | 84.33 | 83.40 | -0.55 |
-| maupqa-templates | 76.57 | 76.72 | 76.73 | 76.68 | +0.11 |
-| poleval-2022-test-A-allegro-faq | 78.80 | 78.93 | 79.40 | 78.97 | +0.17 |
-| poleval-2022-test-B-allegro-faq | 74.77 | 75.48 | 75.82 | 75.53 | +0.76 |
-| arguana-pl | 50.24 | 50.09 | 51.20 | 46.96 | -3.28 |
-| nfcorpus-pl | 32.84 | 32.76 | 33.09 | 33.34 | +0.50 |
-| scifact-pl | 68.84 | 68.86 | 69.19 | 67.14 | -1.70 |
-| gpt-exams | 99.10 | 99.12 | 99.13 | 99.12 | +0.03 |
+| task | dose3 (v56) | frozen full model | R-a | R-c' stage 1 | R-c' + dose3 round | R-c' + dose3 round - dose3 (v56) |
+|---|---:|---:|---:|---:|---:|---:|
+| maupqa-gpt3-cc | 18.88 | 18.89 | 18.84 | 18.72 | 18.98 | +0.10 |
+| maupqa-mkqa | 65.60 | 65.71 | 65.66 | 66.35 | 66.87 | +1.27 |
+| maupqa-poleval2021-pairs | 83.95 | 84.07 | 84.33 | 83.40 | 84.25 | +0.30 |
+| maupqa-templates | 76.57 | 76.72 | 76.73 | 76.68 | 76.87 | +0.30 |
+| poleval-2022-test-A-allegro-faq | 78.80 | 78.93 | 79.40 | 78.97 | 80.26 | +1.46 |
+| poleval-2022-test-B-allegro-faq | 74.77 | 75.48 | 75.82 | 75.53 | 76.14 | +1.37 |
+| arguana-pl | 50.24 | 50.09 | 51.20 | 46.96 | 50.77 | +0.54 |
+| nfcorpus-pl | 32.84 | 32.76 | 33.09 | 33.34 | 33.31 | +0.47 |
+| scifact-pl | 68.84 | 68.86 | 69.19 | 67.14 | 69.18 | +0.34 |
+| gpt-exams | 99.10 | 99.12 | 99.13 | 99.12 | 99.21 | +0.11 |
 
 ### heldout8 per task
 
-| task | dose3 (v56) | frozen full model | R-a | R-c' stage 1 | R-c' stage 1 - dose3 (v56) |
-|---|---:|---:|---:|---:|---:|
-| maupqa-gpt3.5-cc | 20.54 | 20.57 | 20.49 | 20.34 | -0.20 |
-| maupqa-multilingual-NLI | 14.89 | 14.88 | 14.77 | 14.73 | -0.16 |
-| mfaq | 63.56 | 63.85 | 63.92 | 63.99 | +0.43 |
-| poleval-2022-test-A-legal-questions | 85.06 | 84.58 | 84.03 | 82.80 | -2.26 |
-| maupqa-wiki-def | 67.87 | 68.05 | 68.44 | 66.88 | -0.99 |
-| scidocs-pl | 14.81 | 14.73 | 15.02 | 14.33 | -0.48 |
-| maupqa-1z10 | 49.46 | 49.60 | 49.72 | 48.90 | -0.56 |
-| fiqa-pl | 32.88 | 32.87 | 33.68 | 32.01 | -0.86 |
+| task | dose3 (v56) | frozen full model | R-a | R-c' stage 1 | R-c' + dose3 round | R-c' + dose3 round - dose3 (v56) |
+|---|---:|---:|---:|---:|---:|---:|
+| maupqa-gpt3.5-cc | 20.54 | 20.57 | 20.49 | 20.34 | 20.56 | +0.02 |
+| maupqa-multilingual-NLI | 14.89 | 14.88 | 14.77 | 14.73 | 14.97 | +0.08 |
+| mfaq | 63.56 | 63.85 | 63.92 | 63.99 | 64.14 | +0.58 |
+| poleval-2022-test-A-legal-questions | 85.06 | 84.58 | 84.03 | 82.80 | 84.14 | -0.93 |
+| maupqa-wiki-def | 67.87 | 68.05 | 68.44 | 66.88 | 69.10 | +1.23 |
+| scidocs-pl | 14.81 | 14.73 | 15.02 | 14.33 | 15.08 | +0.27 |
+| maupqa-1z10 | 49.46 | 49.60 | 49.72 | 48.90 | 49.92 | +0.46 |
+| fiqa-pl | 32.88 | 32.87 | 33.68 | 32.01 | 34.21 | +1.34 |
 
 ## 23 tasks
 
@@ -168,32 +170,33 @@ Seed noise of this recipe is 0.13-0.2 (one seed here).
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015 | 64.96 | 43.63 | 87.66 | 92.73 | 79.52 | 19.43 | 72.82 | 70.43 | 58.73 | 374.7 | 121.9 | 14079 |
 | soup-v20-dqf-bias015 | 65.06 | 43.64 | 87.76 | 92.95 | 79.84 | 19.57 | 72.48 | 70.52 | 58.80 | 371.4 | 123.0 | 13945 |
+| **arm-b1-rc-d3-bias010** | 65.59 | 44.01 | 87.94 | 92.98 | 80.55 | 19.37 | 68.42 | 69.85 | 59.01 | 389.3 | 132.7 | 16355 |
 
 ## Per task, with the ALBERT
 
-| task | dose3 | frozen full model | R-a | R-c' stage 1 | ALBERT (50 M) |
-|---|---:|---:|---:|---:|---:|
-| maupqa-gpt3-cc | 18.88 | 18.89 | 18.84 | 18.72 | 18.62 |
-| maupqa-mkqa | 65.60 | 65.71 | 65.66 | 66.35 | 64.75 |
-| maupqa-poleval2021-pairs | 83.95 | 84.07 | 84.33 | 83.40 | 82.96 |
-| maupqa-templates | 76.57 | 76.72 | 76.73 | 76.68 | 75.87 |
-| poleval-2022-test-A-allegro-faq | 78.80 | 78.93 | 79.40 | 78.97 | 77.70 |
-| poleval-2022-test-B-allegro-faq | 74.77 | 75.48 | 75.82 | 75.53 | 74.29 |
-| arguana-pl | 50.24 | 50.09 | 51.20 | 46.96 | 49.15 |
-| nfcorpus-pl | 32.84 | 32.76 | 33.09 | 33.34 | 32.78 |
-| scifact-pl | 68.84 | 68.86 | 69.19 | 67.14 | 68.28 |
-| gpt-exams | 99.10 | 99.12 | 99.13 | 99.12 | 99.01 |
-| **tiny10 mean** | **64.96** | **65.06** | **65.34** | **64.62** | **64.34** |
-| maupqa-gpt3.5-cc | 20.54 | 20.57 | 20.49 | 20.34 | 20.32 |
-| maupqa-multilingual-NLI | 14.89 | 14.88 | 14.77 | 14.73 | 14.55 |
-| mfaq | 63.56 | 63.85 | 63.92 | 63.99 | 63.41 |
-| poleval-2022-test-A-legal-questions | 85.06 | 84.58 | 84.03 | 82.80 | 82.74 |
-| maupqa-wiki-def | 67.87 | 68.05 | 68.44 | 66.88 | 66.85 |
-| scidocs-pl | 14.81 | 14.73 | 15.02 | 14.33 | 14.84 |
-| maupqa-1z10 | 49.46 | 49.60 | 49.72 | 48.90 | 49.07 |
-| fiqa-pl | 32.88 | 32.87 | 33.68 | 32.01 | 31.36 |
-| **heldout8 mean** | **43.63** | **43.64** | **43.76** | **43.00** | **42.89** |
-| trec-covid-pl | 72.82 | 72.48 | 67.39 | 67.33 | 64.80 |
+| task | dose3 | frozen full model | R-a | R-c' stage 1 | R-c' + dose3 round | ALBERT (50 M) |
+|---|---:|---:|---:|---:|---:|---:|
+| maupqa-gpt3-cc | 18.88 | 18.89 | 18.84 | 18.72 | 18.98 | 18.62 |
+| maupqa-mkqa | 65.60 | 65.71 | 65.66 | 66.35 | 66.87 | 64.75 |
+| maupqa-poleval2021-pairs | 83.95 | 84.07 | 84.33 | 83.40 | 84.25 | 82.96 |
+| maupqa-templates | 76.57 | 76.72 | 76.73 | 76.68 | 76.87 | 75.87 |
+| poleval-2022-test-A-allegro-faq | 78.80 | 78.93 | 79.40 | 78.97 | 80.26 | 77.70 |
+| poleval-2022-test-B-allegro-faq | 74.77 | 75.48 | 75.82 | 75.53 | 76.14 | 74.29 |
+| arguana-pl | 50.24 | 50.09 | 51.20 | 46.96 | 50.77 | 49.15 |
+| nfcorpus-pl | 32.84 | 32.76 | 33.09 | 33.34 | 33.31 | 32.78 |
+| scifact-pl | 68.84 | 68.86 | 69.19 | 67.14 | 69.18 | 68.28 |
+| gpt-exams | 99.10 | 99.12 | 99.13 | 99.12 | 99.21 | 99.01 |
+| **tiny10 mean** | **64.96** | **65.06** | **65.34** | **64.62** | **65.59** | **64.34** |
+| maupqa-gpt3.5-cc | 20.54 | 20.57 | 20.49 | 20.34 | 20.56 | 20.32 |
+| maupqa-multilingual-NLI | 14.89 | 14.88 | 14.77 | 14.73 | 14.97 | 14.55 |
+| mfaq | 63.56 | 63.85 | 63.92 | 63.99 | 64.14 | 63.41 |
+| poleval-2022-test-A-legal-questions | 85.06 | 84.58 | 84.03 | 82.80 | 84.14 | 82.74 |
+| maupqa-wiki-def | 67.87 | 68.05 | 68.44 | 66.88 | 69.10 | 66.85 |
+| scidocs-pl | 14.81 | 14.73 | 15.02 | 14.33 | 15.08 | 14.84 |
+| maupqa-1z10 | 49.46 | 49.60 | 49.72 | 48.90 | 49.92 | 49.07 |
+| fiqa-pl | 32.88 | 32.87 | 33.68 | 32.01 | 34.21 | 31.36 |
+| **heldout8 mean** | **43.63** | **43.64** | **43.76** | **43.00** | **44.01** | **42.89** |
+| trec-covid-pl | 72.82 | 72.48 | 67.39 | 67.33 | 68.42 | 64.80 |
 
 ## Queue state (b1, b1c)
 
@@ -257,4 +260,15 @@ sparsity:arm-b1-rc-s1p4-bias015	ok	315.6	27s
 regime:quantized:arm-b1-rc-s1p4-bias015:tiny10	ok	64.62 10	685s
 regime:quantized:arm-b1-rc-s1p4-bias015:heldout8	ok	43.0 8	2442s
 regime:quantized:arm-b1-rc-s1p4-bias015:heldout2_treccovid	ok	67.33 1	1622s
+train:arm-b1-rc-d3	ok	-	29386s
+sparsity:arm-b1-rc-d3	ok	515.7	29s
+sparsity:arm-b1-rc-d3-bias005	ok	448.7	27s
+sparsity:arm-b1-rc-d3-bias010	ok	389.3	27s
+regime:quantized:arm-b1-rc-d3-bias010:tiny10	ok	65.59 10	716s
+regime:quantized:arm-b1-rc-d3-bias010:heldout8	ok	44.01 8	2580s
+regime:quantized:arm-b1-rc-d3-bias010:heldout2_treccovid	ok	68.42 1	1654s
+regime:quantized:arm-b1-rc-d3-bias010:heldout2_czywiesz	ok	87.94 1	837s
+regime:quantized:arm-b1-rc-d3-bias010:heldout2_gpt35wiki	ok	92.98 1	678s
+regime:quantized:arm-b1-rc-d3-bias010:heldout2_quora	ok	80.55 1	888s
+regime:quantized:arm-b1-rc-d3-bias010:heldout2_poquad	ok	19.37 1	1389s
 ```

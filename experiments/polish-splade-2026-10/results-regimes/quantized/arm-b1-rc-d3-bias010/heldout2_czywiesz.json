@@ -1,0 +1,14 @@
+{
+  "regime": "quantized",
+  "label": "arm-b1-rc-d3-bias010",
+  "model": "/home/jsowa/work/FlagEmbedding/models/arm-b1-rc-d3-bias010",
+  "taskset": "heldout2_czywiesz",
+  "max_seq_length": null,
+  "query_model": null,
+  "min_weight": 0.0,
+  "tasks": {
+    "maupqa-czy-wiesz-v2": 87.93503639160265
+  },
+  "n_tasks": 1,
+  "mean_ndcg@10": 87.93503639160265
+}

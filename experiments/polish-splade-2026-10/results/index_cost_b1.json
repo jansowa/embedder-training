@@ -51,6 +51,16 @@
       "flops": 1.7931995391845703,
       "doc_weight_sum_mean": 125.15753173828125,
       "query_weight_sum_mean": 48.379329681396484
+    },
+    "arm-b1-rc-d3-bias010": {
+      "doc_active_mean": 394.517037037037,
+      "doc_active_median": 395.0,
+      "query_active_mean": 132.70814814814815,
+      "query_active_median": 81.0,
+      "postings_per_query": 16354.62,
+      "flops": 2.0414702892303467,
+      "doc_weight_sum_mean": 143.1451873779297,
+      "query_weight_sum_mean": 55.47557830810547
     }
   }
 }
