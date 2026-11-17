@@ -1,0 +1,48 @@
+backend: sentence-transformers
+training_type: splade
+
+# Queue b2, arm faq20: the larger backbone after KD from the frozen full model (models/kd-rbase-v2-dqf-full) on the rows of the 82 M arm
+# distil_dense_kl_n5kj_mined_dose3_faq20_ens400_r2v12.yaml (datasets/arms/n5-plus-kj-mined-dose3-faq20.jsonl, 80385 rows: the dose3 rows + 20 000 native Polish FAQ rows), with the recipe of R-a unchanged (b1_ra_dose3.yaml). The 82 M arms dose3, faq20 and fact20
+# from one start gave the frozen soup; this is the same arm from the KD start of the 124 M model. The queue derives a _gc copy.
+runs_dir: runs/arm-b1-ra-faq20
+timestamp_output_dir: true
+save_resolved_config: true
+
+train_data: datasets/arms/n5-plus-kj-mined-dose3-faq20.jsonl
+
+architectures:
+  - models/kd-rbase-v2-dqf-full
+
+hparams:
+  - learning_rate: 2e-5
+    num_train_epochs: 2
+    document_regularizer_weight: 0.001
+    loss: sparse_distill_kl_div
+
+sentence_transformers:
+  max_seq_length: 512
+  warmup_ratio: 0.1
+  lr_scheduler_type: linear
+  train_batch_size: 2
+  batch_sampler: no_duplicates
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: false
+  splade_fused_head: exact
+  fp16: true
+  splade_pooling_chunk_size: 8
+  negatives_per_query: 10
+  score_normalization: none
+  kl_temperature: 2.0
+  save_strategy: "no"
+  keep_epoch_checkpoints: false
+  report_to:
+    - wandb
+  query_regularizer_weight: 0.00005
+
+benchmark:
+  run_pirb: false
+  scope: tiny
+  max_seq_length: 512
+  query_instruction: ""
+  checkpoints:
+    - final

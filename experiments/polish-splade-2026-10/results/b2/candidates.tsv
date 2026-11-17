@@ -1,0 +1,4 @@
+ref	frozen full model (82 M)	soup-v20-dqf-bias015	soup-v20-dqf	dose3 + faq20 + fact20, soup of the 82 M arms
+b1	KD alone (124 M)	kd-rbase-v2-dqf-full-bias015	kd-rbase-v2-dqf-full	roberta-base-v2 after KD from the frozen model
+b1	R-a, bias015	arm-b1-ra-bias015	arm-b1-ra	KD model + the dose3 round
+b1	R-c' after the dose3 round	arm-b1-rc-d3-bias010	arm-b1-rc-d3	KD model + 200 000 MS MARCO-pl rows (bias shifted at every segment, see the erratum) + the dose3 round

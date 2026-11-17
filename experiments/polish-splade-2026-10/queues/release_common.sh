@@ -17,7 +17,7 @@ soup() {  # soup NAME MODEL_DIR...: uniform average of the raw weights (merge on
         && log "soup $name written ($*, uniform)" || { log "soup $name FAILED (logs/soup_$name.log)"; rm -rf "models/$name"; return 1; }
 }
 pack_sums() {  # SHA256SUMS over every file of the package
-    ( cd "$PACK" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS )
+    ( cd "$PACK" && find . -type f ! -name 'SHA256SUMS*' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS )
 }
 pack_add() {  # pack_add DEST SRC NOTE: copy a directory or file into the package (replacing DEST), one line in CONTENTS.tsv, new sums
     local dest="$1" src="$2" note="$3"
