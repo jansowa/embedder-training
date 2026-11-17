@@ -3,3 +3,4 @@ b1	KD alone (124 M)	kd-rbase-v2-dqf-full-bias015	kd-rbase-v2-dqf-full	roberta-ba
 b1	R-a, bias015	arm-b1-ra-bias015	arm-b1-ra	KD model + the dose3 round
 b1	R-c' after the dose3 round	arm-b1-rc-d3-bias010	arm-b1-rc-d3	KD model + 200 000 MS MARCO-pl rows (bias shifted at every segment, see the erratum) + the dose3 round
 p1	R-a, denser form (bias014)	arm-b1-ra-bias014	arm-b1-ra	KD model + the dose3 round, the first form within the limits in steps of 0.01
+p2	arm fact20 (arm-b1-rc-s1p4 + dose3 + fact20 rows)	arm-b1-rc-fact20-bias011	arm-b1-rc-fact20	arm fact20 (arm-b1-rc-s1p4 + dose3 + fact20 rows)

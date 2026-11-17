@@ -8,6 +8,7 @@ The release of 26.11 has frozen versions; a stronger 124 M model (sdadas/polish-
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | frozen full model (82 M) | `soup-v20-dqf-bias015` | 65.06 | 43.64 | 72.48 | 56.435 | reference | 65.738 | reference | 371.4 | 123.0 | 13945 | yes |
 | **R-c' after the dose3 round** | `arm-b1-rc-d3-bias010` | 65.59 | 44.01 | 68.42 | 56.652 | +0.217 | 65.843 | +0.104 | 389.3 | 132.7 | 16355 | yes |
+| arm fact20 (arm-b1-rc-s1p4 + dose3 + fact20 rows) | `arm-b1-rc-fact20-bias011` | 65.54 | 43.89 | 68.24 | 56.569 | +0.134 | 65.787 | +0.049 | 379.1 | 133.2 | 16007 | yes |
 | R-a, denser form (bias014) | `arm-b1-ra-bias014` | 65.39 | 43.77 | 67.97 | 56.425 | -0.010 | 65.628 | -0.110 | 374.0 | 134.7 | 16400 | yes |
 | R-a, bias015 | `arm-b1-ra-bias015` | 65.34 | 43.76 | 67.39 | 56.359 | -0.076 | 65.525 | -0.214 | 361.8 | 130.8 | 15462 | yes |
 | KD alone (124 M) | `kd-rbase-v2-dqf-full-bias015` | 64.69 | - | 68.89 | - | - | 65.075 | -0.664 | 372.7 | 120.9 | 14064 | yes |
@@ -93,6 +94,14 @@ The shift added back on real copies (the copy reproduces the density b1c measure
 
 The point at 50 000 rows is clean (its training started from the KD model). The point at 200 000 rows is the end of a stage whose segments 2-4 each started from a shifted model, so it is not a clean measurement of what 200 000 rows give. heldout8 was not measured here.
 
+## p2: the arm fact20 and its soups (lineage rc)
+
+`arm-b1-rc-fact20` from `arm-b1-rc-s1p4`: the recipe of R-a on `datasets/arms/n5-plus-kj-mined-dose3-fact20.jsonl` (77787 rows), training time 37885 s, mode gc; 520.3 dims/doc without a shift. Measured form `arm-b1-rc-fact20-bias011`: 65.54 / 43.89 / trec-covid 68.24, mean of the 19 tasks 56.569 (R-a bias015 56.359, R-c' 56.652, frozen model 56.435).
+
+Soups of this stage (uniform averages of the raw weights): none.
+
+Best 124 M candidate on the 19 tasks so far: `arm-b1-rc-d3-bias010` (R-c' after the dose3 round) 56.652; the frozen model has 56.435, the rule asks for 0.2 more.
+
 ## Queue state (b2)
 
 ```
@@ -133,4 +142,15 @@ sparsity:arm-b1-rc-s1p4-unshifted-bias019	ok	409.0	27s
 sparsity:arm-b1-rc-s1p4-unshifted-bias020	ok	396.9	26s
 regime:quantized:arm-b1-rc-s1p4-unshifted-bias020:tiny10	ok	64.78 10	704s
 regime:quantized:arm-b1-rc-s1p4-unshifted-bias020:heldout2_treccovid	ok	67.84 1	1662s
+train:arm-b1-rc-fact20	ok	-	37885s
+sparsity:arm-b1-rc-fact20	ok	520.3	27s
+sparsity:arm-b1-rc-fact20-bias010	ok	390.3	27s
+sparsity:arm-b1-rc-fact20-bias005	ok	451.3	27s
+sparsity:arm-b1-rc-fact20-bias011	ok	379.1	27s
+regime:quantized:arm-b1-rc-fact20-bias011:tiny10	ok	65.54 10	711s
+regime:quantized:arm-b1-rc-fact20-bias011:heldout2_treccovid	ok	68.24 1	1613s
+regime:quantized:arm-b1-rc-fact20-bias011:heldout8	ok	43.89 8	2585s
+sparsity:soup-b1-rcd-fact20	ok	11874.3	27s
+sparsity:soup-b1-rcd-fact20-bias010	ok	10082.1	27s
+sparsity:soup-b1-rcd-fact20-bias030	ok	6426.3	27s
 ```
