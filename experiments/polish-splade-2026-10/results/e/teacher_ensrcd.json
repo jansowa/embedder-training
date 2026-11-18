@@ -1,0 +1,63 @@
+{
+  "rows": 60385,
+  "members": {
+    "old_ensemble": {
+      "median_margin": 5.28070626478641,
+      "rows_with_negative_above_positive": 6826,
+      "share_with_negative_above_positive": 0.11304131820816428,
+      "positive_mass_median": 0.8546588808757881,
+      "positive_mass_above_095": 0.2981038337335431
+    },
+    "new_ensemble": {
+      "median_margin": 5.007146347881083,
+      "rows_with_negative_above_positive": 6648,
+      "share_with_negative_above_positive": 0.11009356628301731,
+      "positive_mass_median": 0.8341524664523472,
+      "positive_mass_above_095": 0.25206591040821397
+    },
+    "old_splade": {
+      "median_margin": 5.9636993408203125,
+      "rows_with_negative_above_positive": 9300,
+      "share_with_negative_above_positive": 0.15401175788689245,
+      "positive_mass_median": 0.9010327505181411,
+      "positive_mass_above_095": 0.4034611244514366
+    },
+    "new_splade": {
+      "median_margin": 5.797562599182129,
+      "rows_with_negative_above_positive": 6987,
+      "share_with_negative_above_positive": 0.11570754326405565,
+      "positive_mass_median": 0.8835379524959275,
+      "positive_mass_above_095": 0.34579779746625816
+    },
+    "dense": {
+      "median_margin": 3.692270994425286,
+      "rows_with_negative_above_positive": 8702,
+      "share_with_negative_above_positive": 0.1441086362507245,
+      "positive_mass_median": 0.7303680672725203,
+      "positive_mass_above_095": 0.13854434048190775
+    }
+  },
+  "within_row": {
+    "pearson_new_ensemble_vs_old_ensemble": 0.9877848655017142,
+    "kendall_new_ensemble_vs_old_ensemble": 0.88960919186876,
+    "pearson_new_splade_vs_old_splade": 0.9601290285530187,
+    "kendall_new_splade_vs_old_splade": 0.7935324210361441,
+    "pearson_new_splade_vs_dense": 0.8703132116906771,
+    "kendall_new_splade_vs_dense": 0.6355191495221648,
+    "pearson_old_splade_vs_dense": 0.7985733875836353,
+    "kendall_old_splade_vs_dense": 0.5460626528340191
+  },
+  "within_row_std_ratio_new_to_old_splade_median": 0.8854469620661944,
+  "ens": "datasets/arms/n5-plus-kj-mined-dose3.jsonl",
+  "old_splade": "datasets/arms/n5-plus-kj-mined-dose3-tv9b.jsonl",
+  "new_splade": "datasets/arms/n5-plus-kj-mined-dose3-trcd.jsonl",
+  "new_name": "models/arm-b1-rc-d3 (raw)",
+  "old_name": "models/soup-v9b",
+  "formula": "new ensemble = old ensemble + (new SPLADE - old SPLADE) / 2 per pair; dense member = 2 x old ensemble - old SPLADE",
+  "old_splade_against_its_earlier_scoring": {
+    "pairs": 224862,
+    "median_abs_diff": 0.001983642578125,
+    "p99_abs_diff": 0.020578384399414062,
+    "max_abs_diff": 12.641792297363281
+  }
+}

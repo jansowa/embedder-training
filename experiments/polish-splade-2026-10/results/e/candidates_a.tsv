@@ -1,0 +1,5 @@
+ref	frozen full model A (82 M)	soup-v20-dqf-bias015	soup-v20-dqf	soup dose3 + faq20 + fact20, teacher ens400
+ref	dose3 arm of the frozen model (teacher ens400)	arm-dense-kl-n5kj-mined-dose3-ens400-r2v12-bias015	arm-dense-kl-n5kj-mined-dose3-ens400-r2v12	the arm the new one repeats with another teacher
+e1	new arm: dose3 rows, teacher R-c' + PolDense	arm-dense-kl-n5kj-mined-dose3-ensrcd-r2v12-bias015	arm-dense-kl-n5kj-mined-dose3-ensrcd-r2v12	the dose3 arm of the frozen model with R-c' in the teacher
+e1	soup new arm + faq20 + fact20	soup-v21-nqf-bias015	soup-v21-nqf	the frozen soup with the new arm in the place of the dose3 arm
+e1	soup dose3 + faq20 + fact20 + new arm	soup-v21-dqfn-bias015	soup-v21-dqfn	the frozen soup with the new arm added
